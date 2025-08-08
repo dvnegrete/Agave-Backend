@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { FileProcessorService } from './file-processor.service';
 import { TransactionValidatorService } from './transaction-validator.service';
+import { BankTransactionRepository } from '../../database/repositories/bank-transaction.repository';
 import { 
   TransactionBank, 
   ProcessedBankTransaction, 
@@ -12,11 +13,10 @@ import { CreateBankTransactionDto, UpdateBankTransactionDto, ReconciliationDto }
 
 @Injectable()
 export class TransactionsBankService {
-  private transactions: ProcessedBankTransaction[] = [];
-
   constructor(
     private readonly fileProcessorService: FileProcessorService,
     private readonly transactionValidatorService: TransactionValidatorService,
+    private readonly bankTransactionRepository: BankTransactionRepository,
   ) {}
 
   async processFile(file: Express.Multer.File, options?: UploadFileDto): Promise<FileProcessingResult> {
@@ -56,7 +56,17 @@ export class TransactionsBankService {
 
       // Guardar transacciones válidas
       if (!options?.validateOnly) {
-        this.transactions.push(...validTransactions);
+        await this.bankTransactionRepository.createMany(
+          validTransactions.map(transaction => ({
+            date: transaction.date,
+            time: transaction.time,
+            concept: transaction.concept,
+            amount: transaction.amount,
+            currency: transaction.currency,
+            is_deposit: transaction.is_deposit,
+            validation_flag: transaction.validation_flag,
+          }))
+        );
       }
 
       const processingTime = Date.now() - startTime;
@@ -86,132 +96,72 @@ export class TransactionsBankService {
   }
 
   async getAllTransactions(): Promise<ProcessedBankTransaction[]> {
-    return this.transactions;
+    const transactions = await this.bankTransactionRepository.findAll();
+    return transactions.map(t => this.mapToProcessedTransaction(t));
   }
 
   async getTransactionById(id: string): Promise<ProcessedBankTransaction> {
-    const transaction = this.transactions.find(t => t.id === id);
+    const transaction = await this.bankTransactionRepository.findById(id);
     if (!transaction) {
       throw new NotFoundException(`Transacción bancaria con ID ${id} no encontrada`);
     }
-    return transaction;
+    return this.mapToProcessedTransaction(transaction);
   }
 
   async createTransaction(createTransactionDto: CreateBankTransactionDto): Promise<ProcessedBankTransaction> {
-    const transaction: ProcessedBankTransaction = {
-      ...createTransactionDto,
-      id: this.generateId(),
-      status: 'pending',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    // Validar la transacción
-    const validation = await this.transactionValidatorService.validateTransaction(transaction);
-    if (!validation.isValid) {
-      throw new BadRequestException(`Transacción bancaria inválida: ${validation.errors.join(', ')}`);
-    }
-
-    this.transactions.push(transaction);
-    return transaction;
+    const transaction = await this.bankTransactionRepository.create(createTransactionDto);
+    return this.mapToProcessedTransaction(transaction);
   }
 
   async updateTransaction(id: string, updateTransactionDto: UpdateBankTransactionDto): Promise<ProcessedBankTransaction> {
-    const index = this.transactions.findIndex(t => t.id === id);
-    if (index === -1) {
-      throw new NotFoundException(`Transacción bancaria con ID ${id} no encontrada`);
-    }
-
-    const updatedTransaction: ProcessedBankTransaction = {
-      ...this.transactions[index],
-      id,
-      updatedAt: new Date(),
-    };
-
-    // Actualizar solo las propiedades que están presentes en el DTO
-    if (updateTransactionDto.date) {
-      updatedTransaction.date = updateTransactionDto.date;
-    }
-    if (updateTransactionDto.time) {
-      updatedTransaction.time = updateTransactionDto.time;
-    }
-    if (updateTransactionDto.concept) {
-      updatedTransaction.concept = updateTransactionDto.concept;
-    }
-    if (updateTransactionDto.amount !== undefined) {
-      updatedTransaction.amount = updateTransactionDto.amount;
-    }
-    if (updateTransactionDto.currency) {
-      updatedTransaction.currency = updateTransactionDto.currency;
-    }
-    if (updateTransactionDto.is_deposit !== undefined) {
-      updatedTransaction.is_deposit = updateTransactionDto.is_deposit;
-    }
-    if (updateTransactionDto.validation_flag !== undefined) {
-      updatedTransaction.validation_flag = updateTransactionDto.validation_flag;
-    }
-    if (updateTransactionDto.status) {
-      updatedTransaction.status = updateTransactionDto.status;
-    }
-
-    // Validar la transacción actualizada
-    const validation = await this.transactionValidatorService.validateTransaction(updatedTransaction);
-    if (!validation.isValid) {
-      throw new BadRequestException(`Transacción bancaria inválida: ${validation.errors.join(', ')}`);
-    }
-
-    this.transactions[index] = updatedTransaction;
-    return updatedTransaction;
+    const transaction = await this.bankTransactionRepository.update(id, updateTransactionDto);
+    return this.mapToProcessedTransaction(transaction);
   }
 
   async deleteTransaction(id: string): Promise<void> {
-    const index = this.transactions.findIndex(t => t.id === id);
-    if (index === -1) {
-      throw new NotFoundException(`Transacción bancaria con ID ${id} no encontrada`);
-    }
-
-    this.transactions.splice(index, 1);
+    await this.bankTransactionRepository.delete(id);
   }
 
   async getTransactionsByStatus(status: 'pending' | 'processed' | 'failed' | 'reconciled'): Promise<ProcessedBankTransaction[]> {
-    return this.transactions.filter(t => t.status === status);
+    const transactions = await this.bankTransactionRepository.findByStatus(status.toUpperCase() as any);
+    return transactions.map(t => this.mapToProcessedTransaction(t));
   }
 
   async getTransactionsByDateRange(startDate: Date, endDate: Date): Promise<ProcessedBankTransaction[]> {
-    return this.transactions.filter(t => {
-      const transactionDate = new Date(t.date);
-      return transactionDate >= startDate && transactionDate <= endDate;
-    });
+    const transactions = await this.bankTransactionRepository.findByDateRange(startDate, endDate);
+    return transactions.map(t => this.mapToProcessedTransaction(t));
   }
 
   async reconcileTransactions(reconciliationDto: ReconciliationDto): Promise<ReconciliationResult> {
-    // Para reconciliación, usamos todas las transacciones ya que no tenemos accountNumber
-    let filteredTransactions = this.transactions;
+    // Obtener todas las transacciones
+    let filteredTransactions = await this.bankTransactionRepository.findAll();
+    const processedTransactions = filteredTransactions.map(t => this.mapToProcessedTransaction(t));
 
     // Filtrar por rango de fechas si se especifica
+    let finalTransactions = processedTransactions;
     if (reconciliationDto.startDate && reconciliationDto.endDate) {
       const startDate = new Date(reconciliationDto.startDate);
       const endDate = new Date(reconciliationDto.endDate);
-      filteredTransactions = this.transactions.filter(t => {
+      finalTransactions = processedTransactions.filter(t => {
         const transactionDate = new Date(t.date);
         return transactionDate >= startDate && transactionDate <= endDate;
       });
     }
 
     // Lógica de reconciliación básica
-    const matchedTransactions = filteredTransactions.filter(t => t.status === 'reconciled').length;
-    const unmatchedTransactions = filteredTransactions.filter(t => t.status !== 'reconciled').length;
-    const totalTransactions = filteredTransactions.length;
+    const matchedTransactions = finalTransactions.filter(t => t.status === 'reconciled').length;
+    const unmatchedTransactions = finalTransactions.filter(t => t.status !== 'reconciled').length;
+    const totalTransactions = finalTransactions.length;
 
     const discrepancies: string[] = [];
     
     // Detectar posibles discrepancias
-    const duplicateConcepts = this.findDuplicateConcepts(filteredTransactions);
+    const duplicateConcepts = this.findDuplicateConcepts(finalTransactions);
     if (duplicateConcepts.length > 0) {
       discrepancies.push(`Conceptos duplicados encontrados: ${duplicateConcepts.join(', ')}`);
     }
 
-    const highAmountTransactions = filteredTransactions.filter(t => t.amount > 100000);
+    const highAmountTransactions = finalTransactions.filter(t => t.amount > 100000);
     if (highAmountTransactions.length > 0) {
       discrepancies.push(`${highAmountTransactions.length} transacciones de monto alto`);
     }
@@ -236,28 +186,22 @@ export class TransactionsBankService {
     currencies: string[];
     concepts: string[];
   }> {
-    const total = this.transactions.length;
-    const pending = this.transactions.filter(t => t.status === 'pending').length;
-    const processed = this.transactions.filter(t => t.status === 'processed').length;
-    const failed = this.transactions.filter(t => t.status === 'failed').length;
-    const reconciled = this.transactions.filter(t => t.status === 'reconciled').length;
-    
-    const totalAmount = this.transactions.reduce((sum, t) => {
-      return sum + (t.is_deposit ? t.amount : -t.amount);
-    }, 0);
+    return await this.bankTransactionRepository.getTransactionSummary();
+  }
 
-    const currencies = [...new Set(this.transactions.map(t => t.currency))];
-    const concepts = [...new Set(this.transactions.map(t => t.concept))];
-
+  private mapToProcessedTransaction(transaction: any): ProcessedBankTransaction {
     return {
-      total,
-      pending,
-      processed,
-      failed,
-      reconciled,
-      totalAmount,
-      currencies,
-      concepts,
+      id: transaction.id,
+      date: transaction.date,
+      time: transaction.time,
+      concept: transaction.concept,
+      amount: transaction.amount,
+      currency: transaction.currency,
+      is_deposit: transaction.is_deposit,
+      validation_flag: transaction.validation_flag,
+      status: transaction.status.toLowerCase(),
+      createdAt: transaction.createdAt,
+      updatedAt: transaction.updatedAt,
     };
   }
 

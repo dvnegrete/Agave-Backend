@@ -6,6 +6,7 @@ import { AuthModule } from './auth/auth.module';
 import { VouchersModule } from './vouchers/vouchers.module';
 import { TransactionsBankModule } from './transactions-bank/transactions-bank.module';
 import { AppConfigService } from './config/config.service';
+import { DatabaseModule } from './database/database.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { AppConfigService } from './config/config.service';
       envFilePath: '.env',
       cache: false,
     }),
+    DatabaseModule,
     AuthModule,
     VouchersModule,
     TransactionsBankModule,

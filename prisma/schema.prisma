@@ -1,0 +1,34 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model BankTransaction {
+  id              String   @id @default(cuid())
+  date            String   // Formato YYYY-MM-DD
+  time            String   // Formato HH:MM:SS
+  concept         String
+  amount          Float
+  currency        String   @default("MXN")
+  is_deposit      Boolean
+  validation_flag Boolean  @default(false)
+  status          TransactionStatus @default(PENDING)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("bank_transactions")
+}
+
+enum TransactionStatus {
+  PENDING
+  PROCESSED
+  FAILED
+  RECONCILED
+}
