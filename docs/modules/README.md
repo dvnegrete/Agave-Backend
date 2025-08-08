@@ -46,6 +46,26 @@ Esta sección contiene la documentación detallada de cada módulo del sistema. 
 
 ---
 
+### 🏦 [TransactionsBank](./transactions-bank/README.md)
+**Estado**: ✅ Implementado  
+**Versión**: 1.0.0  
+**Responsable**: Transacciones bancarias especializadas
+
+**Características principales:**
+- Procesamiento de archivos XLSX, CSV, TXT, JSON
+- Validaciones específicas para bancos
+- Reconciliación de transacciones
+- Gestión por banco y cuenta
+- Exportación especializada
+
+**Endpoints principales:**
+- `POST /transactions-bank/upload` - Cargar archivo bancario
+- `GET /transactions-bank` - Listar transacciones bancarias
+- `POST /transactions-bank/reconcile` - Reconciliar transacciones
+- `GET /transactions-bank/export/csv` - Exportar a CSV
+
+---
+
 ## 🚧 Módulos en Desarrollo
 
 ### 👥 Users

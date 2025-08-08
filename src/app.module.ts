@@ -4,6 +4,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { VouchersModule } from './vouchers/vouchers.module';
+import { TransactionsBankModule } from './transactions-bank/transactions-bank.module';
 import { AppConfigService } from './config/config.service';
 
 @Module({
@@ -15,6 +16,7 @@ import { AppConfigService } from './config/config.service';
     }),
     AuthModule,
     VouchersModule,
+    TransactionsBankModule,
   ],
   controllers: [AppController],
   providers: [AppService, AppConfigService],

@@ -70,21 +70,38 @@ Todas las respuestas siguen un formato estándar:
 | GET | `/vouchers/export/csv` | Exportar a CSV | Sí |
 | GET | `/vouchers/export/json` | Exportar a JSON | Sí |
 
+### 🏦 TransactionsBank (`/transactions-bank`)
+
+| Método | Endpoint | Descripción | Autenticación |
+|--------|----------|-------------|---------------|
+| POST | `/transactions-bank/upload` | Cargar archivo bancario | Sí |
+| GET | `/transactions-bank` | Listar transacciones bancarias | Sí |
+| GET | `/transactions-bank/summary` | Resumen de transacciones bancarias | Sí |
+| GET | `/transactions-bank/:id` | Obtener transacción bancaria específica | Sí |
+| POST | `/transactions-bank` | Crear transacción bancaria | Sí |
+| PUT | `/transactions-bank/:id` | Actualizar transacción bancaria | Sí |
+| DELETE | `/transactions-bank/:id` | Eliminar transacción bancaria | Sí |
+| POST | `/transactions-bank/batch` | Crear transacciones bancarias en lote | Sí |
+| POST | `/transactions-bank/reconcile` | Reconciliar transacciones | Sí |
+| GET | `/transactions-bank/export/csv` | Exportar a CSV | Sí |
+| GET | `/transactions-bank/export/json` | Exportar a JSON | Sí |
+
 ## 📊 Estadísticas de la API
 
 ### Endpoints por Método HTTP
-- **GET**: 8 endpoints
-- **POST**: 8 endpoints
-- **PUT**: 1 endpoint
-- **DELETE**: 1 endpoint
+- **GET**: 12 endpoints
+- **POST**: 12 endpoints
+- **PUT**: 2 endpoints
+- **DELETE**: 2 endpoints
 
 ### Endpoints por Autenticación
 - **Públicos**: 6 endpoints
-- **Protegidos**: 12 endpoints
+- **Protegidos**: 22 endpoints
 
 ### Endpoints por Módulo
 - **Auth**: 8 endpoints
 - **Vouchers**: 10 endpoints
+- **TransactionsBank**: 11 endpoints
 
 ## 🔧 Configuración de la API
 
