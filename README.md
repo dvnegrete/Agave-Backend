@@ -1,15 +1,17 @@
 # 🏗️ El Agave Backend
 
-Sistema backend robusto y escalable construido con NestJS para el procesamiento de transacciones bancarias y gestión de autenticación.
+Sistema backend robusto y escalable construido con NestJS para autenticación y procesamiento de transacciones bancarias con una arquitectura extensible basada en modelos (Strategy).
 
 ## 🚀 Características Principales
 
 - 🔐 **Autenticación Completa**: Sistema de autenticación con Supabase, OAuth y JWT
-- 💰 **Procesamiento de Transacciones**: Carga, validación y procesamiento de archivos bancarios
-- 📊 **Validaciones Robustas**: Sistema de validación avanzado con reglas de negocio
-- 🛡️ **Seguridad**: Implementación de mejores prácticas de seguridad
+- 💰 **Procesamiento de Transacciones Bancarias**: Carga, validación y procesamiento multi-formato (XLSX, CSV, TXT, JSON)
+- 🧩 **Arquitectura Extensible (Strategy)**: Modelos de extracto por banco/formato mediante `BankStatementModel` (ej. `SantanderXlsx`)
+- 🧱 **Principios SOLID**: Separación de responsabilidades y dependencias por abstracciones
+- 📊 **Validaciones Robustas**: Sistema de validación con reglas de negocio
+- 🛡️ **Seguridad**: Mejores prácticas de seguridad
 - 📈 **Escalable**: Arquitectura modular preparada para crecimiento
-- 🧪 **Testing**: Cobertura completa de pruebas unitarias e integración
+- 🧪 **Testing**: Pruebas unitarias por módulo y E2E
 
 ## 📚 Documentación
 
@@ -19,8 +21,8 @@ Accede a toda la documentación organizada del proyecto.
 ### 🔐 [Módulo de Autenticación](./docs/modules/auth/README.md)
 Sistema completo de autenticación y autorización.
 
-### 💰 [Módulo de Vouchers](./docs/modules/vouchers/README.md)
-Procesamiento de transacciones bancarias.
+### 💰 [Módulo de Transacciones Bancarias](./docs/modules/transactions-bank/README.md)
+Procesamiento de archivos bancarios y exportación.
 
 ### 🔗 [API Documentation](./docs/api/README.md)
 Documentación completa de todos los endpoints.
@@ -35,19 +37,21 @@ Ejemplos prácticos y casos de uso reales.
 
 ```
 src/
-├── auth/                    # Módulo de autenticación
+├── auth/                         # Módulo de autenticación
 │   ├── controllers/
 │   ├── services/
 │   ├── guards/
 │   ├── decorators/
 │   └── dto/
-├── vouchers/               # Módulo de transacciones
+├── transactions-bank/            # Módulo de transacciones bancarias
 │   ├── controllers/
 │   ├── services/
+│   ├── models/                   # BankStatementModel, model-resolver, SantanderXlsx
 │   ├── dto/
 │   └── interfaces/
-├── config/                 # Configuración
-└── main.ts                 # Punto de entrada
+├── common/                       # Utilidades y constantes compartidas
+├── config/                       # Configuración
+└── main.ts                       # Punto de entrada
 ```
 
 ## 🚀 Inicio Rápido
@@ -87,6 +91,12 @@ npm run start:dev
 npm test
 ```
 
+6. **Probar endpoint raíz**
+```bash
+curl http://localhost:3000/
+# El Agave
+```
+
 ## 📡 Endpoints Principales
 
 ### Autenticación
@@ -95,9 +105,13 @@ npm test
 - `GET /auth/me` - Obtener usuario actual
 
 ### Transacciones
-- `POST /vouchers/upload` - Cargar archivo de transacciones
-- `GET /vouchers` - Listar transacciones
-- `GET /vouchers/export/csv` - Exportar a CSV
+- `POST /transactions-bank/upload` - Cargar archivo de transacciones
+- `GET /transactions-bank` - Listar transacciones
+- `GET /transactions-bank/export/csv` - Exportar a CSV
+- `GET /transactions-bank/export/json` - Exportar a JSON
+
+### Raíz de la API
+- `GET /` - Devuelve: `El Agave`
 
 ## 🛠️ Comandos Disponibles
 
@@ -144,8 +158,8 @@ El proyecto incluye pruebas completas para todos los módulos:
 npm test
 
 # Pruebas específicas por módulo
-npm test src/auth
-npm test src/vouchers
+npx jest --runInBand --testPathPattern=auth
+npx jest --runInBand --testPathPattern=transactions-bank
 
 # Cobertura de código
 npm run test:cov
@@ -155,7 +169,7 @@ npm run test:cov
 
 ### ✅ Módulos Implementados
 - [x] **Auth**: Sistema completo de autenticación
-- [x] **Vouchers**: Procesamiento de transacciones
+- [x] **Transactions Bank**: Procesamiento de transacciones con modelos de extracto
 
 ### 🚧 En Desarrollo
 - [ ] **Users**: Gestión de usuarios y perfiles
@@ -166,13 +180,6 @@ npm run test:cov
 - [ ] **Audit**: Logs de auditoría
 - [ ] **Payments**: Integración con pasarelas de pago
 
-## 🤝 Contribución
-
-1. Fork el proyecto
-2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
-3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
-4. Push a la rama (`git push origin feature/AmazingFeature`)
-5. Abre un Pull Request
 
 ## 📝 Licencia
 
@@ -192,6 +199,6 @@ Este proyecto está bajo la Licencia MIT. Ver el archivo [LICENSE](LICENSE) para
 
 ---
 
-**Versión**: 1.0.0  
+**Versión**: 1.0.1  
 **Última actualización**: $(date)  
 **Desarrollado con ❤️ por el equipo de El Agave**
