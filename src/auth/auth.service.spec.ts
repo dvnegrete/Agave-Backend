@@ -1,35 +1,66 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from './auth.service';
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
-import { supabaseClient } from '../config/supabase.config';
+import { ConfigService } from '@nestjs/config';
 
-// Mock de Supabase
-jest.mock('../config/supabase.config', () => ({
-  supabaseClient: {
-    auth: {
-      signUp: jest.fn(),
-      signInWithPassword: jest.fn(),
-      signInWithOAuth: jest.fn(),
-      refreshSession: jest.fn(),
-      signOut: jest.fn(),
-      getUser: jest.fn(),
-    },
-  },
-  supabaseAdminClient: {
-    auth: {
-      admin: {
-        getUserById: jest.fn(),
-      },
-    },
-  },
+// Mock de Supabase createClient
+jest.mock('@supabase/supabase-js', () => ({
+  createClient: jest.fn(),
 }));
 
 describe('AuthService', () => {
   let service: AuthService;
+  let mockClient: any;
+  let mockAdminClient: any;
+  const { createClient } = jest.requireMock('@supabase/supabase-js');
 
   beforeEach(async () => {
+    mockClient = {
+      auth: {
+        signUp: jest.fn(),
+        signInWithPassword: jest.fn(),
+        signInWithOAuth: jest.fn(),
+        refreshSession: jest.fn(),
+        signOut: jest.fn(),
+        getUser: jest.fn(),
+        exchangeCodeForSession: jest.fn(),
+      },
+    };
+
+    mockAdminClient = {
+      auth: {
+        admin: { getUserById: jest.fn() },
+      },
+    };
+
+    (createClient as jest.Mock)
+      .mockReset()
+      .mockReturnValueOnce(mockClient)
+      .mockReturnValueOnce(mockAdminClient);
+
     const module: TestingModule = await Test.createTestingModule({
-      providers: [AuthService],
+      providers: [
+        AuthService,
+        {
+          provide: ConfigService,
+          useValue: {
+            get: (key: string) => {
+              switch (key) {
+                case 'SUPABASE_URL':
+                  return 'https://example.supabase.co';
+                case 'SUPABASE_ANON_KEY':
+                  return 'anon-key';
+                case 'SUPABASE_SERVICE_ROLE_KEY':
+                  return 'service-role-key';
+                case 'FRONTEND_URL':
+                  return 'https://frontend.example.com';
+                default:
+                  return undefined;
+              }
+            },
+          },
+        },
+      ],
     }).compile();
 
     service = module.get<AuthService>(AuthService);
@@ -59,7 +90,7 @@ describe('AuthService', () => {
         refresh_token: 'refresh-token',
       };
 
-      (supabaseClient.auth.signUp as jest.Mock).mockResolvedValue({
+      (mockClient.auth.signUp as jest.Mock).mockResolvedValue({
         data: { user: mockUser, session: mockSession },
         error: null,
       });
@@ -84,7 +115,7 @@ describe('AuthService', () => {
     });
 
     it('should throw BadRequestException when signup fails', async () => {
-      (supabaseClient.auth.signUp as jest.Mock).mockResolvedValue({
+      (mockClient.auth.signUp as jest.Mock).mockResolvedValue({
         data: { user: null, session: null },
         error: { message: 'Email already exists' },
       });
@@ -114,7 +145,7 @@ describe('AuthService', () => {
         refresh_token: 'refresh-token',
       };
 
-      (supabaseClient.auth.signInWithPassword as jest.Mock).mockResolvedValue({
+      (mockClient.auth.signInWithPassword as jest.Mock).mockResolvedValue({
         data: { user: mockUser, session: mockSession },
         error: null,
       });
@@ -137,7 +168,7 @@ describe('AuthService', () => {
     });
 
     it('should throw UnauthorizedException when credentials are invalid', async () => {
-      (supabaseClient.auth.signInWithPassword as jest.Mock).mockResolvedValue({
+      (mockClient.auth.signInWithPassword as jest.Mock).mockResolvedValue({
         data: { user: null, session: null },
         error: { message: 'Invalid credentials' },
       });
@@ -153,7 +184,7 @@ describe('AuthService', () => {
 
   describe('signInWithOAuth', () => {
     it('should return OAuth URL successfully', async () => {
-      (supabaseClient.auth.signInWithOAuth as jest.Mock).mockResolvedValue({
+      (mockClient.auth.signInWithOAuth as jest.Mock).mockResolvedValue({
         data: { url: 'https://oauth-provider.com/auth' },
         error: null,
       });
@@ -184,7 +215,7 @@ describe('AuthService', () => {
         refresh_token: 'new-refresh-token',
       };
 
-      (supabaseClient.auth.refreshSession as jest.Mock).mockResolvedValue({
+      (mockClient.auth.refreshSession as jest.Mock).mockResolvedValue({
         data: { user: mockUser, session: mockSession },
         error: null,
       });
@@ -206,7 +237,7 @@ describe('AuthService', () => {
     });
 
     it('should throw UnauthorizedException when refresh token is invalid', async () => {
-      (supabaseClient.auth.refreshSession as jest.Mock).mockResolvedValue({
+      (mockClient.auth.refreshSession as jest.Mock).mockResolvedValue({
         data: { user: null, session: null },
         error: { message: 'Invalid refresh token' },
       });
@@ -226,7 +257,7 @@ describe('AuthService', () => {
         email: 'test@example.com',
       };
 
-      (supabaseClient.auth.getUser as jest.Mock).mockResolvedValue({
+      (mockClient.auth.getUser as jest.Mock).mockResolvedValue({
         data: { user: mockUser },
         error: null,
       });
@@ -237,7 +268,7 @@ describe('AuthService', () => {
     });
 
     it('should throw UnauthorizedException when token is invalid', async () => {
-      (supabaseClient.auth.getUser as jest.Mock).mockResolvedValue({
+      (mockClient.auth.getUser as jest.Mock).mockResolvedValue({
         data: { user: null },
         error: { message: 'Invalid token' },
       });
