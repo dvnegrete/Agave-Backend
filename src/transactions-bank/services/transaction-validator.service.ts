@@ -1,14 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { TransactionBank, BankTransactionValidationResult } from '../interfaces/bank-transaction.interface';
+import { TIME_PATTERN, DATE_ISO_PATTERN, CURRENCY_CODE_PATTERN } from '../../common';
 
 @Injectable()
 export class TransactionValidatorService {
   private readonly MAX_AMOUNT = 10000000; // 10 millones
   private readonly MIN_AMOUNT = 0.01; // 1 centavo
   private readonly MAX_CONCEPT_LENGTH = 500;
-  private readonly DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-  private readonly TIME_PATTERN = /^\d{2}:\d{2}:\d{2}$/;
-  private readonly CURRENCY_PATTERN = /^[A-Z]{3}$/;
+  private readonly DATE_PATTERN = DATE_ISO_PATTERN;
+  private readonly TIME_PATTERN = TIME_PATTERN;
+  private readonly CURRENCY_PATTERN = CURRENCY_CODE_PATTERN;
 
   async validateTransaction(transaction: TransactionBank): Promise<BankTransactionValidationResult> {
     const errors: string[] = [];

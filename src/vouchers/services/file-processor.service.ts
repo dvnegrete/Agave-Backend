@@ -1,13 +1,21 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { Transaction } from '../interfaces/transaction.interface';
 import { ProcessFileDto } from '../dto/process-file.dto';
+import {
+  getFileExtension,
+  bufferToString,
+  splitCSVLine,
+  hasHeaderKeywords,
+  parseAmountFlexible,
+  parseDateFlexible,
+} from '../../common';
 
 @Injectable()
 export class FileProcessorService {
   async parseFile(file: Express.Multer.File, options?: ProcessFileDto): Promise<Transaction[]> {
     try {
-      const fileExtension = this.getFileExtension(file.originalname);
-      const fileContent = file.buffer.toString((options?.encoding as BufferEncoding) || 'utf-8');
+      const fileExtension = getFileExtension(file.originalname);
+      const fileContent = bufferToString(file.buffer, (options?.encoding as BufferEncoding) || 'utf-8');
 
       switch (fileExtension.toLowerCase()) {
         case 'csv':
@@ -31,7 +39,9 @@ export class FileProcessorService {
     const transactions: Transaction[] = [];
 
     // Saltar la primera línea si es un encabezado
-    const dataLines = this.hasHeader(lines[0]) ? lines.slice(1) : lines;
+    const dataLines = hasHeaderKeywords(lines[0], ['fecha', 'date', 'descripcion', 'description', 'monto', 'amount', 'tipo', 'type'])
+      ? lines.slice(1)
+      : lines;
 
     for (let i = 0; i < dataLines.length; i++) {
       const line = dataLines[i].trim();
@@ -51,7 +61,7 @@ export class FileProcessorService {
   }
 
   private parseCSVLine(line: string, lineNumber: number, options?: ProcessFileDto): Transaction | null {
-    const columns = this.splitCSVLine(line);
+    const columns = splitCSVLine(line);
     
     if (columns.length < 4) {
       throw new Error('Número insuficiente de columnas');
@@ -59,8 +69,8 @@ export class FileProcessorService {
 
     const [dateStr, description, amountStr, type, accountNumber, reference, category] = columns;
 
-    const date = this.parseDate(dateStr, options?.dateFormat);
-    const amount = this.parseAmount(amountStr);
+    const date = parseDateFlexible(dateStr);
+    const amount = parseAmountFlexible(amountStr);
     const transactionType = this.parseTransactionType(type);
 
     return {
@@ -106,8 +116,8 @@ export class FileProcessorService {
 
     const [dateStr, description, amountStr, type, accountNumber, reference, category] = parts;
 
-    const date = this.parseDate(dateStr, options?.dateFormat);
-    const amount = this.parseAmount(amountStr);
+    const date = parseDateFlexible(dateStr);
+    const amount = parseAmountFlexible(amountStr);
     const transactionType = this.parseTransactionType(type);
 
     return {
@@ -142,7 +152,7 @@ export class FileProcessorService {
     return {
       date: new Date(item.date || item.fecha || item.fecha_transaccion),
       description: item.description || item.descripcion || item.concepto || '',
-      amount: this.parseAmount(item.amount || item.monto || item.importe),
+      amount: parseAmountFlexible(item.amount || item.monto || item.importe),
       type: this.parseTransactionType(item.type || item.tipo),
       accountNumber: item.accountNumber || item.numero_cuenta || item.cuenta || '',
       reference: item.reference || item.referencia,
@@ -155,68 +165,6 @@ export class FileProcessorService {
     // Implementación básica para XML
     // En una implementación real, usarías una librería como xml2js
     throw new Error('Parseo de XML no implementado aún');
-  }
-
-  private getFileExtension(filename: string): string {
-    const parts = filename.split('.');
-    return parts.length > 1 ? parts[parts.length - 1] : '';
-  }
-
-  private hasHeader(line: string): boolean {
-    const headerKeywords = ['fecha', 'date', 'descripcion', 'description', 'monto', 'amount', 'tipo', 'type'];
-    const lowerLine = line.toLowerCase();
-    return headerKeywords.some(keyword => lowerLine.includes(keyword));
-  }
-
-  private splitCSVLine(line: string): string[] {
-    const result: string[] = [];
-    let current = '';
-    let inQuotes = false;
-    
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      
-      if (char === '"') {
-        inQuotes = !inQuotes;
-      } else if (char === ',' && !inQuotes) {
-        result.push(current.trim());
-        current = '';
-      } else {
-        current += char;
-      }
-    }
-    
-    result.push(current.trim());
-    return result;
-  }
-
-  private parseDate(dateStr: string, format?: string): Date {
-    if (!dateStr) {
-      throw new Error('Fecha requerida');
-    }
-
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) {
-      throw new Error(`Formato de fecha inválido: ${dateStr}`);
-    }
-
-    return date;
-  }
-
-  private parseAmount(amountStr: string): number {
-    if (!amountStr) {
-      throw new Error('Monto requerido');
-    }
-
-    // Remover caracteres no numéricos excepto punto y coma
-    const cleanAmount = amountStr.replace(/[^\d.,-]/g, '');
-    const amount = parseFloat(cleanAmount.replace(',', '.'));
-
-    if (isNaN(amount)) {
-      throw new Error(`Monto inválido: ${amountStr}`);
-    }
-
-    return amount;
   }
 
   private parseTransactionType(typeStr: string): 'credit' | 'debit' {

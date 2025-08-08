@@ -30,4 +30,9 @@ export class UploadFileDto {
   @IsOptional()
   @IsString()
   dateFormat?: string;
+
+  @IsOptional()
+  @IsString()
+  /** Nombre del modelo de estado de cuenta a utilizar, p.ej. "SantanderXlsx" */
+  model?: string;
 }

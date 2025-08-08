@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Transaction, TransactionValidationResult } from '../interfaces/transaction.interface';
+import { REFERENCE_PATTERN } from '../../common';
 
 @Injectable()
 export class TransactionValidatorService {
@@ -7,7 +8,7 @@ export class TransactionValidatorService {
   private readonly MIN_AMOUNT = 0.01; // 1 centavo
   private readonly MAX_DESCRIPTION_LENGTH = 500;
   private readonly ACCOUNT_NUMBER_PATTERN = /^[0-9]{10,20}$/;
-  private readonly REFERENCE_PATTERN = /^[A-Za-z0-9\-_]{1,50}$/;
+  private readonly REFERENCE_PATTERN = REFERENCE_PATTERN;
 
   async validateTransaction(transaction: Transaction): Promise<TransactionValidationResult> {
     const errors: string[] = [];

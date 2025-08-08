@@ -16,6 +16,10 @@ src/transactions-bank/
 │   ├── transactions-bank.service.ts
 │   ├── file-processor.service.ts
 │   └── transaction-validator.service.ts
+├── models/
+│   ├── bank-statement-model.interface.ts
+│   ├── model-resolver.ts
+│   └── santander-xlsx.model.ts
 ├── dto/
 │   ├── upload-file.dto.ts
 │   └── bank-transaction.dto.ts
@@ -36,6 +40,7 @@ src/transactions-bank/
 ### ✅ Implementado
 
 - [x] Procesamiento de archivos XLSX, CSV, TXT, JSON
+- [x] Arquitectura extensible por "Modelos de Extracto" (Strategy)
 - [x] Validación robusta de transacciones bancarias
 - [x] Detección de transacciones duplicadas
 - [x] Validaciones específicas para bancos
@@ -52,16 +57,27 @@ src/transactions-bank/
 ```mermaid
 flowchart TD
     A[Archivo Bancario Subido] --> B[FileProcessorService]
-    B --> C{Formato Válido?}
-    C -->|Sí| D[Parsear Archivo]
-    C -->|No| E[Error: Formato no soportado]
-    D --> F[TransactionValidatorService]
-    F --> G{Transacciones Válidas?}
-    G -->|Sí| H[Guardar en Base de Datos]
-    G -->|No| I[Reportar Errores]
-    H --> J[Retornar Resultado]
-    I --> J
+    B --> C[Resolver Modelo (bankName/model/ext)]
+    C --> D{Formato Válido?}
+    D -->|Sí| E[Parsear con Modelo]
+    D -->|No| F[Error: Formato no soportado]
+    E --> G[TransactionValidatorService]
+    G --> H{Transacciones Válidas?}
+    H -->|Sí| I[Guardar en Base de Datos]
+    H -->|No| J[Reportar Errores]
+    I --> K[Retornar Resultado]
+    J --> K
 ```
+
+### Modelos de Extracto (Strategy)
+
+La lógica específica de columnas/campos está separada en modelos que implementan `BankStatementModel`:
+
+- `models/bank-statement-model.interface.ts`: define la interfaz del modelo (`headerKeywords`, `mapRowToTransaction`, `mapTxtLine?`, `mapJsonItem?`).
+- `models/model-resolver.ts`: selecciona el modelo por `UploadFileDto.model`, `bankName` y/o extensión.
+- `models/santander-xlsx.model.ts` (actual): mapea archivos con columnas: `FECHA`, `HORA`, `CONCEPTO`, `RETIRO`, `DEPOSITO`, `MONEDA`.
+
+Extender a nuevos formatos/bancos implica crear un nuevo archivo en `models/`, exportarlo y registrarlo en el `model-resolver`.
 
 ## 📡 Endpoints
 
@@ -76,17 +92,18 @@ Carga y procesa un archivo de transacciones bancarias.
 - `skipDuplicates`: Saltar duplicados (opcional)
 - `batchSize`: Tamaño del lote (opcional)
 - `dateFormat`: Formato de fecha (opcional)
-- `encoding`: Codificación del archivo (opcional)
 - `bankName`: Nombre del banco (opcional)
 - `accountNumber`: Número de cuenta (opcional)
+- `model`: Nombre del modelo a usar (opcional). Ej.: `SantanderXlsx`.
 
 **Ejemplo:**
 ```bash
 curl -X POST http://localhost:3000/transactions-bank/upload \
-  -F "file=@bank_transactions.xlsx" \
+  -F "file=@santander.xlsx" \
   -F "validateOnly=false" \
   -F "skipDuplicates=true" \
-  -F "bankName=Banamex" \
+  -F "bankName=Santander" \
+  -F "model=SantanderXlsx" \
   -F "accountNumber=1234567890"
 ```
 
@@ -214,44 +231,50 @@ Exporta transacciones bancarias a formato JSON.
 
 ### XLSX
 ```xlsx
-| Fecha       | Descripción           | Monto  | Tipo  | Cuenta      | Referencia | Categoría | Banco   | Código | Saldo   |
-|-------------|----------------------|--------|-------|-------------|------------|-----------|---------|--------|---------|
-| 2024-01-15  | Pago de servicios    | 150.75 | debit | 1234567890  | REF001     | servicios | Banamex | TXN001 | 5000.25 |
-| 2024-01-16  | Depósito de nómina   | 2500.00| credit| 1234567890  | REF002     | salario   | Banamex | TXN002 | 7500.25 |
+| FECHA       | HORA     | CONCEPTO                | RETIRO | DEPOSITO | MONEDA |
+|-------------|----------|-------------------------|--------|----------|--------|
+| 31/jul/25   | 10:30:00 | PAGO SERVICIOS TELCO    | 150.75 |          | MXN    |
+| 31/jul/25   | 14:05:22 | ABONO NÓMINA EMPRESA SA |        | 2500.00  | MXN    |
 ```
 
 ### CSV
 ```csv
-Fecha,Descripción,Monto,Tipo,Número de Cuenta,Referencia,Categoría,Banco,Código de Transacción,Saldo
-2024-01-15,Pago de servicios,150.75,debit,1234567890,REF001,servicios,Banamex,TXN001,5000.25
-2024-01-16,Depósito de nómina,2500.00,credit,1234567890,REF002,salario,Banamex,TXN002,7500.25
+FECHA,HORA,CONCEPTO,RETIRO,DEPOSITO,MONEDA
+31/jul/25,10:30:00,"PAGO SERVICIOS TELCO",150.75,,MXN
+31/jul/25,14:05:22,"ABONO NÓMINA EMPRESA SA",,2500.00,MXN
 ```
 
 ### TXT (Separado por pipes)
 ```
-2024-01-15|Pago de servicios|150.75|debit|1234567890|REF001|servicios|Banamex|TXN001|5000.25
-2024-01-16|Depósito de nómina|2500.00|credit|1234567890|REF002|salario|Banamex|TXN002|7500.25
+2024-07-31|10:30:00|PAGO SERVICIOS TELCO|150.75|MXN|false
+2024-07-31|14:05:22|ABONO NÓMINA EMPRESA SA|2500.00|MXN|true
 ```
+Donde la última columna indica si es depósito (`true`) o retiro (`false`).
 
 ### JSON
 ```json
 {
   "transactions": [
     {
-      "date": "2024-01-15T10:30:00Z",
-      "description": "Pago de servicios",
+      "date": "2025-07-31",
+      "time": "10:30:00",
+      "concept": "PAGO SERVICIOS TELCO",
       "amount": 150.75,
-      "type": "debit",
-      "accountNumber": "1234567890",
-      "reference": "REF001",
-      "category": "servicios",
-      "bankName": "Banamex",
-      "transactionCode": "TXN001",
-      "balance": 5000.25
+      "currency": "MXN",
+      "is_deposit": false
+    },
+    {
+      "fecha": "31/jul/25",
+      "hora": "14:05:22",
+      "concepto": "ABONO NÓMINA EMPRESA SA",
+      "monto": 2500.0,
+      "moneda": "MXN",
+      "deposito": true
     }
   ]
 }
 ```
+El modelo actual acepta llaves equivalentes (`date`/`fecha`, `time`/`hora`, `concept`/`concepto`, `amount`/`monto`/`importe`, `currency`/`moneda`, `is_deposit`/`deposito`/`tipo_deposito`).
 
 ## ✅ Validaciones Implementadas
 
@@ -280,33 +303,10 @@ Fecha,Descripción,Monto,Tipo,Número de Cuenta,Referencia,Categoría,Banco,Cód
 - ✅ Validación de tipos de archivo permitidos
 - ✅ Detección de transacciones duplicadas
 
-## 📊 Categorías Predefinidas
-
-- `alimentacion`
-- `transporte`
-- `servicios`
-- `entretenimiento`
-- `salud`
-- `educacion`
-- `vivienda`
-- `ropa`
-- `otros`
-- `salario`
-- `inversion`
-- `prestamo`
-- `transferencia`
-
 ## 🏦 Bancos Soportados
 
-- Banamex
-- Bancomer
-- Banorte
-- HSBC
 - Santander
-- Banco Azteca
-- Bancoppel
-- Inbursa
-- Scotiabank
+
 
 ## ⚙️ Configuración
 
@@ -397,7 +397,7 @@ npm test src/transactions-bank
 
 ## 🚀 Próximas Mejoras
 
-- [ ] Soporte completo para archivos XLSX (instalar librería xlsx)
+- [ ] Nuevos modelos de bancos/formatos (ej. BBVA CSV, Banorte XLSX)
 - [ ] Integración con APIs de bancos
 - [ ] Notificaciones en tiempo real
 - [ ] Reportes avanzados por banco
@@ -412,6 +412,5 @@ npm test src/transactions-bank
 
 ---
 
-**Versión**: 1.0.0  
+**Versión**: 1.0.1  
 **Última actualización**: $(date)  
-**Responsable**: Equipo de Backend
