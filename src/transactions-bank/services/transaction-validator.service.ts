@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { TransactionBank, BankTransactionValidationResult } from '../interfaces/bank-transaction.interface';
+import { TransactionBank, BankTransactionValidationResult } from '../interfaces/transaction-bank.interface';
 import { TIME_PATTERN, DATE_ISO_PATTERN, CURRENCY_CODE_PATTERN } from '../../common';
 
 @Injectable()

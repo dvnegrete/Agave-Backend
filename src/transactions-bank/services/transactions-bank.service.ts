@@ -1,22 +1,22 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { FileProcessorService } from './file-processor.service';
 import { TransactionValidatorService } from './transaction-validator.service';
-import { BankTransactionRepository } from '../../database/repositories/bank-transaction.repository';
+import { TransactionBankRepository } from '../../database/repositories/transaction-bank.repository';
 import { 
   TransactionBank, 
   ProcessedBankTransaction, 
   FileProcessingResult,
   ReconciliationResult
-} from '../interfaces/bank-transaction.interface';
+} from '../interfaces/transaction-bank.interface';
 import { UploadFileDto } from '../dto/upload-file.dto';
-import { CreateBankTransactionDto, UpdateBankTransactionDto, ReconciliationDto } from '../dto/bank-transaction.dto';
+import { CreateTransactionBankDto, UpdateTransactionBankDto, ReconciliationDto } from '../dto/transaction-bank.dto';
 
 @Injectable()
 export class TransactionsBankService {
   constructor(
     private readonly fileProcessorService: FileProcessorService,
     private readonly transactionValidatorService: TransactionValidatorService,
-    private readonly bankTransactionRepository: BankTransactionRepository,
+    private readonly bankTransactionRepository: TransactionBankRepository,
   ) {}
 
   async processFile(file: Express.Multer.File, options?: UploadFileDto): Promise<FileProcessingResult> {
@@ -108,12 +108,12 @@ export class TransactionsBankService {
     return this.mapToProcessedTransaction(transaction);
   }
 
-  async createTransaction(createTransactionDto: CreateBankTransactionDto): Promise<ProcessedBankTransaction> {
+  async createTransaction(createTransactionDto: CreateTransactionBankDto): Promise<ProcessedBankTransaction> {
     const transaction = await this.bankTransactionRepository.create(createTransactionDto);
     return this.mapToProcessedTransaction(transaction);
   }
 
-  async updateTransaction(id: string, updateTransactionDto: UpdateBankTransactionDto): Promise<ProcessedBankTransaction> {
+  async updateTransaction(id: string, updateTransactionDto: UpdateTransactionBankDto): Promise<ProcessedBankTransaction> {
     const transaction = await this.bankTransactionRepository.update(id, updateTransactionDto);
     return this.mapToProcessedTransaction(transaction);
   }

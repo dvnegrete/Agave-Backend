@@ -1,6 +1,6 @@
 import { IsNotEmpty, IsString, IsNumber, IsBoolean, IsIn, IsOptional, IsDateString } from 'class-validator';
 
-export class CreateBankTransactionDto {
+export class CreateTransactionBankDto {
   @IsNotEmpty()
   @IsString()
   date: string;
@@ -30,7 +30,7 @@ export class CreateBankTransactionDto {
   validation_flag?: boolean;
 }
 
-export class UpdateBankTransactionDto {
+export class UpdateTransactionBankDto {
   @IsOptional()
   @IsString()
   date?: string;
@@ -85,3 +85,5 @@ export class ReconciliationDto {
   @IsBoolean()
   autoReconcile?: boolean;
 }
+
+

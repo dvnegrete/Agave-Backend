@@ -1,4 +1,4 @@
-import { TransactionBank } from '../interfaces/bank-transaction.interface';
+import { TransactionBank } from '../interfaces/transaction-bank.interface';
 import { UploadFileDto } from '../dto/upload-file.dto';
 
 export interface BankStatementModel {

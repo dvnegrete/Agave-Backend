@@ -16,9 +16,9 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { TransactionsBankService } from '../services/transactions-bank.service';
-import { CreateBankTransactionDto, UpdateBankTransactionDto, ReconciliationDto } from '../dto/bank-transaction.dto';
+import { CreateTransactionBankDto, UpdateTransactionBankDto, ReconciliationDto } from '../dto/transaction-bank.dto';
 import { UploadFileDto } from '../dto/upload-file.dto';
-import { ProcessedBankTransaction } from '../interfaces/bank-transaction.interface';
+import { ProcessedBankTransaction } from '../interfaces/transaction-bank.interface';
 
 @Controller('transactions-bank')
 export class TransactionsBankController {
@@ -105,14 +105,14 @@ export class TransactionsBankController {
   }
 
   @Post()
-  async createTransaction(@Body() createTransactionDto: CreateBankTransactionDto): Promise<ProcessedBankTransaction> {
+  async createTransaction(@Body() createTransactionDto: CreateTransactionBankDto): Promise<ProcessedBankTransaction> {
     return await this.transactionsBankService.createTransaction(createTransactionDto);
   }
 
   @Put(':id')
   async updateTransaction(
     @Param('id') id: string,
-    @Body() updateTransactionDto: UpdateBankTransactionDto,
+    @Body() updateTransactionDto: UpdateTransactionBankDto,
   ): Promise<ProcessedBankTransaction> {
     return await this.transactionsBankService.updateTransaction(id, updateTransactionDto);
   }
@@ -124,7 +124,7 @@ export class TransactionsBankController {
   }
 
   @Post('batch')
-  async createBatchTransactions(@Body() transactions: CreateBankTransactionDto[]): Promise<ProcessedBankTransaction[]> {
+  async createBatchTransactions(@Body() transactions: CreateTransactionBankDto[]): Promise<ProcessedBankTransaction[]> {
     const results: ProcessedBankTransaction[] = [];
     const errors: string[] = [];
 

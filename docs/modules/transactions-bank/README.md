@@ -22,9 +22,9 @@ src/transactions-bank/
 │   └── santander-xlsx.model.ts
 ├── dto/
 │   ├── upload-file.dto.ts
-│   └── bank-transaction.dto.ts
+│   └── transaction-bank.dto.ts
 ├── interfaces/
-│   └── bank-transaction.interface.ts
+│   └── transaction-bank.interface.ts
 └── transactions-bank.module.ts
 ```
 
@@ -166,19 +166,16 @@ Obtiene una transacción bancaria específica por ID.
 #### POST /transactions-bank
 Crea una nueva transacción bancaria.
 
-**Body:**
+**Body (CreateTransactionBankDto):**
 ```json
 {
-  "date": "2024-01-15T10:30:00Z",
-  "description": "Pago de servicios bancarios",
+  "date": "2024-01-15",
+  "time": "10:30:00",
+  "concept": "Pago de servicios bancarios",
   "amount": 150.75,
-  "type": "debit",
-  "accountNumber": "1234567890",
-  "reference": "REF001",
-  "category": "servicios",
-  "bankName": "Banamex",
-  "transactionCode": "TXN001",
-  "balance": 5000.25
+  "currency": "MXN",
+  "is_deposit": false,
+  "validation_flag": false
 }
 ```
 
@@ -189,7 +186,7 @@ Actualiza una transacción bancaria existente.
 Elimina una transacción bancaria.
 
 #### POST /transactions-bank/batch
-Crea múltiples transacciones bancarias en lote.
+Crea múltiples transacciones bancarias en lote (array de `CreateTransactionBankDto`).
 
 ### Reconciliación
 

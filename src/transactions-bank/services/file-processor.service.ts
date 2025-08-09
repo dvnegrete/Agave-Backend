@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import * as XLSX from 'xlsx';
-import { TransactionBank } from '../interfaces/bank-transaction.interface';
+import { TransactionBank } from '../interfaces/transaction-bank.interface';
 import { UploadFileDto } from '../dto/upload-file.dto';
 import { getFileExtension, hasHeaderKeywords, splitCSVLine, bufferToString } from '../../common';
 import { resolveBankStatementModel } from '../models/model-resolver';
