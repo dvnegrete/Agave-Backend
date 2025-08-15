@@ -24,7 +24,7 @@ export class OcrServiceDto {
 }
 
 export class OcrResponseDto {
-  text: string;
+  structuredData: any;
   originalFilename: string;
   gcsFilename: string;
 }

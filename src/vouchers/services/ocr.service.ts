@@ -3,12 +3,16 @@ import { ImageAnnotatorClient } from '@google-cloud/vision';
 import { OcrResponseDto } from '../dto/ocr-service.dto';
 import { GoogleCloudClient } from '../../libs/google-cloud';
 import { v4 as uuidv4 } from 'uuid';
+import { OpenAIService } from '../../libs/openai/openai.service';
 
 @Injectable()
 export class OcrService {
   private readonly logger = new Logger(OcrService.name);
 
-  constructor(private readonly googleCloudClient: GoogleCloudClient) {
+  constructor(
+    private readonly googleCloudClient: GoogleCloudClient,
+    private readonly openAIService: OpenAIService,
+  ) {
     this.logger.log('Servicio OCR inicializado');
   }
 
@@ -102,11 +106,13 @@ export class OcrService {
         allText = result.fullTextAnnotation?.text || '';
       }
 
+      const structuredData = await this.openAIService.processTextWithPrompt(allText);
+
       const processingTime = Date.now() - startTime;
-      this.logger.log(`Procesamiento de archivo completado en ${processingTime}ms para: ${filename}`);
+      this.logger.log(`Procesamiento de archivo (Vision + OpenAI) completado en ${processingTime}ms para: ${filename}`);
 
       return {
-        text: allText,
+        structuredData,
         originalFilename: filename,
         gcsFilename: gcsFileName,
       };
@@ -162,7 +168,14 @@ export class OcrService {
   ): OcrResponseDto {
     const gcsFileName = `p-${this.formatTimestamp(new Date())}-${uuidv4()}.${filename.split('.').pop()}`;
     return {
-      text: 'Texto simulado extraído del archivo. Configure Google Cloud para OCR real.',
+      structuredData: {
+        monto: "123.45",
+        fecha_pago: "2023-10-27",
+        referencia: "SIMULATED-REF-123",
+        banco: "Banco Simulado",
+        emisor: "Emisor Simulado",
+        faltan_datos: false
+      },
       originalFilename: filename,
       gcsFilename: gcsFileName,
     };

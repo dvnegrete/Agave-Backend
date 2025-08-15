@@ -8,6 +8,7 @@ import { TransactionsBankModule } from './transactions-bank/transactions-bank.mo
 import { AppConfigService } from './config/config.service';
 import { DatabaseModule } from './database/database.module';
 import { GoogleCloudModule } from './libs/google-cloud';
+import { OpenAIModule } from './libs/openai/openai.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { GoogleCloudModule } from './libs/google-cloud';
       cache: false,
     }),
     GoogleCloudModule,
+    OpenAIModule,
     DatabaseModule,
     AuthModule,
     VouchersModule,
