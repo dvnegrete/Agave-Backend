@@ -48,4 +48,20 @@ export class AppConfigService {
   get isProduction(): boolean {
     return this.nodeEnv === 'production';
   }
+
+  get googleApplicationCredentials(): string {
+    const credentials = this.configService.get<string>('GOOGLE_APPLICATION_CREDENTIALS');
+    if (!credentials) {
+      throw new Error('GOOGLE_APPLICATION_CREDENTIALS no está configurada');
+    }
+    return credentials;
+  }
+
+  get googleProjectId(): string {
+    const projectId = this.configService.get<string>('GOOGLE_CLOUD_PROJECT_ID');
+    if (!projectId) {
+      throw new Error('GOOGLE_CLOUD_PROJECT_ID no está configurada');
+    }
+    return projectId;
+  }
 }

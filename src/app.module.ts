@@ -7,6 +7,7 @@ import { VouchersModule } from './vouchers/vouchers.module';
 import { TransactionsBankModule } from './transactions-bank/transactions-bank.module';
 import { AppConfigService } from './config/config.service';
 import { DatabaseModule } from './database/database.module';
+import { GoogleCloudModule } from './libs/google-cloud';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { DatabaseModule } from './database/database.module';
       envFilePath: '.env',
       cache: false,
     }),
+    GoogleCloudModule,
     DatabaseModule,
     AuthModule,
     VouchersModule,

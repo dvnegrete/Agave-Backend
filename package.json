@@ -25,6 +25,11 @@
     "db:push": "prisma db push"
   },
   "dependencies": {
+    "@google-cloud/speech": "^7.2.0",
+    "@google-cloud/storage": "^7.16.0",
+    "@google-cloud/text-to-speech": "^6.2.0",
+    "@google-cloud/translate": "^9.2.0",
+    "@google-cloud/vision": "^5.3.3",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",
