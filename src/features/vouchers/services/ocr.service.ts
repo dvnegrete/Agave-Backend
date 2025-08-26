@@ -1,9 +1,9 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
-import { ImageAnnotatorClient } from '@google-cloud/vision';
 import { OcrResponseDto } from '../dto/ocr-service.dto';
-import { GoogleCloudClient } from '../../libs/google-cloud';
+import { GoogleCloudClient } from '@/shared/libs/google-cloud';
 import { v4 as uuidv4 } from 'uuid';
-import { OpenAIService } from '../../libs/openai/openai.service';
+import { OpenAIService } from '@/shared/libs/openai/openai.service';
+import { VertexAIService } from '@/shared/libs/vertex-ai/vertex-ai.service';
 
 @Injectable()
 export class OcrService {
@@ -12,8 +12,8 @@ export class OcrService {
   constructor(
     private readonly googleCloudClient: GoogleCloudClient,
     private readonly openAIService: OpenAIService,
+    private readonly vertexAIService: VertexAIService,
   ) {
-    this.logger.log('Servicio OCR inicializado');
   }
 
   private formatTimestamp(date: Date): string {
@@ -34,7 +34,6 @@ export class OcrService {
     const bucketName = config?.voucherBucketName;
 
     if (!visionClient || !storageClient || !bucketName) {
-      this.logger.warn('Clientes de Vision o Storage no disponibles, o bucket no configurado. Usando modo simulación.');
       return this.simulateOcrResult(filename, language, startTime);
     }
 
@@ -45,7 +44,6 @@ export class OcrService {
 
     try {
       await file.save(imageBuffer, { resumable: false });
-      this.logger.log(`Archivo subido a GCS: gs://${bucketName}/${gcsFileName}`);
 
       const gcsUri = `gs://${bucketName}/${gcsFileName}`;
       const mimeType = this.getMimeType(fileExtension);
@@ -55,7 +53,6 @@ export class OcrService {
 
       if (isAsyncSupported) {
         // RUTA ASÍNCRONA para PDF, GIF, TIFF
-        this.logger.log(`Procesando archivo con método asíncrono: ${mimeType}`);
         
         const outputPrefix = `ocr-results/${gcsFileName}`;
         const gcsDestinationUri = `gs://${bucketName}/${outputPrefix}/`;
@@ -94,7 +91,6 @@ export class OcrService {
         }
       } else {
         // RUTA SÍNCRONA para JPG, PNG, etc.
-        this.logger.log(`Procesando archivo con método síncrono: ${mimeType}`);
         
         const request = {
           image: { source: { imageUri: gcsUri } },
@@ -106,10 +102,11 @@ export class OcrService {
         allText = result.fullTextAnnotation?.text || '';
       }
 
-      const structuredData = await this.openAIService.processTextWithPrompt(allText);
+      // const structuredData = await this.openAIService.processTextWithPrompt(allText);
+      const structuredData = await this.vertexAIService.processTextWithPrompt(allText);
 
       const processingTime = Date.now() - startTime;
-      this.logger.log(`Procesamiento de archivo (Vision + OpenAI) completado en ${processingTime}ms para: ${filename}`);
+      this.logger.log(`Procesamiento de archivo (Vision + VertexAI) completado en ${processingTime}ms para: ${filename}`);
 
       return {
         structuredData,

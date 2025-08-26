@@ -16,7 +16,6 @@ export class OpenAIService {
     }
 
     try {
-      this.logger.log('Enviando texto a OpenAI para procesamiento...');
       const completion = await client.chat.completions.create({
         model: 'gpt-3.5-turbo',
         messages: [
@@ -37,7 +36,6 @@ export class OpenAIService {
         throw new Error('La respuesta de OpenAI no contiene contenido.');
       }
 
-      this.logger.log('Respuesta de OpenAI recibida y parseada.');
       return JSON.parse(responseContent);
 
     } catch (error) {

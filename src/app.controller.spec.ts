@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { PrismaService } from './database/prisma.service';
-import { DatabaseConfigService } from './config/database.config';
+import { PrismaService } from './shared/database/prisma.service';
+import { DatabaseConfigService } from './shared/config/database.config';
 
 describe('AppController', () => {
   let appController: AppController;

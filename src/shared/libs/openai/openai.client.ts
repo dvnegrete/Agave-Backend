@@ -15,7 +15,6 @@ export class OpenAIClient implements OnModuleInit {
         this.client = new OpenAI({
           apiKey: this.configService.apiKey,
         });
-        this.logger.log('Cliente de OpenAI inicializado correctamente.');
       } catch (error) {
         this.logger.error('Error al inicializar el cliente de OpenAI:', error);
       }

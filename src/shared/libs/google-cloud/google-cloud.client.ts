@@ -35,13 +35,11 @@ export class GoogleCloudClient implements OnModuleInit {
       }
 
       this.config = this.configService.getConfig();
-      this.logger.log('Inicializando cliente de Google Cloud...');
 
       // Inicializar servicios según sea necesario
       // Los servicios se inicializan bajo demanda para optimizar recursos
 
       this.isInitialized = true;
-      this.logger.log('Cliente de Google Cloud inicializado correctamente');
     } catch (error) {
       this.logger.error('Error al inicializar Google Cloud client:', error);
       this.isInitialized = false;
@@ -63,7 +61,6 @@ export class GoogleCloudClient implements OnModuleInit {
           credentials: JSON.parse(this.config.applicationCredentials),
           projectId: this.config.projectId,
         });
-        this.logger.log('Cliente de Vision API inicializado');
       } catch (error) {
         this.logger.error('Error al inicializar Vision API client:', error);
         return null;
@@ -88,7 +85,6 @@ export class GoogleCloudClient implements OnModuleInit {
           credentials: JSON.parse(this.config.applicationCredentials),
           projectId: this.config.projectId,
         });
-        this.logger.log('Cliente de Cloud Storage inicializado');
       } catch (error) {
         this.logger.error('Error al inicializar Cloud Storage client:', error);
         return null;
@@ -113,7 +109,6 @@ export class GoogleCloudClient implements OnModuleInit {
           credentials: JSON.parse(this.config.applicationCredentials),
           projectId: this.config.projectId,
         });
-        this.logger.log('Cliente de Cloud Translate inicializado');
       } catch (error) {
         this.logger.error('Error al inicializar Cloud Translate client:', error);
         return null;
@@ -138,7 +133,6 @@ export class GoogleCloudClient implements OnModuleInit {
           credentials: JSON.parse(this.config.applicationCredentials),
           projectId: this.config.projectId,
         });
-        this.logger.log('Cliente de Text-to-Speech inicializado');
       } catch (error) {
         this.logger.error('Error al inicializar Text-to-Speech client:', error);
         return null;
@@ -163,7 +157,6 @@ export class GoogleCloudClient implements OnModuleInit {
           credentials: JSON.parse(this.config.applicationCredentials),
           projectId: this.config.projectId,
         });
-        this.logger.log('Cliente de Speech-to-Text inicializado');
       } catch (error) {
         this.logger.error('Error al inicializar Speech-to-Text client:', error);
         return null;
@@ -192,6 +185,5 @@ export class GoogleCloudClient implements OnModuleInit {
    */
   clearServices(): void {
     this.services = {};
-    this.logger.log('Servicios de Google Cloud limpiados');
   }
 }

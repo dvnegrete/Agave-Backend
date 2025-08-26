@@ -8,7 +8,7 @@ import {
   hasHeaderKeywords,
   parseAmountFlexible,
   parseDateFlexible,
-} from '../../common';
+} from '@/shared/common';
 
 @Injectable()
 export class FileProcessorService {

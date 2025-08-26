@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { FileProcessorService } from './file-processor.service';
 import { TransactionValidatorService } from './transaction-validator.service';
-import { TransactionBankRepository } from '../../database/repositories/transaction-bank.repository';
+import { TransactionBankRepository } from '../../../shared/database/repositories/transaction-bank.repository';
 import { 
   TransactionBank, 
   ProcessedBankTransaction, 

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Transaction, TransactionValidationResult } from '../interfaces/transaction.interface';
-import { REFERENCE_PATTERN } from '../../common';
+import { REFERENCE_PATTERN } from '@/shared/common';
 
 @Injectable()
 export class TransactionValidatorService {

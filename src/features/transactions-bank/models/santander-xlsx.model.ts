@@ -1,5 +1,5 @@
 import { BankStatementModel } from './bank-statement-model.interface';
-import { parseAmountFlexible, parseBooleanFlexible, parseDateFlexible } from '../../common';
+import { parseAmountFlexible, parseBooleanFlexible, parseDateFlexible } from '../../../shared/common';
 
 export const SantanderXlsxModel: BankStatementModel = {
   name: 'SantanderXlsx',

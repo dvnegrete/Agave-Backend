@@ -2,13 +2,14 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { AuthModule } from './auth/auth.module';
-import { VouchersModule } from './vouchers/vouchers.module';
-import { TransactionsBankModule } from './transactions-bank/transactions-bank.module';
-import { AppConfigService } from './config/config.service';
-import { DatabaseModule } from './database/database.module';
-import { GoogleCloudModule } from './libs/google-cloud';
-import { OpenAIModule } from './libs/openai/openai.module';
+import { AuthModule } from './shared/auth/auth.module';
+import { VouchersModule } from './features/vouchers/vouchers.module';
+import { TransactionsBankModule } from './features/transactions-bank/transactions-bank.module';
+import { AppConfigService } from './shared/config/config.service';
+import { DatabaseModule } from './shared/database/database.module';
+import { GoogleCloudModule } from './shared/libs/google-cloud';
+import { OpenAIModule } from './shared/libs/openai/openai.module';
+import { VertexAIModule } from './shared/libs/vertex-ai/vertex-ai.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { OpenAIModule } from './libs/openai/openai.module';
     AuthModule,
     VouchersModule,
     TransactionsBankModule,
+    VertexAIModule,
   ],
   controllers: [AppController],
   providers: [AppService, AppConfigService],

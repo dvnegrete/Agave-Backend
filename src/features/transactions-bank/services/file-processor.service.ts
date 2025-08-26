@@ -2,7 +2,7 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import * as XLSX from 'xlsx';
 import { TransactionBank } from '../interfaces/transaction-bank.interface';
 import { UploadFileDto } from '../dto/upload-file.dto';
-import { getFileExtension, hasHeaderKeywords, splitCSVLine, bufferToString } from '../../common';
+import { getFileExtension, hasHeaderKeywords, splitCSVLine, bufferToString } from '../../../shared/common';
 import { resolveBankStatementModel } from '../models/model-resolver';
 import { BankStatementModel } from '../models/bank-statement-model.interface';
 
