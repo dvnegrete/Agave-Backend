@@ -18,6 +18,7 @@ import {
   CtaOtherPayments,
 } from './entities';
 import { TransactionBankRepository } from './repositories/transaction-bank.repository';
+import { LastTransactionBankRepository } from './repositories/last-transaction-bank.repository';
 
 @Global()
 @Module({
@@ -45,7 +46,7 @@ import { TransactionBankRepository } from './repositories/transaction-bank.repos
       CtaOtherPayments,
     ]),
   ],
-  providers: [DatabaseConfigService, TransactionBankRepository],
-  exports: [DatabaseConfigService, TypeOrmModule, TransactionBankRepository],
+  providers: [DatabaseConfigService, TransactionBankRepository, LastTransactionBankRepository],
+  exports: [DatabaseConfigService, TypeOrmModule, TransactionBankRepository, LastTransactionBankRepository],
 })
 export class DatabaseModule {}

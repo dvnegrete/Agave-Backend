@@ -6,6 +6,7 @@ import {
 import { FileProcessorService } from './file-processor.service';
 import { TransactionValidatorService } from './transaction-validator.service';
 import { TransactionBankRepository } from '../../../shared/database/repositories/transaction-bank.repository';
+import { LastTransactionBankRepository } from '../../../shared/database/repositories/last-transaction-bank.repository';
 import {
   TransactionBank,
   ProcessedBankTransaction,
@@ -25,6 +26,7 @@ export class TransactionsBankService {
     private readonly fileProcessorService: FileProcessorService,
     private readonly transactionValidatorService: TransactionValidatorService,
     private readonly bankTransactionRepository: TransactionBankRepository,
+    private readonly lastTransactionBankRepository: LastTransactionBankRepository,
   ) {}
 
   async processFile(
@@ -69,8 +71,9 @@ export class TransactionsBankService {
       });
 
       // Guardar transacciones válidas
+      let savedTransactions: any[] = [];
       if (!options?.validateOnly) {
-        await this.bankTransactionRepository.createMany(
+        savedTransactions = await this.bankTransactionRepository.createMany(
           validTransactions.map((transaction) => ({
             date: transaction.date,
             time: transaction.time,
@@ -82,6 +85,14 @@ export class TransactionsBankService {
             validation_flag: transaction.validation_flag,
           })),
         );
+
+        // Encontrar la transacción más reciente por fecha y hora
+        if (savedTransactions.length > 0) {
+          const latestTransaction = this.findLatestTransaction(savedTransactions);
+          if (latestTransaction) {
+            await this.saveLastTransactionReference(latestTransaction.id);
+          }
+        }
       }
 
       const processingTime = Date.now() - startTime;
@@ -279,5 +290,38 @@ export class TransactionsBankService {
     return Array.from(conceptCounts.entries())
       .filter(([_, count]) => count > 1)
       .map(([concept, _]) => concept);
+  }
+
+  private findLatestTransaction(transactions: any[]): any | null {
+    if (!transactions || transactions.length === 0) {
+      return null;
+    }
+
+    return transactions.reduce((latest, current) => {
+      const currentDateTime = this.combineDateAndTime(current.date, current.time);
+      const latestDateTime = this.combineDateAndTime(latest.date, latest.time);
+
+      return currentDateTime > latestDateTime ? current : latest;
+    });
+  }
+
+  private combineDateAndTime(date: Date | string, time: string): Date {
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    const [hours, minutes, seconds] = time.split(':').map(Number);
+    
+    const combined = new Date(dateObj);
+    combined.setHours(hours || 0, minutes || 0, seconds || 0, 0);
+    
+    return combined;
+  }
+
+  private async saveLastTransactionReference(transactionId: string): Promise<void> {
+    try {
+      await this.lastTransactionBankRepository.create(transactionId);
+      console.log(`Última transacción guardada en last_transaction_bank: ${transactionId}`);
+    } catch (error) {
+      console.error('Error al guardar la última transacción:', error);
+      // No lanzamos la excepción para no interrumpir el proceso principal
+    }
   }
 }
