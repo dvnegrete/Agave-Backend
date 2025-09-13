@@ -24,6 +24,14 @@ export class LastTransactionBankRepository {
     });
   }
 
+  async findRecent(limit: number = 7): Promise<LastTransactionBank[]> {
+    return this.lastTransactionBankRepository.find({
+      order: { created_at: 'DESC' },
+      relations: ['transactionBank'],
+      take: limit,
+    });
+  }
+
   async findAll(): Promise<LastTransactionBank[]> {
     return this.lastTransactionBankRepository.find({
       order: { created_at: 'DESC' },

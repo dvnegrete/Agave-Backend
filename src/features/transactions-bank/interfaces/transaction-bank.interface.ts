@@ -30,6 +30,7 @@ export interface FileProcessingResult {
   totalTransactions: number;
   validTransactions: number;
   invalidTransactions: number;
+  previouslyProcessedTransactions: number;
   transactions: ProcessedBankTransaction[];
   errors: string[];
   processingTime: number;
@@ -39,6 +40,7 @@ export interface FileProcessingResult {
     start: Date;
     end: Date;
   };
+  lastDayTransaction?: TransactionBank[];
 }
 
 export interface BankAccount {

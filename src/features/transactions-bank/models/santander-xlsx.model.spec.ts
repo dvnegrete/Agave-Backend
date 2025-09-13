@@ -73,4 +73,51 @@ describe('SantanderXlsxModel', () => {
     expect(tx.is_deposit).toBe(false); // Should be withdrawal
     expect(tx.bank_name).toBe('HSBC');
   });
+
+  it('debe formatear fechas correctamente sin offset de zona horaria', () => {
+    const row = ['31/jul/25', '10:30:00', 'PAGO SERVICIOS', 150.75, '', 'MXN'];
+    const options = { bank: 'Santander' };
+    const tx = SantanderXlsxModel.mapRowToTransaction(row, options)!;
+    
+    // La fecha debe ser exactamente la fecha esperada sin offset
+    expect(tx.date).toBe('2025-07-31');
+    
+    // Verificar que parseDateFlexible funciona correctamente para esta fecha
+    const testDate = '31/jul/25';
+    const { parseDateFlexible } = require('../../../shared/common/utils/parse');
+    const parsedDate = parseDateFlexible(testDate);
+    const isoString = parsedDate.toISOString().split('T')[0];
+    expect(isoString).toBe('2025-07-31');
+  });
+
+  it('debe manejar fechas de fin de mes correctamente', () => {
+    const testCases = [
+      { input: '28/feb/25', expected: '2025-02-28' },
+      { input: '31/ene/25', expected: '2025-01-31' },
+      { input: '30/abr/25', expected: '2025-04-30' },
+      { input: '31/dic/25', expected: '2025-12-31' },
+    ];
+
+    testCases.forEach(({ input, expected }) => {
+      const row = [input, '10:30:00', 'TEST', 100, '', 'MXN'];
+      const options = { bank: 'Test' };
+      const tx = SantanderXlsxModel.mapRowToTransaction(row, options)!;
+      expect(tx.date).toBe(expected);
+    });
+  });
+
+  it('debe manejar años de 2 dígitos correctamente', () => {
+    const testCases = [
+      { input: '01/ene/25', expected: '2025-01-01' },
+      { input: '01/ene/99', expected: '2099-01-01' },
+      { input: '01/ene/00', expected: '2000-01-01' },
+    ];
+
+    testCases.forEach(({ input, expected }) => {
+      const row = [input, '10:30:00', 'TEST', 100, '', 'MXN'];
+      const options = { bank: 'Test' };
+      const tx = SantanderXlsxModel.mapRowToTransaction(row, options)!;
+      expect(tx.date).toBe(expected);
+    });
+  });
 });

@@ -16,8 +16,17 @@ export class TransactionBankRepository {
   ) {}
 
   async create(data: CreateTransactionBankDto): Promise<TransactionBank> {
+    // If data.date is already an ISO string (YYYY-MM-DD), create Date in local timezone to avoid UTC offset
+    let date: Date;
+    if (typeof data.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(data.date)) {
+      const [year, month, day] = data.date.split('-').map(Number);
+      date = new Date(year, month - 1, day); // month is 0-indexed
+    } else {
+      date = new Date(data.date);
+    }
+
     const transactionBank = this.transactionBankRepository.create({
-      date: new Date(data.date),
+      date,
       time: data.time,
       concept: data.concept,
       amount: data.amount,
@@ -32,9 +41,18 @@ export class TransactionBankRepository {
   async createMany(
     data: CreateTransactionBankDto[],
   ): Promise<TransactionBank[]> {
-    const transactionBanks = data.map((transaction) =>
-      this.transactionBankRepository.create({
-        date: new Date(transaction.date),
+    const transactionBanks = data.map((transaction) => {
+      // If transaction.date is already an ISO string (YYYY-MM-DD), create Date in local timezone to avoid UTC offset
+      let date: Date;
+      if (typeof transaction.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(transaction.date)) {
+        const [year, month, day] = transaction.date.split('-').map(Number);
+        date = new Date(year, month - 1, day); // month is 0-indexed
+      } else {
+        date = new Date(transaction.date);
+      }
+
+      return this.transactionBankRepository.create({
+        date,
         time: transaction.time,
         concept: transaction.concept,
         amount: transaction.amount,
@@ -42,8 +60,8 @@ export class TransactionBankRepository {
         is_deposit: transaction.is_deposit,
         bank_name: (transaction as any).bank_name,
         confirmation_status: transaction.validation_flag || false,
-      }),
-    );
+      });
+    });
     return this.transactionBankRepository.save(transactionBanks);
   }
 
@@ -81,7 +99,15 @@ export class TransactionBankRepository {
   ): Promise<TransactionBank> {
     const updateData: Partial<TransactionBank> = {};
 
-    if (data.date) updateData.date = new Date(data.date);
+    if (data.date) {
+      // If data.date is already an ISO string (YYYY-MM-DD), create Date in local timezone to avoid UTC offset
+      if (typeof data.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(data.date)) {
+        const [year, month, day] = data.date.split('-').map(Number);
+        updateData.date = new Date(year, month - 1, day); // month is 0-indexed
+      } else {
+        updateData.date = new Date(data.date);
+      }
+    }
     if (data.time) updateData.time = data.time;
     if (data.concept) updateData.concept = data.concept;
     if (data.amount !== undefined) updateData.amount = data.amount;
@@ -170,5 +196,24 @@ export class TransactionBankRepository {
       .getRawMany<{ concept: string; count: number }>();
 
     return duplicates.map((d) => d.concept).filter((c): c is string => !!c);
+  }
+
+  async findTransactionsByDateAndBank(
+    date: Date,
+    bankName: string,
+  ): Promise<TransactionBank[]> {
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    return this.transactionBankRepository.find({
+      where: {
+        date: Between(startOfDay, endOfDay),
+        bank_name: bankName,
+      },
+      order: { date: 'ASC', time: 'ASC' },
+    });
   }
 }
