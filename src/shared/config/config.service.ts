@@ -38,7 +38,10 @@ export class AppConfigService {
   }
 
   get frontendUrl(): string {
-    return this.configService.get<string>('FRONTEND_URL', 'http://localhost:3000');
+    return this.configService.get<string>(
+      'FRONTEND_URL',
+      'http://localhost:3000',
+    );
   }
 
   get isDevelopment(): boolean {
@@ -50,7 +53,9 @@ export class AppConfigService {
   }
 
   get googleApplicationCredentials(): string {
-    const credentials = this.configService.get<string>('GOOGLE_APPLICATION_CREDENTIALS');
+    const credentials = this.configService.get<string>(
+      'GOOGLE_APPLICATION_CREDENTIALS',
+    );
     if (!credentials) {
       throw new Error('GOOGLE_APPLICATION_CREDENTIALS no está configurada');
     }

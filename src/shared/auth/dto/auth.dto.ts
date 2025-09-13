@@ -43,4 +43,4 @@ export class AuthResponseDto {
     firstName?: string;
     lastName?: string;
   };
-} 
+}

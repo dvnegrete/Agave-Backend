@@ -1,4 +1,11 @@
-import { IsOptional, IsBoolean, IsString, IsNumber, Min, Max } from 'class-validator';
+import {
+  IsOptional,
+  IsBoolean,
+  IsString,
+  IsNumber,
+  Min,
+  Max,
+} from 'class-validator';
 
 export class ProcessFileDto {
   @IsOptional()

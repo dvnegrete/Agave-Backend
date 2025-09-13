@@ -51,7 +51,7 @@ export class GoogleCloudUsageExamples {
     try {
       const bucket = storageClient.bucket(bucketName);
       const file = bucket.file(fileName);
-      
+
       await file.save(fileBuffer, {
         metadata: {
           contentType: 'application/octet-stream',
@@ -74,7 +74,10 @@ export class GoogleCloudUsageExamples {
     }
 
     try {
-      const [translation] = await translateClient.translate(text, targetLanguage);
+      const [translation] = await translateClient.translate(
+        text,
+        targetLanguage,
+      );
       return translation;
     } catch (error) {
       throw new Error(`Error al traducir texto: ${error.message}`);
@@ -84,7 +87,10 @@ export class GoogleCloudUsageExamples {
   /**
    * Ejemplo: Convertir texto a audio usando Text-to-Speech
    */
-  async textToSpeech(text: string, languageCode: string = 'es-ES'): Promise<Buffer> {
+  async textToSpeech(
+    text: string,
+    languageCode: string = 'es-ES',
+  ): Promise<Buffer> {
     const textToSpeechClient = this.googleCloudClient.getTextToSpeechClient();
     if (!textToSpeechClient) {
       throw new Error('Text-to-Speech no está disponible');
@@ -107,7 +113,10 @@ export class GoogleCloudUsageExamples {
   /**
    * Ejemplo: Convertir audio a texto usando Speech-to-Text
    */
-  async speechToText(audioBuffer: Buffer, languageCode: string = 'es-ES'): Promise<string> {
+  async speechToText(
+    audioBuffer: Buffer,
+    languageCode: string = 'es-ES',
+  ): Promise<string> {
     const speechClient = this.googleCloudClient.getSpeechClient();
     if (!speechClient) {
       throw new Error('Speech-to-Text no está disponible');
@@ -125,7 +134,7 @@ export class GoogleCloudUsageExamples {
 
       const [response] = await speechClient.recognize(request);
       const transcription = response.results
-        ?.map(result => result.alternatives?.[0]?.transcript)
+        ?.map((result) => result.alternatives?.[0]?.transcript)
         .join(' ');
 
       return transcription || '';
@@ -156,15 +165,17 @@ export class GoogleCloudUsageExamples {
 
       return {
         text: (result.textAnnotations?.[0] as any)?.text || '',
-        labels: result.labelAnnotations?.map(label => ({
-          description: label.description,
-          confidence: label.confidence,
-        })) || [],
+        labels:
+          result.labelAnnotations?.map((label) => ({
+            description: label.description,
+            confidence: label.confidence,
+          })) || [],
         faces: result.faceAnnotations?.length || 0,
-        objects: result.localizedObjectAnnotations?.map(obj => ({
-          name: obj.name,
-          confidence: obj.score,
-        })) || [],
+        objects:
+          result.localizedObjectAnnotations?.map((obj) => ({
+            name: obj.name,
+            confidence: obj.score,
+          })) || [],
       };
     } catch (error) {
       throw new Error(`Error al analizar imagen: ${error.message}`);

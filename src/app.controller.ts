@@ -1,12 +1,14 @@
 import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
 import { AppService } from './app.service';
-import { PrismaService } from './shared/database/prisma.service';
+import { DataSource } from 'typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
 
 @Controller()
 export class AppController {
   constructor(
     private readonly appService: AppService,
-    private readonly prismaService: PrismaService,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
   ) {}
 
   @Get()
@@ -18,10 +20,12 @@ export class AppController {
   async getDatabaseReady(): Promise<{ message: string }> {
     try {
       // Consulta trivial para verificar la conexión
-      await this.prismaService.$queryRaw`SELECT 1`;
+      await this.dataSource.query('SELECT 1');
       return { message: 'base de datos preparada' };
-    } catch (error) {
-      throw new ServiceUnavailableException('no hay conexión a la base de datos');
+    } catch {
+      throw new ServiceUnavailableException(
+        'no hay conexión a la base de datos',
+      );
     }
   }
 }

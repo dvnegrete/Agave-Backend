@@ -38,17 +38,19 @@ export class VertexAIService {
 
     try {
       const resp = await generativeModel.generateContent(prompt);
-      const jsonString = resp.response?.candidates?.[0]?.content?.parts?.[0]?.text;
+      const jsonString =
+        resp.response?.candidates?.[0]?.content?.parts?.[0]?.text;
 
       if (!jsonString) {
         throw new Error('La respuesta de Vertex AI no contiene contenido.');
       }
 
       return JSON.parse(jsonString);
-
     } catch (error) {
       this.logger.error('Error al procesar el texto con Vertex AI:', error);
-      throw new Error(`Error en la comunicación con Vertex AI: ${error.message}`);
+      throw new Error(
+        `Error en la comunicación con Vertex AI: ${error.message}`,
+      );
     }
   }
 }

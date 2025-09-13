@@ -1,5 +1,9 @@
 import { BankStatementModel } from './bank-statement-model.interface';
-import { parseAmountFlexible, parseBooleanFlexible, parseDateFlexible } from '../../../shared/common';
+import {
+  parseAmountFlexible,
+  parseBooleanFlexible,
+  parseDateFlexible,
+} from '../../../shared/common';
 
 export const SantanderXlsxModel: BankStatementModel = {
   name: 'SantanderXlsx',
@@ -63,11 +67,11 @@ export const SantanderXlsxModel: BankStatementModel = {
       concept: item.concept || item.concepto || '',
       amount: parseAmountFlexible(item.amount || item.monto || item.importe),
       currency: item.currency || item.moneda || 'MXN',
-      is_deposit: parseBooleanFlexible(item.is_deposit || item.tipo_deposito || item.deposito),
+      is_deposit: parseBooleanFlexible(
+        item.is_deposit || item.tipo_deposito || item.deposito,
+      ),
       validation_flag: item.validation_flag || false,
       status: 'pending',
     };
   },
 };
-
-

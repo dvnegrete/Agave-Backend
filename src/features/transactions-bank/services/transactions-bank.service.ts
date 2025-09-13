@@ -1,15 +1,23 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { FileProcessorService } from './file-processor.service';
 import { TransactionValidatorService } from './transaction-validator.service';
 import { TransactionBankRepository } from '../../../shared/database/repositories/transaction-bank.repository';
-import { 
-  TransactionBank, 
-  ProcessedBankTransaction, 
+import {
+  TransactionBank,
+  ProcessedBankTransaction,
   FileProcessingResult,
-  ReconciliationResult
+  ReconciliationResult,
 } from '../interfaces/transaction-bank.interface';
 import { UploadFileDto } from '../dto/upload-file.dto';
-import { CreateTransactionBankDto, UpdateTransactionBankDto, ReconciliationDto } from '../dto/transaction-bank.dto';
+import {
+  CreateTransactionBankDto,
+  UpdateTransactionBankDto,
+  ReconciliationDto,
+} from '../dto/transaction-bank.dto';
 
 @Injectable()
 export class TransactionsBankService {
@@ -19,18 +27,24 @@ export class TransactionsBankService {
     private readonly bankTransactionRepository: TransactionBankRepository,
   ) {}
 
-  async processFile(file: Express.Multer.File, options?: UploadFileDto): Promise<FileProcessingResult> {
+  async processFile(
+    file: Express.Multer.File,
+    options?: UploadFileDto,
+  ): Promise<FileProcessingResult> {
     try {
       const startTime = Date.now();
 
       // Procesar el archivo
-      const rawTransactions = await this.fileProcessorService.parseFile(file, options);
+      const rawTransactions = await this.fileProcessorService.parseFile(
+        file,
+        options,
+      );
 
       // Validar transacciones
       const validationResults = await Promise.all(
-        rawTransactions.map(transaction => 
-          this.transactionValidatorService.validateTransaction(transaction)
-        )
+        rawTransactions.map((transaction) =>
+          this.transactionValidatorService.validateTransaction(transaction),
+        ),
       );
 
       // Filtrar transacciones válidas
@@ -39,7 +53,7 @@ export class TransactionsBankService {
 
       rawTransactions.forEach((transaction, index) => {
         const validation = validationResults[index];
-        
+
         if (validation.isValid) {
           const processedTransaction: ProcessedBankTransaction = {
             ...transaction,
@@ -57,7 +71,7 @@ export class TransactionsBankService {
       // Guardar transacciones válidas
       if (!options?.validateOnly) {
         await this.bankTransactionRepository.createMany(
-          validTransactions.map(transaction => ({
+          validTransactions.map((transaction) => ({
             date: transaction.date,
             time: transaction.time,
             concept: transaction.concept,
@@ -65,18 +79,21 @@ export class TransactionsBankService {
             currency: transaction.currency,
             is_deposit: transaction.is_deposit,
             validation_flag: transaction.validation_flag,
-          }))
+          })),
         );
       }
 
       const processingTime = Date.now() - startTime;
 
       // Determinar rango de fechas
-      const dates = validTransactions.map(t => new Date(t.date)).sort();
-      const dateRange = dates.length > 0 ? {
-        start: dates[0],
-        end: dates[dates.length - 1]
-      } : undefined;
+      const dates = validTransactions.map((t) => new Date(t.date)).sort();
+      const dateRange =
+        dates.length > 0
+          ? {
+              start: dates[0],
+              end: dates[dates.length - 1],
+            }
+          : undefined;
 
       return {
         success: errors.length === 0,
@@ -91,30 +108,43 @@ export class TransactionsBankService {
         dateRange,
       };
     } catch (error) {
-      throw new BadRequestException(`Error al procesar el archivo: ${error.message}`);
+      throw new BadRequestException(
+        `Error al procesar el archivo: ${error.message}`,
+      );
     }
   }
 
   async getAllTransactions(): Promise<ProcessedBankTransaction[]> {
     const transactions = await this.bankTransactionRepository.findAll();
-    return transactions.map(t => this.mapToProcessedTransaction(t));
+    return transactions.map((t) => this.mapToProcessedTransaction(t));
   }
 
   async getTransactionById(id: string): Promise<ProcessedBankTransaction> {
     const transaction = await this.bankTransactionRepository.findById(id);
     if (!transaction) {
-      throw new NotFoundException(`Transacción bancaria con ID ${id} no encontrada`);
+      throw new NotFoundException(
+        `Transacción bancaria con ID ${id} no encontrada`,
+      );
     }
     return this.mapToProcessedTransaction(transaction);
   }
 
-  async createTransaction(createTransactionDto: CreateTransactionBankDto): Promise<ProcessedBankTransaction> {
-    const transaction = await this.bankTransactionRepository.create(createTransactionDto);
+  async createTransaction(
+    createTransactionDto: CreateTransactionBankDto,
+  ): Promise<ProcessedBankTransaction> {
+    const transaction =
+      await this.bankTransactionRepository.create(createTransactionDto);
     return this.mapToProcessedTransaction(transaction);
   }
 
-  async updateTransaction(id: string, updateTransactionDto: UpdateTransactionBankDto): Promise<ProcessedBankTransaction> {
-    const transaction = await this.bankTransactionRepository.update(id, updateTransactionDto);
+  async updateTransaction(
+    id: string,
+    updateTransactionDto: UpdateTransactionBankDto,
+  ): Promise<ProcessedBankTransaction> {
+    const transaction = await this.bankTransactionRepository.update(
+      id,
+      updateTransactionDto,
+    );
     return this.mapToProcessedTransaction(transaction);
   }
 
@@ -122,48 +152,70 @@ export class TransactionsBankService {
     await this.bankTransactionRepository.delete(id);
   }
 
-  async getTransactionsByStatus(status: 'pending' | 'processed' | 'failed' | 'reconciled'): Promise<ProcessedBankTransaction[]> {
-    const transactions = await this.bankTransactionRepository.findByStatus(status.toUpperCase() as any);
-    return transactions.map(t => this.mapToProcessedTransaction(t));
+  async getTransactionsByStatus(
+    status: 'pending' | 'processed' | 'failed' | 'reconciled',
+  ): Promise<ProcessedBankTransaction[]> {
+    const transactions = await this.bankTransactionRepository.findByStatus();
+    return transactions.map((t) => this.mapToProcessedTransaction(t));
   }
 
-  async getTransactionsByDateRange(startDate: Date, endDate: Date): Promise<ProcessedBankTransaction[]> {
-    const transactions = await this.bankTransactionRepository.findByDateRange(startDate, endDate);
-    return transactions.map(t => this.mapToProcessedTransaction(t));
+  async getTransactionsByDateRange(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<ProcessedBankTransaction[]> {
+    const transactions = await this.bankTransactionRepository.findByDateRange(
+      startDate,
+      endDate,
+    );
+    return transactions.map((t) => this.mapToProcessedTransaction(t));
   }
 
-  async reconcileTransactions(reconciliationDto: ReconciliationDto): Promise<ReconciliationResult> {
+  async reconcileTransactions(
+    reconciliationDto: ReconciliationDto,
+  ): Promise<ReconciliationResult> {
     // Obtener todas las transacciones
-    let filteredTransactions = await this.bankTransactionRepository.findAll();
-    const processedTransactions = filteredTransactions.map(t => this.mapToProcessedTransaction(t));
+    const filteredTransactions = await this.bankTransactionRepository.findAll();
+    const processedTransactions = filteredTransactions.map((t) =>
+      this.mapToProcessedTransaction(t),
+    );
 
     // Filtrar por rango de fechas si se especifica
     let finalTransactions = processedTransactions;
     if (reconciliationDto.startDate && reconciliationDto.endDate) {
       const startDate = new Date(reconciliationDto.startDate);
       const endDate = new Date(reconciliationDto.endDate);
-      finalTransactions = processedTransactions.filter(t => {
+      finalTransactions = processedTransactions.filter((t) => {
         const transactionDate = new Date(t.date);
         return transactionDate >= startDate && transactionDate <= endDate;
       });
     }
 
     // Lógica de reconciliación básica
-    const matchedTransactions = finalTransactions.filter(t => t.status === 'reconciled').length;
-    const unmatchedTransactions = finalTransactions.filter(t => t.status !== 'reconciled').length;
+    const matchedTransactions = finalTransactions.filter(
+      (t) => t.status === 'reconciled',
+    ).length;
+    const unmatchedTransactions = finalTransactions.filter(
+      (t) => t.status !== 'reconciled',
+    ).length;
     const totalTransactions = finalTransactions.length;
 
     const discrepancies: string[] = [];
-    
+
     // Detectar posibles discrepancias
     const duplicateConcepts = this.findDuplicateConcepts(finalTransactions);
     if (duplicateConcepts.length > 0) {
-      discrepancies.push(`Conceptos duplicados encontrados: ${duplicateConcepts.join(', ')}`);
+      discrepancies.push(
+        `Conceptos duplicados encontrados: ${duplicateConcepts.join(', ')}`,
+      );
     }
 
-    const highAmountTransactions = finalTransactions.filter(t => t.amount > 100000);
+    const highAmountTransactions = finalTransactions.filter(
+      (t) => t.amount > 100000,
+    );
     if (highAmountTransactions.length > 0) {
-      discrepancies.push(`${highAmountTransactions.length} transacciones de monto alto`);
+      discrepancies.push(
+        `${highAmountTransactions.length} transacciones de monto alto`,
+      );
     }
 
     return {
@@ -189,7 +241,9 @@ export class TransactionsBankService {
     return await this.bankTransactionRepository.getTransactionSummary();
   }
 
-  private mapToProcessedTransaction(transaction: any): ProcessedBankTransaction {
+  private mapToProcessedTransaction(
+    transaction: any,
+  ): ProcessedBankTransaction {
     return {
       id: transaction.id,
       date: transaction.date,
@@ -198,10 +252,10 @@ export class TransactionsBankService {
       amount: transaction.amount,
       currency: transaction.currency,
       is_deposit: transaction.is_deposit,
-      validation_flag: transaction.validation_flag,
-      status: transaction.status.toLowerCase(),
-      createdAt: transaction.createdAt,
-      updatedAt: transaction.updatedAt,
+      validation_flag: transaction.confirmation_status,
+      status: transaction.confirmation_status ? 'reconciled' : 'pending',
+      createdAt: transaction.created_at,
+      updatedAt: transaction.updated_at,
     };
   }
 
@@ -209,10 +263,12 @@ export class TransactionsBankService {
     return `bank_txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  private findDuplicateConcepts(transactions: ProcessedBankTransaction[]): string[] {
+  private findDuplicateConcepts(
+    transactions: ProcessedBankTransaction[],
+  ): string[] {
     const conceptCounts = new Map<string, number>();
-    
-    transactions.forEach(t => {
+
+    transactions.forEach((t) => {
       if (t.concept) {
         conceptCounts.set(t.concept, (conceptCounts.get(t.concept) || 0) + 1);
       }

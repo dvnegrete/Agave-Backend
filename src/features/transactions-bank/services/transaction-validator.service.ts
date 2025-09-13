@@ -1,6 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import { TransactionBank, BankTransactionValidationResult } from '../interfaces/transaction-bank.interface';
-import { TIME_PATTERN, DATE_ISO_PATTERN, CURRENCY_CODE_PATTERN } from '../../../shared/common';
+import {
+  TransactionBank,
+  BankTransactionValidationResult,
+} from '../interfaces/transaction-bank.interface';
+import {
+  TIME_PATTERN,
+  DATE_ISO_PATTERN,
+  CURRENCY_CODE_PATTERN,
+} from '../../../shared/common';
 
 @Injectable()
 export class TransactionValidatorService {
@@ -11,7 +18,9 @@ export class TransactionValidatorService {
   private readonly TIME_PATTERN = TIME_PATTERN;
   private readonly CURRENCY_PATTERN = CURRENCY_CODE_PATTERN;
 
-  async validateTransaction(transaction: TransactionBank): Promise<BankTransactionValidationResult> {
+  async validateTransaction(
+    transaction: TransactionBank,
+  ): Promise<BankTransactionValidationResult> {
     const errors: string[] = [];
     const warnings: string[] = [];
 
@@ -87,14 +96,20 @@ export class TransactionValidatorService {
     }
   }
 
-  private validateConcept(concept: string, errors: string[], warnings: string[]): void {
+  private validateConcept(
+    concept: string,
+    errors: string[],
+    warnings: string[],
+  ): void {
     if (!concept || concept.trim().length === 0) {
       errors.push('Concepto es requerido');
       return;
     }
 
     if (concept.trim().length > this.MAX_CONCEPT_LENGTH) {
-      errors.push(`El concepto no puede exceder ${this.MAX_CONCEPT_LENGTH} caracteres`);
+      errors.push(
+        `El concepto no puede exceder ${this.MAX_CONCEPT_LENGTH} caracteres`,
+      );
     }
 
     if (concept.trim().length < 3) {
@@ -117,7 +132,11 @@ export class TransactionValidatorService {
     }
   }
 
-  private validateAmount(amount: number, errors: string[], warnings: string[]): void {
+  private validateAmount(
+    amount: number,
+    errors: string[],
+    warnings: string[],
+  ): void {
     if (typeof amount !== 'number' || isNaN(amount)) {
       errors.push('Monto debe ser un número válido');
       return;
@@ -150,13 +169,17 @@ export class TransactionValidatorService {
     }
 
     if (!this.CURRENCY_PATTERN.test(currency.trim())) {
-      errors.push('Formato de moneda inválido. Use código de 3 letras (ej: MXN, USD)');
+      errors.push(
+        'Formato de moneda inválido. Use código de 3 letras (ej: MXN, USD)',
+      );
     }
 
     // Verificar monedas soportadas
     const supportedCurrencies = ['MXN', 'USD', 'EUR', 'CAD'];
     if (!supportedCurrencies.includes(currency.trim().toUpperCase())) {
-      errors.push(`Moneda no soportada: ${currency}. Monedas soportadas: ${supportedCurrencies.join(', ')}`);
+      errors.push(
+        `Moneda no soportada: ${currency}. Monedas soportadas: ${supportedCurrencies.join(', ')}`,
+      );
     }
   }
 
@@ -166,9 +189,11 @@ export class TransactionValidatorService {
     }
   }
 
-
-
-  private validateBusinessRules(transaction: TransactionBank, errors: string[], warnings: string[]): void {
+  private validateBusinessRules(
+    transaction: TransactionBank,
+    errors: string[],
+    warnings: string[],
+  ): void {
     // Regla: Depósitos muy grandes requieren atención especial
     if (transaction.is_deposit && transaction.amount > 100000) {
       warnings.push('Depósito de monto alto detectado');
@@ -195,9 +220,19 @@ export class TransactionValidatorService {
 
     // Regla: Verificar conceptos sospechosos
     const suspiciousKeywords = [
-      'test', 'prueba', 'demo', 'temporal', 'temp',
-      'xxxxx', 'aaaaa', 'zzzzz', 'unknown', 'desconocido',
-      'deposito', 'retiro', 'transferencia'
+      'test',
+      'prueba',
+      'demo',
+      'temporal',
+      'temp',
+      'xxxxx',
+      'aaaaa',
+      'zzzzz',
+      'unknown',
+      'desconocido',
+      'deposito',
+      'retiro',
+      'transferencia',
     ];
 
     const concept = transaction.concept.toLowerCase();
@@ -227,12 +262,12 @@ export class TransactionValidatorService {
 
     for (const transaction of transactions) {
       const key = this.generateTransactionKey(transaction);
-      
+
       if (seen.has(key)) {
         duplicates.push(transaction);
       } else {
         seen.add(key);
-        
+
         const validation = await this.validateTransaction(transaction);
         if (validation.isValid) {
           if (validation.warnings.length > 0) {

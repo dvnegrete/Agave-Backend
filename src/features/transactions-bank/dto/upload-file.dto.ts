@@ -1,4 +1,11 @@
-import { IsOptional, IsString, IsBoolean, IsNumber, Min, Max } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsBoolean,
+  IsNumber,
+  Min,
+  Max,
+} from 'class-validator';
 
 export class UploadFileDto {
   @IsOptional()

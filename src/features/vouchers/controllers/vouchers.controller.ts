@@ -16,7 +16,10 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { VouchersService } from '../services/vouchers.service';
-import { CreateTransactionDto, UpdateTransactionDto } from '../dto/transaction.dto';
+import {
+  CreateTransactionDto,
+  UpdateTransactionDto,
+} from '../dto/transaction.dto';
 import { ProcessFileDto } from '../dto/process-file.dto';
 import { ProcessedTransaction } from '../interfaces/transaction.interface';
 import { OcrService } from '../services/ocr.service';
@@ -44,7 +47,10 @@ export class VouchersController {
     @Body() processFileDto: ProcessFileDto,
   ) {
     try {
-      const result = await this.vouchersService.processFile(file, processFileDto);
+      const result = await this.vouchersService.processFile(
+        file,
+        processFileDto,
+      );
       return {
         message: 'Archivo procesado exitosamente',
         ...result,
@@ -61,7 +67,9 @@ export class VouchersController {
       new ParseFilePipe({
         validators: [
           new MaxFileSizeValidator({ maxSize: 10 * 1024 * 1024 }), // 10MB
-          new FileTypeValidator({ fileType: '.(jpg|jpeg|png|gif|bmp|webp|tiff|pdf)' }),
+          new FileTypeValidator({
+            fileType: '.(jpg|jpeg|png|gif|bmp|webp|tiff|pdf)',
+          }),
         ],
       }),
     )
@@ -98,11 +106,16 @@ export class VouchersController {
     message: string;
   }> {
     try {
-      const visionClient = this.ocrService['googleCloudClient'].getVisionClient();
-      const storageClient = this.ocrService['googleCloudClient'].getStorageClient();
-      const translateClient = this.ocrService['googleCloudClient'].getTranslateClient();
-      const textToSpeechClient = this.ocrService['googleCloudClient'].getTextToSpeechClient();
-      const speechClient = this.ocrService['googleCloudClient'].getSpeechClient();
+      const visionClient =
+        this.ocrService['googleCloudClient'].getVisionClient();
+      const storageClient =
+        this.ocrService['googleCloudClient'].getStorageClient();
+      const translateClient =
+        this.ocrService['googleCloudClient'].getTranslateClient();
+      const textToSpeechClient =
+        this.ocrService['googleCloudClient'].getTextToSpeechClient();
+      const speechClient =
+        this.ocrService['googleCloudClient'].getSpeechClient();
 
       const config = this.ocrService['googleCloudClient'].getConfig();
 
@@ -116,7 +129,7 @@ export class VouchersController {
           speech: !!speechClient,
         },
         projectId: config?.projectId,
-        message: this.ocrService['googleCloudClient'].isReady() 
+        message: this.ocrService['googleCloudClient'].isReady()
           ? 'Google Cloud está configurado y funcionando correctamente'
           : 'Google Cloud no está configurado o hay errores en la configuración',
       };
@@ -160,12 +173,16 @@ export class VouchersController {
   }
 
   @Get(':id')
-  async getTransactionById(@Param('id') id: string): Promise<ProcessedTransaction> {
+  async getTransactionById(
+    @Param('id') id: string,
+  ): Promise<ProcessedTransaction> {
     return await this.vouchersService.getTransactionById(id);
   }
 
   @Post()
-  async createTransaction(@Body() createTransactionDto: CreateTransactionDto): Promise<ProcessedTransaction> {
+  async createTransaction(
+    @Body() createTransactionDto: CreateTransactionDto,
+  ): Promise<ProcessedTransaction> {
     return await this.vouchersService.createTransaction(createTransactionDto);
   }
 
@@ -174,23 +191,32 @@ export class VouchersController {
     @Param('id') id: string,
     @Body() updateTransactionDto: UpdateTransactionDto,
   ): Promise<ProcessedTransaction> {
-    return await this.vouchersService.updateTransaction(id, updateTransactionDto);
+    return await this.vouchersService.updateTransaction(
+      id,
+      updateTransactionDto,
+    );
   }
 
   @Delete(':id')
-  async deleteTransaction(@Param('id') id: string): Promise<{ message: string }> {
+  async deleteTransaction(
+    @Param('id') id: string,
+  ): Promise<{ message: string }> {
     await this.vouchersService.deleteTransaction(id);
     return { message: 'Transacción eliminada exitosamente' };
   }
 
   @Post('batch')
-  async createBatchTransactions(@Body() transactions: CreateTransactionDto[]): Promise<ProcessedTransaction[]> {
+  async createBatchTransactions(
+    @Body() transactions: CreateTransactionDto[],
+  ): Promise<ProcessedTransaction[]> {
     const results: ProcessedTransaction[] = [];
     const errors: string[] = [];
 
     for (let i = 0; i < transactions.length; i++) {
       try {
-        const result = await this.vouchersService.createTransaction(transactions[i]);
+        const result = await this.vouchersService.createTransaction(
+          transactions[i],
+        );
         results.push(result);
       } catch (error) {
         errors.push(`Transacción ${i + 1}: ${error.message}`);
@@ -222,13 +248,16 @@ export class VouchersController {
     } else if (startDate && endDate) {
       const start = new Date(startDate);
       const end = new Date(endDate);
-      transactions = await this.vouchersService.getTransactionsByDateRange(start, end);
+      transactions = await this.vouchersService.getTransactionsByDateRange(
+        start,
+        end,
+      );
     } else {
       transactions = await this.vouchersService.getAllTransactions();
     }
 
     const csvContent = this.generateCSV(transactions);
-    
+
     return {
       content: csvContent,
       filename: `transactions_${new Date().toISOString().split('T')[0]}.csv`,
@@ -249,7 +278,10 @@ export class VouchersController {
     } else if (startDate && endDate) {
       const start = new Date(startDate);
       const end = new Date(endDate);
-      transactions = await this.vouchersService.getTransactionsByDateRange(start, end);
+      transactions = await this.vouchersService.getTransactionsByDateRange(
+        start,
+        end,
+      );
     } else {
       transactions = await this.vouchersService.getAllTransactions();
     }
@@ -275,7 +307,7 @@ export class VouchersController {
       'Fecha de Creación',
     ];
 
-    const rows = transactions.map(transaction => [
+    const rows = transactions.map((transaction) => [
       transaction.id,
       transaction.date.toISOString().split('T')[0],
       `"${transaction.description.replace(/"/g, '""')}"`,
@@ -288,7 +320,10 @@ export class VouchersController {
       transaction.createdAt.toISOString(),
     ]);
 
-    const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+    const csvContent = [
+      headers.join(','),
+      ...rows.map((row) => row.join(',')),
+    ].join('\n');
     return csvContent;
   }
 }

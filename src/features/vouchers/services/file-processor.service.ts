@@ -12,10 +12,16 @@ import {
 
 @Injectable()
 export class FileProcessorService {
-  async parseFile(file: Express.Multer.File, options?: ProcessFileDto): Promise<Transaction[]> {
+  async parseFile(
+    file: Express.Multer.File,
+    options?: ProcessFileDto,
+  ): Promise<Transaction[]> {
     try {
       const fileExtension = getFileExtension(file.originalname);
-      const fileContent = bufferToString(file.buffer, (options?.encoding as BufferEncoding) || 'utf-8');
+      const fileContent = bufferToString(
+        file.buffer,
+        (options?.encoding as BufferEncoding) || 'utf-8',
+      );
 
       switch (fileExtension.toLowerCase()) {
         case 'csv':
@@ -27,19 +33,32 @@ export class FileProcessorService {
         case 'xml':
           return this.parseXML(fileContent);
         default:
-          throw new BadRequestException(`Formato de archivo no soportado: ${fileExtension}`);
+          throw new BadRequestException(
+            `Formato de archivo no soportado: ${fileExtension}`,
+          );
       }
     } catch (error) {
-      throw new BadRequestException(`Error al procesar el archivo: ${error.message}`);
+      throw new BadRequestException(
+        `Error al procesar el archivo: ${error.message}`,
+      );
     }
   }
 
   private parseCSV(content: string, options?: ProcessFileDto): Transaction[] {
-    const lines = content.split('\n').filter(line => line.trim());
+    const lines = content.split('\n').filter((line) => line.trim());
     const transactions: Transaction[] = [];
 
     // Saltar la primera línea si es un encabezado
-    const dataLines = hasHeaderKeywords(lines[0], ['fecha', 'date', 'descripcion', 'description', 'monto', 'amount', 'tipo', 'type'])
+    const dataLines = hasHeaderKeywords(lines[0], [
+      'fecha',
+      'date',
+      'descripcion',
+      'description',
+      'monto',
+      'amount',
+      'tipo',
+      'type',
+    ])
       ? lines.slice(1)
       : lines;
 
@@ -60,14 +79,26 @@ export class FileProcessorService {
     return transactions;
   }
 
-  private parseCSVLine(line: string, lineNumber: number, options?: ProcessFileDto): Transaction | null {
+  private parseCSVLine(
+    line: string,
+    lineNumber: number,
+    options?: ProcessFileDto,
+  ): Transaction | null {
     const columns = splitCSVLine(line);
-    
+
     if (columns.length < 4) {
       throw new Error('Número insuficiente de columnas');
     }
 
-    const [dateStr, description, amountStr, type, accountNumber, reference, category] = columns;
+    const [
+      dateStr,
+      description,
+      amountStr,
+      type,
+      accountNumber,
+      reference,
+      category,
+    ] = columns;
 
     const date = parseDateFlexible(dateStr);
     const amount = parseAmountFlexible(amountStr);
@@ -86,7 +117,7 @@ export class FileProcessorService {
   }
 
   private parseTXT(content: string, options?: ProcessFileDto): Transaction[] {
-    const lines = content.split('\n').filter(line => line.trim());
+    const lines = content.split('\n').filter((line) => line.trim());
     const transactions: Transaction[] = [];
 
     for (let i = 0; i < lines.length; i++) {
@@ -106,15 +137,27 @@ export class FileProcessorService {
     return transactions;
   }
 
-  private parseTXTLine(line: string, lineNumber: number, options?: ProcessFileDto): Transaction | null {
+  private parseTXTLine(
+    line: string,
+    lineNumber: number,
+    options?: ProcessFileDto,
+  ): Transaction | null {
     // Asumir formato: FECHA|DESCRIPCION|MONTO|TIPO|CUENTA|REFERENCIA|CATEGORIA
     const parts = line.split('|');
-    
+
     if (parts.length < 4) {
       throw new Error('Formato de línea inválido');
     }
 
-    const [dateStr, description, amountStr, type, accountNumber, reference, category] = parts;
+    const [
+      dateStr,
+      description,
+      amountStr,
+      type,
+      accountNumber,
+      reference,
+      category,
+    ] = parts;
 
     const date = parseDateFlexible(dateStr);
     const amount = parseAmountFlexible(amountStr);
@@ -135,13 +178,15 @@ export class FileProcessorService {
   private parseJSON(content: string): Transaction[] {
     try {
       const data = JSON.parse(content);
-      
+
       if (Array.isArray(data)) {
-        return data.map(item => this.mapJSONToTransaction(item));
+        return data.map((item) => this.mapJSONToTransaction(item));
       } else if (data.transactions && Array.isArray(data.transactions)) {
-        return data.transactions.map(item => this.mapJSONToTransaction(item));
+        return data.transactions.map((item) => this.mapJSONToTransaction(item));
       } else {
-        throw new Error('Formato JSON inválido: se esperaba un array o un objeto con propiedad "transactions"');
+        throw new Error(
+          'Formato JSON inválido: se esperaba un array o un objeto con propiedad "transactions"',
+        );
       }
     } catch (error) {
       throw new Error(`Error al parsear JSON: ${error.message}`);
@@ -154,7 +199,8 @@ export class FileProcessorService {
       description: item.description || item.descripcion || item.concepto || '',
       amount: parseAmountFlexible(item.amount || item.monto || item.importe),
       type: this.parseTransactionType(item.type || item.tipo),
-      accountNumber: item.accountNumber || item.numero_cuenta || item.cuenta || '',
+      accountNumber:
+        item.accountNumber || item.numero_cuenta || item.cuenta || '',
       reference: item.reference || item.referencia,
       category: item.category || item.categoria,
       status: 'pending',
@@ -173,10 +219,12 @@ export class FileProcessorService {
     }
 
     const lowerType = typeStr.toLowerCase().trim();
-    
+
     if (['credit', 'credito', 'c', 'ingreso', 'deposito'].includes(lowerType)) {
       return 'credit';
-    } else if (['debit', 'debito', 'd', 'gasto', 'retiro'].includes(lowerType)) {
+    } else if (
+      ['debit', 'debito', 'd', 'gasto', 'retiro'].includes(lowerType)
+    ) {
       return 'debit';
     } else {
       throw new Error(`Tipo de transacción inválido: ${typeStr}`);

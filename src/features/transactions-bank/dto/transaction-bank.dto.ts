@@ -1,4 +1,12 @@
-import { IsNotEmpty, IsString, IsNumber, IsBoolean, IsIn, IsOptional, IsDateString } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsNumber,
+  IsBoolean,
+  IsIn,
+  IsOptional,
+  IsDateString,
+} from 'class-validator';
 
 export class CreateTransactionBankDto {
   @IsNotEmpty()
@@ -85,5 +93,3 @@ export class ReconciliationDto {
   @IsBoolean()
   autoReconcile?: boolean;
 }
-
-

@@ -13,8 +13,7 @@ export class OcrService {
     private readonly googleCloudClient: GoogleCloudClient,
     private readonly openAIService: OpenAIService,
     private readonly vertexAIService: VertexAIService,
-  ) {
-  }
+  ) {}
 
   private formatTimestamp(date: Date): string {
     const pad = (num: number) => num.toString().padStart(2, '0');
@@ -47,31 +46,46 @@ export class OcrService {
 
       const gcsUri = `gs://${bucketName}/${gcsFileName}`;
       const mimeType = this.getMimeType(fileExtension);
-      const isAsyncSupported = ['application/pdf', 'image/gif', 'image/tiff'].includes(mimeType);
+      const isAsyncSupported = [
+        'application/pdf',
+        'image/gif',
+        'image/tiff',
+      ].includes(mimeType);
 
       let allText = '';
 
       if (isAsyncSupported) {
         // RUTA ASÍNCRONA para PDF, GIF, TIFF
-        
+
         const outputPrefix = `ocr-results/${gcsFileName}`;
         const gcsDestinationUri = `gs://${bucketName}/${outputPrefix}/`;
-        
+
         const request = {
-          requests: [{
-            inputConfig: { gcsSource: { uri: gcsUri }, mimeType },
-            features: [{ type: 'DOCUMENT_TEXT_DETECTION' as const }],
-            imageContext: language ? { languageHints: [language] } : undefined,
-            outputConfig: { gcsDestination: { uri: gcsDestinationUri }, batchSize: 100 },
-          }],
+          requests: [
+            {
+              inputConfig: { gcsSource: { uri: gcsUri }, mimeType },
+              features: [{ type: 'DOCUMENT_TEXT_DETECTION' as const }],
+              imageContext: language
+                ? { languageHints: [language] }
+                : undefined,
+              outputConfig: {
+                gcsDestination: { uri: gcsDestinationUri },
+                batchSize: 100,
+              },
+            },
+          ],
         };
 
         const resultFilesToDelete: string[] = [];
         try {
-          const [operation] = await visionClient.asyncBatchAnnotateFiles(request as any);
+          const [operation] = await visionClient.asyncBatchAnnotateFiles(
+            request as any,
+          );
           await operation.promise();
-          
-          const [resultFiles] = await storageClient.bucket(bucketName).getFiles({ prefix: outputPrefix });
+
+          const [resultFiles] = await storageClient
+            .bucket(bucketName)
+            .getFiles({ prefix: outputPrefix });
           for (const resultFile of resultFiles) {
             resultFilesToDelete.push(resultFile.name);
             const [contents] = await resultFile.download();
@@ -83,15 +97,21 @@ export class OcrService {
         } finally {
           if (resultFilesToDelete.length > 0) {
             for (const fileName of resultFilesToDelete) {
-              await storageClient.bucket(bucketName).file(fileName).delete().catch(err =>
-                this.logger.error(`Error al eliminar el archivo de resultado ${fileName}: ${err.message}`)
-              );
+              await storageClient
+                .bucket(bucketName)
+                .file(fileName)
+                .delete()
+                .catch((err) =>
+                  this.logger.error(
+                    `Error al eliminar el archivo de resultado ${fileName}: ${err.message}`,
+                  ),
+                );
             }
           }
         }
       } else {
         // RUTA SÍNCRONA para JPG, PNG, etc.
-        
+
         const request = {
           image: { source: { imageUri: gcsUri } },
           features: [{ type: 'DOCUMENT_TEXT_DETECTION' as const }],
@@ -103,57 +123,69 @@ export class OcrService {
       }
 
       // const structuredData = await this.openAIService.processTextWithPrompt(allText);
-      const structuredData = await this.vertexAIService.processTextWithPrompt(allText);
+      const structuredData =
+        await this.vertexAIService.processTextWithPrompt(allText);
 
       const processingTime = Date.now() - startTime;
-      this.logger.log(`Procesamiento de archivo (Vision + VertexAI) completado en ${processingTime}ms para: ${filename}`);
+      this.logger.log(
+        `Procesamiento de archivo (Vision + VertexAI) completado en ${processingTime}ms para: ${filename}`,
+      );
 
       return {
         structuredData,
         originalFilename: filename,
         gcsFilename: gcsFileName,
       };
-
     } catch (error) {
       this.logger.error(`Error en el flujo de OCR para ${filename}:`, error);
       // El archivo subido es permanente y no debe eliminarse en caso de error.
-      throw new BadRequestException(`Error al procesar el archivo: ${error.message}`);
+      throw new BadRequestException(
+        `Error al procesar el archivo: ${error.message}`,
+      );
     }
   }
 
   private getMimeType(extension: string): string {
     switch (extension.toLowerCase()) {
-      case 'pdf': return 'application/pdf';
+      case 'pdf':
+        return 'application/pdf';
       case 'jpg':
-      case 'jpeg': return 'image/jpeg';
-      case 'png': return 'image/png';
-      case 'gif': return 'image/gif';
-      case 'bmp': return 'image/bmp';
-      case 'webp': return 'image/webp';
-      case 'tiff': return 'image/tiff';
-      default: return 'application/octet-stream';
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      case 'gif':
+        return 'image/gif';
+      case 'bmp':
+        return 'image/bmp';
+      case 'webp':
+        return 'image/webp';
+      case 'tiff':
+        return 'image/tiff';
+      default:
+        return 'application/octet-stream';
     }
   }
 
   async validateImageFormat(buffer: Buffer, filename: string): Promise<void> {
     const validHeaders = [
-      Buffer.from([0xFF, 0xD8, 0xFF]), // JPEG
-      Buffer.from([0x89, 0x50, 0x4E, 0x47]), // PNG
+      Buffer.from([0xff, 0xd8, 0xff]), // JPEG
+      Buffer.from([0x89, 0x50, 0x4e, 0x47]), // PNG
       Buffer.from([0x47, 0x49, 0x46]), // GIF
-      Buffer.from([0x42, 0x4D]), // BMP
+      Buffer.from([0x42, 0x4d]), // BMP
       Buffer.from([0x52, 0x49, 0x46, 0x46]), // WEBP
-      Buffer.from([0x49, 0x49, 0x2A, 0x00]), // TIFF (little endian)
-      Buffer.from([0x4D, 0x4D, 0x00, 0x2A]), // TIFF (big endian)
+      Buffer.from([0x49, 0x49, 0x2a, 0x00]), // TIFF (little endian)
+      Buffer.from([0x4d, 0x4d, 0x00, 0x2a]), // TIFF (big endian)
       Buffer.from([0x25, 0x50, 0x44, 0x46]), // PDF
     ];
 
-    const isValid = validHeaders.some(header => 
-      buffer.subarray(0, header.length).equals(header)
+    const isValid = validHeaders.some((header) =>
+      buffer.subarray(0, header.length).equals(header),
     );
 
     if (!isValid) {
       throw new BadRequestException(
-        `Formato de archivo no válido para: ${filename}. Formatos soportados: JPEG, PNG, GIF, BMP, WEBP, TIFF, PDF`
+        `Formato de archivo no válido para: ${filename}. Formatos soportados: JPEG, PNG, GIF, BMP, WEBP, TIFF, PDF`,
       );
     }
   }
@@ -166,12 +198,12 @@ export class OcrService {
     const gcsFileName = `p-${this.formatTimestamp(new Date())}-${uuidv4()}.${filename.split('.').pop()}`;
     return {
       structuredData: {
-        monto: "123.45",
-        fecha_pago: "2023-10-27",
-        referencia: "SIMULATED-REF-123",
-        banco: "Banco Simulado",
-        emisor: "Emisor Simulado",
-        faltan_datos: false
+        monto: '123.45',
+        fecha_pago: '2023-10-27',
+        referencia: 'SIMULATED-REF-123',
+        banco: 'Banco Simulado',
+        emisor: 'Emisor Simulado',
+        faltan_datos: false,
       },
       originalFilename: filename,
       gcsFilename: gcsFileName,

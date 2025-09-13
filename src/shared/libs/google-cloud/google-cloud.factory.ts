@@ -10,14 +10,16 @@ let googleCloudClientInstance: GoogleCloudClient | null = null;
  * Función de fábrica para crear una instancia única del cliente de Google Cloud
  * Implementa el patrón Singleton para evitar múltiples instancias
  */
-export function createGoogleCloudClient(configService: GoogleCloudConfigService): GoogleCloudClient {
+export function createGoogleCloudClient(
+  configService: GoogleCloudConfigService,
+): GoogleCloudClient {
   if (!googleCloudClientInstance) {
     logger.log('Creando nueva instancia del cliente de Google Cloud');
     googleCloudClientInstance = new GoogleCloudClient(configService);
   } else {
     logger.log('Reutilizando instancia existente del cliente de Google Cloud');
   }
-  
+
   return googleCloudClientInstance;
 }
 

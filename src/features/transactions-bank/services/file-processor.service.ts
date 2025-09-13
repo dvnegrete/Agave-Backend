@@ -2,13 +2,21 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import * as XLSX from 'xlsx';
 import { TransactionBank } from '../interfaces/transaction-bank.interface';
 import { UploadFileDto } from '../dto/upload-file.dto';
-import { getFileExtension, hasHeaderKeywords, splitCSVLine, bufferToString } from '../../../shared/common';
+import {
+  getFileExtension,
+  hasHeaderKeywords,
+  splitCSVLine,
+  bufferToString,
+} from '../../../shared/common';
 import { resolveBankStatementModel } from '../models/model-resolver';
 import { BankStatementModel } from '../models/bank-statement-model.interface';
 
 @Injectable()
 export class FileProcessorService {
-  async parseFile(file: Express.Multer.File, options?: UploadFileDto): Promise<TransactionBank[]> {
+  async parseFile(
+    file: Express.Multer.File,
+    options?: UploadFileDto,
+  ): Promise<TransactionBank[]> {
     try {
       const fileExtension = getFileExtension(file.originalname);
       const model = resolveBankStatementModel(options?.model, {
@@ -27,15 +35,23 @@ export class FileProcessorService {
         case 'json':
           return this.parseJSON(fileContent, options, model);
         default:
-          throw new BadRequestException(`Formato de archivo no soportado: ${fileExtension}`);
+          throw new BadRequestException(
+            `Formato de archivo no soportado: ${fileExtension}`,
+          );
       }
-    } catch (error) {
-      throw new BadRequestException(`Error al procesar el archivo: ${error.message}`);
+    } catch (error: any) {
+      throw new BadRequestException(
+        `Error al procesar el archivo: ${error.message}`,
+      );
     }
   }
 
-  private parseCSV(content: string, options: UploadFileDto | undefined, model: BankStatementModel): TransactionBank[] {
-    const lines = content.split('\n').filter(line => line.trim());
+  private parseCSV(
+    content: string,
+    options: UploadFileDto | undefined,
+    model: BankStatementModel,
+  ): TransactionBank[] {
+    const lines = content.split('\n').filter((line) => line.trim());
     const transactions: TransactionBank[] = [];
 
     // Saltar la primera línea si es un encabezado segun el modelo
@@ -52,7 +68,7 @@ export class FileProcessorService {
         if (transaction) {
           transactions.push(transaction);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.warn(`Error en línea ${i + 1}: ${error.message}`);
       }
     }
@@ -60,37 +76,45 @@ export class FileProcessorService {
     return transactions;
   }
 
-  private parseXLSX(buffer: Buffer, options: UploadFileDto | undefined, model: BankStatementModel): TransactionBank[] {
+  private parseXLSX(
+    buffer: Buffer,
+    options: UploadFileDto | undefined,
+    model: BankStatementModel,
+  ): TransactionBank[] {
     const workbook = XLSX.read(buffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
-    const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
-    
+    const data = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
     const transactions: TransactionBank[] = [];
-    
+
     // Saltar encabezado si existe, segun el modelo
-    const hasHeaderRow = hasHeaderKeywords(data[0], model.headerKeywords);
+    const hasHeaderRow = hasHeaderKeywords(data[0] as any, model.headerKeywords);
     const dataRows = hasHeaderRow ? data.slice(1) : data;
-    
+
     for (let i = 0; i < dataRows.length; i++) {
-      const row = dataRows[i];
-      if (!row || row.length === 0) continue;
-      
+      const row = dataRows[i] as any[];
+      if (!row || !Array.isArray(row) || row.length === 0) continue;
+
       try {
         const transaction = model.mapRowToTransaction(row, options);
         if (transaction) {
           transactions.push(transaction);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.warn(`Error en fila ${i + 1}: ${error.message}`);
       }
     }
-    
+
     return transactions;
   }
 
-  private parseTXT(content: string, options: UploadFileDto | undefined, model: BankStatementModel): TransactionBank[] {
-    const lines = content.split('\n').filter(line => line.trim());
+  private parseTXT(
+    content: string,
+    options: UploadFileDto | undefined,
+    model: BankStatementModel,
+  ): TransactionBank[] {
+    const lines = content.split('\n').filter((line) => line.trim());
     const transactions: TransactionBank[] = [];
 
     for (let i = 0; i < lines.length; i++) {
@@ -98,11 +122,13 @@ export class FileProcessorService {
       if (!line) continue;
 
       try {
-        const transaction = model.mapTxtLine ? model.mapTxtLine(line, options) : this.parseGenericTxtLine(line);
+        const transaction = model.mapTxtLine
+          ? model.mapTxtLine(line, options)
+          : this.parseGenericTxtLine(line);
         if (transaction) {
           transactions.push(transaction);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.warn(`Error en línea ${i + 1}: ${error.message}`);
       }
     }
@@ -114,9 +140,12 @@ export class FileProcessorService {
     // Formato genérico: FECHA|HORA|CONCEPTO|MONTO|MONEDA|TIPO_DEPOSITO (true/false)
     const parts = line.split('|');
     if (parts.length < 6) {
-      throw new Error('Formato de línea inválido. Se requieren: fecha, hora, concepto, monto, moneda, tipo_deposito');
+      throw new Error(
+        'Formato de línea inválido. Se requieren: fecha, hora, concepto, monto, moneda, tipo_deposito',
+      );
     }
-    const [dateStr, timeStr, concept, amountStr, currency, isDepositStr] = parts;
+    const [dateStr, timeStr, concept, amountStr, currency, isDepositStr] =
+      parts;
     const amount = Number(amountStr.replace(/[^\d.,-]/g, '').replace(',', '.'));
     const bool = isDepositStr.toLowerCase().trim();
     const isDeposit = ['true', '1', 'yes', 'si', 'sí'].includes(bool);
@@ -132,20 +161,29 @@ export class FileProcessorService {
     };
   }
 
-  private parseJSON(content: string, options: UploadFileDto | undefined, model: BankStatementModel): TransactionBank[] {
+  private parseJSON(
+    content: string,
+    options: UploadFileDto | undefined,
+    model: BankStatementModel,
+  ): TransactionBank[] {
     try {
       const data = JSON.parse(content);
-      
+
       if (Array.isArray(data)) {
-        return data.map(item => (model.mapJsonItem ? model.mapJsonItem(item, options) : item));
+        return data.map((item) =>
+          model.mapJsonItem ? model.mapJsonItem(item, options) : item,
+        );
       } else if (data.transactions && Array.isArray(data.transactions)) {
-        return data.transactions.map(item => (model.mapJsonItem ? model.mapJsonItem(item, options) : item));
+        return data.transactions.map((item) =>
+          model.mapJsonItem ? model.mapJsonItem(item, options) : item,
+        );
       } else {
-        throw new Error('Formato JSON inválido: se esperaba un array o un objeto con propiedad "transactions"');
+        throw new Error(
+          'Formato JSON inválido: se esperaba un array o un objeto con propiedad "transactions"',
+        );
       }
-    } catch (error) {
+    } catch (error: any) {
       throw new Error(`Error al parsear JSON: ${error.message}`);
     }
   }
-
 }

@@ -3,10 +3,15 @@ export function getFileExtension(filename: string): string {
   return parts.length > 1 ? parts[parts.length - 1] : '';
 }
 
-export function hasHeaderKeywords(line: string | any[], keywords: string[]): boolean {
+export function hasHeaderKeywords(
+  line: string | any[],
+  keywords: string[],
+): boolean {
   if (Array.isArray(line)) {
     const lowerLine = line.map((cell) => cell?.toString().toLowerCase() || '');
-    return keywords.some((keyword) => lowerLine.some((cell) => cell.includes(keyword)));
+    return keywords.some((keyword) =>
+      lowerLine.some((cell) => cell.includes(keyword)),
+    );
   }
   if (typeof line === 'string') {
     const lowerLine = line.toLowerCase();
@@ -37,8 +42,9 @@ export function splitCSVLine(line: string): string[] {
   return result;
 }
 
-export function bufferToString(buffer: Buffer, encoding: BufferEncoding = 'utf-8'): string {
+export function bufferToString(
+  buffer: Buffer,
+  encoding: BufferEncoding = 'utf-8',
+): string {
   return buffer.toString(encoding);
 }
-
-

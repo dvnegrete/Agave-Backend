@@ -10,7 +10,8 @@ export function parseDateFlexible(dateStr: string | Date): Date {
   const trimmed = dateStr.toString().trim();
 
   // Formato español corto: DD/mmm/YY (ej: 31/jul/25)
-  const spanishMonthPattern = /^(\d{1,2})\/(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\/(\d{2,4})$/i;
+  const spanishMonthPattern =
+    /^(\d{1,2})\/(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\/(\d{2,4})$/i;
   const match = trimmed.toLowerCase().match(spanishMonthPattern);
   if (match) {
     const [, day, month, year] = match;
@@ -28,9 +29,9 @@ export function parseDateFlexible(dateStr: string | Date): Date {
       nov: 10,
       dic: 11,
     };
-    const monthIndex = monthMap[month as string];
-    const dayNum = parseInt(day as string, 10);
-    const yearNum = parseInt(year as string, 10);
+    const monthIndex = monthMap[month];
+    const dayNum = parseInt(day, 10);
+    const yearNum = parseInt(year, 10);
     const fullYear = yearNum < 100 ? 2000 + yearNum : yearNum;
     const date = new Date(fullYear, monthIndex, dayNum);
     if (!isNaN(date.getTime())) return date;
@@ -54,7 +55,11 @@ export function parseDateFlexible(dateStr: string | Date): Date {
   const isoMatch = trimmed.match(isoPattern);
   if (isoMatch) {
     const [, year, month, day] = isoMatch;
-    const date = new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
+    const date = new Date(
+      parseInt(year, 10),
+      parseInt(month, 10) - 1,
+      parseInt(day, 10),
+    );
     if (!isNaN(date.getTime())) return date;
   }
 
@@ -84,9 +89,25 @@ export function parseBooleanFlexible(value: any): boolean {
   if (typeof value === 'boolean') return value;
   if (!value) throw new Error('Valor booleano requerido');
   const lower = value.toString().toLowerCase().trim();
-  if (['true', '1', 'yes', 'si', 'sí', 'deposit', 'deposito', 'ingreso', 'abono'].includes(lower)) return true;
-  if (['false', '0', 'no', 'withdrawal', 'retiro', 'gasto', 'cargo'].includes(lower)) return false;
+  if (
+    [
+      'true',
+      '1',
+      'yes',
+      'si',
+      'sí',
+      'deposit',
+      'deposito',
+      'ingreso',
+      'abono',
+    ].includes(lower)
+  )
+    return true;
+  if (
+    ['false', '0', 'no', 'withdrawal', 'retiro', 'gasto', 'cargo'].includes(
+      lower,
+    )
+  )
+    return false;
   throw new Error(`Valor booleano inválido: ${value}`);
 }
-
-

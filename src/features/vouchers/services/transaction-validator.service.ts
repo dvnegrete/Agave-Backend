@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { Transaction, TransactionValidationResult } from '../interfaces/transaction.interface';
+import {
+  Transaction,
+  TransactionValidationResult,
+} from '../interfaces/transaction.interface';
 import { REFERENCE_PATTERN } from '@/shared/common';
 
 @Injectable()
@@ -10,7 +13,9 @@ export class TransactionValidatorService {
   private readonly ACCOUNT_NUMBER_PATTERN = /^[0-9]{10,20}$/;
   private readonly REFERENCE_PATTERN = REFERENCE_PATTERN;
 
-  async validateTransaction(transaction: Transaction): Promise<TransactionValidationResult> {
+  async validateTransaction(
+    transaction: Transaction,
+  ): Promise<TransactionValidationResult> {
     const errors: string[] = [];
     const warnings: string[] = [];
 
@@ -76,14 +81,20 @@ export class TransactionValidatorService {
     }
   }
 
-  private validateDescription(description: string, errors: string[], warnings: string[]): void {
+  private validateDescription(
+    description: string,
+    errors: string[],
+    warnings: string[],
+  ): void {
     if (!description || description.trim().length === 0) {
       errors.push('Descripción es requerida');
       return;
     }
 
     if (description.trim().length > this.MAX_DESCRIPTION_LENGTH) {
-      errors.push(`La descripción no puede exceder ${this.MAX_DESCRIPTION_LENGTH} caracteres`);
+      errors.push(
+        `La descripción no puede exceder ${this.MAX_DESCRIPTION_LENGTH} caracteres`,
+      );
     }
 
     if (description.trim().length < 3) {
@@ -106,7 +117,11 @@ export class TransactionValidatorService {
     }
   }
 
-  private validateAmount(amount: number, errors: string[], warnings: string[]): void {
+  private validateAmount(
+    amount: number,
+    errors: string[],
+    warnings: string[],
+  ): void {
     if (typeof amount !== 'number' || isNaN(amount)) {
       errors.push('Monto debe ser un número válido');
       return;
@@ -143,14 +158,20 @@ export class TransactionValidatorService {
     }
   }
 
-  private validateAccountNumber(accountNumber: string, errors: string[], warnings: string[]): void {
+  private validateAccountNumber(
+    accountNumber: string,
+    errors: string[],
+    warnings: string[],
+  ): void {
     if (!accountNumber || accountNumber.trim().length === 0) {
       errors.push('Número de cuenta es requerido');
       return;
     }
 
     if (!this.ACCOUNT_NUMBER_PATTERN.test(accountNumber.trim())) {
-      errors.push('Número de cuenta debe tener entre 10 y 20 dígitos numéricos');
+      errors.push(
+        'Número de cuenta debe tener entre 10 y 20 dígitos numéricos',
+      );
     }
 
     // Verificar si es una cuenta de prueba
@@ -165,13 +186,19 @@ export class TransactionValidatorService {
     }
   }
 
-  private validateReference(reference: string, errors: string[], warnings: string[]): void {
+  private validateReference(
+    reference: string,
+    errors: string[],
+    warnings: string[],
+  ): void {
     if (!reference || reference.trim().length === 0) {
       return; // Referencia es opcional
     }
 
     if (!this.REFERENCE_PATTERN.test(reference.trim())) {
-      errors.push('Referencia debe contener solo letras, números, guiones y guiones bajos (máximo 50 caracteres)');
+      errors.push(
+        'Referencia debe contener solo letras, números, guiones y guiones bajos (máximo 50 caracteres)',
+      );
     }
 
     if (reference.trim().length < 3) {
@@ -185,8 +212,15 @@ export class TransactionValidatorService {
     }
 
     const validCategories = [
-      'alimentacion', 'transporte', 'servicios', 'entretenimiento',
-      'salud', 'educacion', 'vivienda', 'ropa', 'otros'
+      'alimentacion',
+      'transporte',
+      'servicios',
+      'entretenimiento',
+      'salud',
+      'educacion',
+      'vivienda',
+      'ropa',
+      'otros',
     ];
 
     if (!validCategories.includes(category.toLowerCase().trim())) {
@@ -194,7 +228,11 @@ export class TransactionValidatorService {
     }
   }
 
-  private validateBusinessRules(transaction: Transaction, errors: string[], warnings: string[]): void {
+  private validateBusinessRules(
+    transaction: Transaction,
+    errors: string[],
+    warnings: string[],
+  ): void {
     // Regla: Transacciones de crédito muy grandes requieren atención especial
     if (transaction.type === 'credit' && transaction.amount > 100000) {
       warnings.push('Transacción de crédito de monto alto detectada');
@@ -219,8 +257,16 @@ export class TransactionValidatorService {
 
     // Regla: Verificar descripciones sospechosas
     const suspiciousKeywords = [
-      'test', 'prueba', 'demo', 'temporal', 'temp',
-      'xxxxx', 'aaaaa', 'zzzzz', 'unknown', 'desconocido'
+      'test',
+      'prueba',
+      'demo',
+      'temporal',
+      'temp',
+      'xxxxx',
+      'aaaaa',
+      'zzzzz',
+      'unknown',
+      'desconocido',
     ];
 
     const description = transaction.description.toLowerCase();
@@ -245,12 +291,12 @@ export class TransactionValidatorService {
 
     for (const transaction of transactions) {
       const key = this.generateTransactionKey(transaction);
-      
+
       if (seen.has(key)) {
         duplicates.push(transaction);
       } else {
         seen.add(key);
-        
+
         const validation = await this.validateTransaction(transaction);
         if (validation.isValid) {
           if (validation.warnings.length > 0) {

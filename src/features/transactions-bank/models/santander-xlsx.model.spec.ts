@@ -25,12 +25,17 @@ describe('SantanderXlsxModel', () => {
   });
 
   it('mapJsonItem debe soportar llaves equivalentes', () => {
-    const item = { fecha: '31/jul/25', hora: '14:05:22', concepto: 'ABONO', monto: 2500, moneda: 'MXN', deposito: true };
+    const item = {
+      fecha: '31/jul/25',
+      hora: '14:05:22',
+      concepto: 'ABONO',
+      monto: 2500,
+      moneda: 'MXN',
+      deposito: true,
+    };
     const tx = SantanderXlsxModel.mapJsonItem!(item, undefined);
     expect(tx.date).toBeDefined();
     expect(tx.is_deposit).toBe(true);
     expect(tx.amount).toBe(2500);
   });
 });
-
-

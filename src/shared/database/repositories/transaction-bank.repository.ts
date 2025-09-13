@@ -1,74 +1,83 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma.service';
-import { CreateTransactionBankDto, UpdateTransactionBankDto } from '../../../features/transactions-bank/dto/transaction-bank.dto';
+import { Repository } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
+import { TransactionBank } from '../entities/transaction-bank.entity';
+import {
+  CreateTransactionBankDto,
+  UpdateTransactionBankDto,
+} from '../../../features/transactions-bank/dto/transaction-bank.dto';
+import { Between } from 'typeorm';
 
 @Injectable()
 export class TransactionBankRepository {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    @InjectRepository(TransactionBank)
+    private transactionBankRepository: Repository<TransactionBank>,
+  ) {}
 
-  async create(data: CreateTransactionBankDto): Promise<any> {
-    return (this.prisma as any).transactionsBank.create({
-      data: {
-        date: new Date(data.date),
-        time: data.time,
-        concept: data.concept,
-        amount: data.amount,
-        currency: data.currency,
-        is_deposit: data.is_deposit,
-        confirmationStatus: data.validation_flag || false,
-      },
+  async create(data: CreateTransactionBankDto): Promise<TransactionBank> {
+    const transactionBank = this.transactionBankRepository.create({
+      date: new Date(data.date),
+      time: data.time,
+      concept: data.concept,
+      amount: data.amount,
+      currency: data.currency,
+      is_deposit: data.is_deposit,
+      confirmation_status: data.validation_flag || false,
     });
+    return this.transactionBankRepository.save(transactionBank);
   }
 
-  async createMany(data: CreateTransactionBankDto[]): Promise<any[]> {
-    await (this.prisma as any).transactionsBank.createMany({
-      data: data.map((transaction) => ({
+  async createMany(
+    data: CreateTransactionBankDto[],
+  ): Promise<TransactionBank[]> {
+    const transactionBanks = data.map((transaction) =>
+      this.transactionBankRepository.create({
         date: new Date(transaction.date),
         time: transaction.time,
         concept: transaction.concept,
         amount: transaction.amount,
         currency: transaction.currency,
         is_deposit: transaction.is_deposit,
-        confirmationStatus: transaction.validation_flag || false,
-      })),
+        confirmation_status: transaction.validation_flag || false,
+      }),
+    );
+    return this.transactionBankRepository.save(transactionBanks);
+  }
+
+  async findAll(): Promise<TransactionBank[]> {
+    return this.transactionBankRepository.find({
+      order: { created_at: 'DESC' },
     });
+  }
+
+  async findById(id: string): Promise<TransactionBank | null> {
+    return this.transactionBankRepository.findOne({
+      where: { id },
+    });
+  }
+
+  async findByStatus(): Promise<TransactionBank[]> {
     return this.findAll();
   }
 
-  async findAll(): Promise<any[]> {
-    return (this.prisma as any).transactionsBank.findMany({
-      orderBy: { createdAt: 'desc' },
-    });
-  }
-
-  async findById(id: string): Promise<any | null> {
-    let whereId: any = id as any;
-    try {
-      whereId = BigInt(id);
-    } catch (_) {}
-    return (this.prisma as any).transactionsBank.findUnique({
-      where: { id: whereId },
-    });
-  }
-
-  async findByStatus(_status: any): Promise<any[]> {
-    return this.findAll();
-  }
-
-  async findByDateRange(startDate: Date, endDate: Date): Promise<any[]> {
-    return (this.prisma as any).transactionsBank.findMany({
+  async findByDateRange(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<TransactionBank[]> {
+    return this.transactionBankRepository.find({
       where: {
-        date: {
-          gte: startDate,
-          lte: endDate,
-        },
+        date: Between(startDate, endDate),
       },
-      orderBy: { createdAt: 'desc' },
+      order: { created_at: 'DESC' },
     });
   }
 
-  async update(id: string, data: UpdateTransactionBankDto): Promise<any> {
-    const updateData: any = {};
+  async update(
+    id: string,
+    data: UpdateTransactionBankDto,
+  ): Promise<TransactionBank> {
+    const updateData: Partial<TransactionBank> = {};
 
     if (data.date) updateData.date = new Date(data.date);
     if (data.time) updateData.time = data.time;
@@ -76,49 +85,60 @@ export class TransactionBankRepository {
     if (data.amount !== undefined) updateData.amount = data.amount;
     if (data.currency) updateData.currency = data.currency;
     if (data.is_deposit !== undefined) updateData.is_deposit = data.is_deposit;
-    if (data.validation_flag !== undefined) updateData.confirmationStatus = data.validation_flag;
+    if (data.validation_flag !== undefined)
+      updateData.confirmation_status = data.validation_flag;
 
-    let whereId: any = id as any;
-    try {
-      whereId = BigInt(id);
-    } catch (_) {}
-
-    return (this.prisma as any).transactionsBank.update({
-      where: { id: whereId },
-      data: updateData,
-    });
+    await this.transactionBankRepository.update(id, updateData);
+    const updated = await this.transactionBankRepository.findOne({ where: { id } });
+    if (!updated) {
+      throw new Error('Transaction not found after update');
+    }
+    return updated;
   }
 
-  async delete(id: string): Promise<any> {
-    let whereId: any = id as any;
-    try {
-      whereId = BigInt(id);
-    } catch (_) {}
-    return (this.prisma as any).transactionsBank.delete({
-      where: { id: whereId },
+  async delete(id: string): Promise<TransactionBank> {
+    const transactionBank = await this.transactionBankRepository.findOne({
+      where: { id },
     });
+    if (!transactionBank) {
+      throw new Error('Transaction not found');
+    }
+    await this.transactionBankRepository.delete(id);
+    return transactionBank;
   }
 
-  async getTransactionSummary() {
-    const total = await (this.prisma as any).transactionsBank.count();
+  async getTransactionSummary(): Promise<{
+    total: number;
+    pending: number;
+    processed: number;
+    failed: number;
+    reconciled: number;
+    totalAmount: number;
+    currencies: string[];
+    concepts: string[];
+  }> {
+    const total = await this.transactionBankRepository.count();
     const pending = total;
     const processed = 0;
     const failed = 0;
     const reconciled = 0;
 
-    const totalAmount = await (this.prisma as any).transactionsBank.aggregate({
-      _sum: { amount: true },
-    });
+    const result = await this.transactionBankRepository
+      .createQueryBuilder('transaction')
+      .select('SUM(transaction.amount)', 'totalAmount')
+      .getRawOne<{ totalAmount: number | null }>();
 
-    const currencies = await (this.prisma as any).transactionsBank.findMany({
-      select: { currency: true },
-      distinct: ['currency'],
-    });
+    const currencies = await this.transactionBankRepository
+      .createQueryBuilder('transaction')
+      .select('DISTINCT transaction.currency', 'currency')
+      .where('transaction.currency IS NOT NULL')
+      .getRawMany<{ currency: string }>();
 
-    const concepts = await (this.prisma as any).transactionsBank.findMany({
-      select: { concept: true },
-      distinct: ['concept'],
-    });
+    const concepts = await this.transactionBankRepository
+      .createQueryBuilder('transaction')
+      .select('DISTINCT transaction.concept', 'concept')
+      .where('transaction.concept IS NOT NULL')
+      .getRawMany<{ concept: string }>();
 
     return {
       total,
@@ -126,25 +146,28 @@ export class TransactionBankRepository {
       processed,
       failed,
       reconciled,
-      totalAmount: totalAmount._sum.amount || 0,
-      currencies: currencies.map((c: any) => c.currency).filter((c: any): c is string => !!c),
-      concepts: concepts.map((c: any) => c.concept).filter((c: any): c is string => !!c),
+      totalAmount: result?.totalAmount || 0,
+      currencies: currencies
+        .map((c) => c.currency)
+        .filter((c): c is string => !!c),
+      concepts: concepts
+        .map((c) => c.concept)
+        .filter((c): c is string => !!c),
     };
   }
 
   async findDuplicateConcepts(): Promise<string[]> {
-    const duplicates = await (this.prisma as any).transactionsBank.groupBy({
-      by: ['concept'],
-      _count: { concept: true },
-      having: {
-        concept: {
-          _count: { gt: 1 },
-        },
-      },
-    });
+    const duplicates = await this.transactionBankRepository
+      .createQueryBuilder('transaction')
+      .select('transaction.concept', 'concept')
+      .addSelect('COUNT(transaction.concept)', 'count')
+      .where('transaction.concept IS NOT NULL')
+      .groupBy('transaction.concept')
+      .having('COUNT(transaction.concept) > 1')
+      .getRawMany<{ concept: string; count: number }>();
 
-    return duplicates.map((d: any) => d.concept).filter((c: any): c is string => !!c);
+    return duplicates
+      .map((d) => d.concept)
+      .filter((c): c is string => !!c);
   }
 }
-
-

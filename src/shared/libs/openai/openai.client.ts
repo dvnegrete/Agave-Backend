@@ -19,13 +19,17 @@ export class OpenAIClient implements OnModuleInit {
         this.logger.error('Error al inicializar el cliente de OpenAI:', error);
       }
     } else {
-      this.logger.warn('El servicio de OpenAI está deshabilitado. No se inicializará el cliente.');
+      this.logger.warn(
+        'El servicio de OpenAI está deshabilitado. No se inicializará el cliente.',
+      );
     }
   }
 
   getClient(): OpenAI {
     if (!this.client) {
-      this.logger.warn('Se intentó acceder al cliente de OpenAI pero no está inicializado.');
+      this.logger.warn(
+        'Se intentó acceder al cliente de OpenAI pero no está inicializado.',
+      );
     }
     return this.client;
   }

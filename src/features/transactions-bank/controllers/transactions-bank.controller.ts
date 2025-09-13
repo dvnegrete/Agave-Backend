@@ -16,13 +16,19 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { TransactionsBankService } from '../services/transactions-bank.service';
-import { CreateTransactionBankDto, UpdateTransactionBankDto, ReconciliationDto } from '../dto/transaction-bank.dto';
+import {
+  CreateTransactionBankDto,
+  UpdateTransactionBankDto,
+  ReconciliationDto,
+} from '../dto/transaction-bank.dto';
 import { UploadFileDto } from '../dto/upload-file.dto';
 import { ProcessedBankTransaction } from '../interfaces/transaction-bank.interface';
 
 @Controller('transactions-bank')
 export class TransactionsBankController {
-  constructor(private readonly transactionsBankService: TransactionsBankService) {}
+  constructor(
+    private readonly transactionsBankService: TransactionsBankService,
+  ) {}
 
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
@@ -41,13 +47,17 @@ export class TransactionsBankController {
       }
 
       if (!file.mimetype) {
-        throw new BadRequestException('El archivo no tiene un tipo MIME válido');
+        throw new BadRequestException(
+          'El archivo no tiene un tipo MIME válido',
+        );
       }
 
       // Validar tamaño del archivo (10MB)
       const maxSize = 10 * 1024 * 1024;
       if (file.size > maxSize) {
-        throw new BadRequestException(`El archivo es demasiado grande. Tamaño máximo: ${maxSize / (1024 * 1024)}MB`);
+        throw new BadRequestException(
+          `El archivo es demasiado grande. Tamaño máximo: ${maxSize / (1024 * 1024)}MB`,
+        );
       }
 
       // Validar tipo de archivo
@@ -55,17 +65,27 @@ export class TransactionsBankController {
         'text/csv',
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // xlsx
         'text/plain',
-        'application/json'
+        'application/json',
       ];
-      
+
       const allowedExtensions = ['.csv', '.xlsx', '.txt', '.json'];
-      const fileExtension = file.originalname.toLowerCase().substring(file.originalname.lastIndexOf('.'));
-      
-      if (!allowedMimeTypes.includes(file.mimetype) && !allowedExtensions.includes(fileExtension)) {
-        throw new BadRequestException('Tipo de archivo no soportado. Formatos permitidos: CSV, XLSX, TXT, JSON');
+      const fileExtension = file.originalname
+        .toLowerCase()
+        .substring(file.originalname.lastIndexOf('.'));
+
+      if (
+        !allowedMimeTypes.includes(file.mimetype) &&
+        !allowedExtensions.includes(fileExtension)
+      ) {
+        throw new BadRequestException(
+          'Tipo de archivo no soportado. Formatos permitidos: CSV, XLSX, TXT, JSON',
+        );
       }
 
-      const result = await this.transactionsBankService.processFile(file, uploadFileDto);
+      const result = await this.transactionsBankService.processFile(
+        file,
+        uploadFileDto,
+      );
       return {
         message: 'Archivo de transacciones bancarias procesado exitosamente',
         ...result,
@@ -88,7 +108,10 @@ export class TransactionsBankController {
     if (startDate && endDate) {
       const start = new Date(startDate);
       const end = new Date(endDate);
-      return await this.transactionsBankService.getTransactionsByDateRange(start, end);
+      return await this.transactionsBankService.getTransactionsByDateRange(
+        start,
+        end,
+      );
     }
 
     return await this.transactionsBankService.getAllTransactions();
@@ -100,13 +123,19 @@ export class TransactionsBankController {
   }
 
   @Get(':id')
-  async getTransactionById(@Param('id') id: string): Promise<ProcessedBankTransaction> {
+  async getTransactionById(
+    @Param('id') id: string,
+  ): Promise<ProcessedBankTransaction> {
     return await this.transactionsBankService.getTransactionById(id);
   }
 
   @Post()
-  async createTransaction(@Body() createTransactionDto: CreateTransactionBankDto): Promise<ProcessedBankTransaction> {
-    return await this.transactionsBankService.createTransaction(createTransactionDto);
+  async createTransaction(
+    @Body() createTransactionDto: CreateTransactionBankDto,
+  ): Promise<ProcessedBankTransaction> {
+    return await this.transactionsBankService.createTransaction(
+      createTransactionDto,
+    );
   }
 
   @Put(':id')
@@ -114,23 +143,32 @@ export class TransactionsBankController {
     @Param('id') id: string,
     @Body() updateTransactionDto: UpdateTransactionBankDto,
   ): Promise<ProcessedBankTransaction> {
-    return await this.transactionsBankService.updateTransaction(id, updateTransactionDto);
+    return await this.transactionsBankService.updateTransaction(
+      id,
+      updateTransactionDto,
+    );
   }
 
   @Delete(':id')
-  async deleteTransaction(@Param('id') id: string): Promise<{ message: string }> {
+  async deleteTransaction(
+    @Param('id') id: string,
+  ): Promise<{ message: string }> {
     await this.transactionsBankService.deleteTransaction(id);
     return { message: 'Transacción bancaria eliminada exitosamente' };
   }
 
   @Post('batch')
-  async createBatchTransactions(@Body() transactions: CreateTransactionBankDto[]): Promise<ProcessedBankTransaction[]> {
+  async createBatchTransactions(
+    @Body() transactions: CreateTransactionBankDto[],
+  ): Promise<ProcessedBankTransaction[]> {
     const results: ProcessedBankTransaction[] = [];
     const errors: string[] = [];
 
     for (let i = 0; i < transactions.length; i++) {
       try {
-        const result = await this.transactionsBankService.createTransaction(transactions[i]);
+        const result = await this.transactionsBankService.createTransaction(
+          transactions[i],
+        );
         results.push(result);
       } catch (error) {
         errors.push(`Transacción ${i + 1}: ${error.message}`);
@@ -152,7 +190,10 @@ export class TransactionsBankController {
   @Post('reconcile')
   async reconcileTransactions(@Body() reconciliationDto: ReconciliationDto) {
     try {
-      const result = await this.transactionsBankService.reconcileTransactions(reconciliationDto);
+      const result =
+        await this.transactionsBankService.reconcileTransactions(
+          reconciliationDto,
+        );
       return {
         message: 'Reconciliación completada',
         ...result,
@@ -171,17 +212,22 @@ export class TransactionsBankController {
     let transactions: ProcessedBankTransaction[];
 
     if (status) {
-      transactions = await this.transactionsBankService.getTransactionsByStatus(status);
+      transactions =
+        await this.transactionsBankService.getTransactionsByStatus(status);
     } else if (startDate && endDate) {
       const start = new Date(startDate);
       const end = new Date(endDate);
-      transactions = await this.transactionsBankService.getTransactionsByDateRange(start, end);
+      transactions =
+        await this.transactionsBankService.getTransactionsByDateRange(
+          start,
+          end,
+        );
     } else {
       transactions = await this.transactionsBankService.getAllTransactions();
     }
 
     const csvContent = this.generateCSV(transactions);
-    
+
     return {
       content: csvContent,
       filename: `bank_transactions_${new Date().toISOString().split('T')[0]}.csv`,
@@ -198,11 +244,16 @@ export class TransactionsBankController {
     let transactions: ProcessedBankTransaction[];
 
     if (status) {
-      transactions = await this.transactionsBankService.getTransactionsByStatus(status);
+      transactions =
+        await this.transactionsBankService.getTransactionsByStatus(status);
     } else if (startDate && endDate) {
       const start = new Date(startDate);
       const end = new Date(endDate);
-      transactions = await this.transactionsBankService.getTransactionsByDateRange(start, end);
+      transactions =
+        await this.transactionsBankService.getTransactionsByDateRange(
+          start,
+          end,
+        );
     } else {
       transactions = await this.transactionsBankService.getAllTransactions();
     }
@@ -227,7 +278,7 @@ export class TransactionsBankController {
       'Fecha de Creación',
     ];
 
-    const rows = transactions.map(transaction => [
+    const rows = transactions.map((transaction) => [
       transaction.id,
       transaction.date,
       transaction.time,
@@ -239,7 +290,10 @@ export class TransactionsBankController {
       transaction.createdAt.toISOString(),
     ]);
 
-    const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+    const csvContent = [
+      headers.join(','),
+      ...rows.map((row) => row.join(',')),
+    ].join('\n');
     return csvContent;
   }
 }

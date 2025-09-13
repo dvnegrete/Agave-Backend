@@ -8,7 +8,9 @@ export function createSupabaseConfig(configService: ConfigService) {
   const serviceRoleKey = configService.get<string>('SUPABASE_SERVICE_ROLE_KEY');
 
   if (!url || !anonKey) {
-    throw new Error('Configuración de Supabase incompleta. Verifica SUPABASE_URL y SUPABASE_ANON_KEY');
+    throw new Error(
+      'Configuración de Supabase incompleta. Verifica SUPABASE_URL y SUPABASE_ANON_KEY',
+    );
   }
 
   return {
@@ -26,10 +28,12 @@ export const supabaseConfig = {
 };
 
 // Solo crear los clientes si las variables están configuradas
-export const supabaseClient = supabaseConfig.url && supabaseConfig.anonKey 
-  ? createClient(supabaseConfig.url, supabaseConfig.anonKey)
-  : null;
+export const supabaseClient =
+  supabaseConfig.url && supabaseConfig.anonKey
+    ? createClient(supabaseConfig.url, supabaseConfig.anonKey)
+    : null;
 
-export const supabaseAdminClient = supabaseConfig.url && supabaseConfig.serviceRoleKey
-  ? createClient(supabaseConfig.url, supabaseConfig.serviceRoleKey)
-  : null; 
+export const supabaseAdminClient =
+  supabaseConfig.url && supabaseConfig.serviceRoleKey
+    ? createClient(supabaseConfig.url, supabaseConfig.serviceRoleKey)
+    : null;

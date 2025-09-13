@@ -28,4 +28,3 @@ export class OcrResponseDto {
   originalFilename: string;
   gcsFilename: string;
 }
-

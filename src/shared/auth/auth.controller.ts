@@ -1,20 +1,20 @@
-import { 
-  Controller, 
-  Post, 
-  Body, 
-  Get, 
-  UseGuards, 
-  Query, 
-  HttpCode, 
-  HttpStatus 
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  UseGuards,
+  Query,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { 
-  SignUpDto, 
-  SignInDto, 
-  OAuthSignInDto, 
-  RefreshTokenDto, 
-  AuthResponseDto 
+import {
+  SignUpDto,
+  SignInDto,
+  OAuthSignInDto,
+  RefreshTokenDto,
+  AuthResponseDto,
 } from './dto/auth.dto';
 import { AuthGuard } from './guards/auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
@@ -37,18 +37,24 @@ export class AuthController {
 
   @Post('oauth/signin')
   @HttpCode(HttpStatus.OK)
-  async signInWithOAuth(@Body() oAuthDto: OAuthSignInDto): Promise<{ url: string }> {
+  async signInWithOAuth(
+    @Body() oAuthDto: OAuthSignInDto,
+  ): Promise<{ url: string }> {
     return this.authService.signInWithOAuth(oAuthDto);
   }
 
   @Get('oauth/callback')
-  async handleOAuthCallback(@Query('code') code: string): Promise<AuthResponseDto> {
+  async handleOAuthCallback(
+    @Query('code') code: string,
+  ): Promise<AuthResponseDto> {
     return this.authService.handleOAuthCallback(code);
   }
 
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  async refreshToken(@Body() refreshTokenDto: RefreshTokenDto): Promise<AuthResponseDto> {
+  async refreshToken(
+    @Body() refreshTokenDto: RefreshTokenDto,
+  ): Promise<AuthResponseDto> {
     return this.authService.refreshToken(refreshTokenDto);
   }
 
@@ -69,7 +75,7 @@ export class AuthController {
   @Get('providers')
   getAvailableProviders(): { providers: string[] } {
     return {
-      providers: ['google', 'facebook', 'github', 'twitter', 'discord']
+      providers: ['google', 'facebook', 'github', 'twitter', 'discord'],
     };
   }
-} 
+}

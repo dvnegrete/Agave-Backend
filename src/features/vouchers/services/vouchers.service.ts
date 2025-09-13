@@ -1,13 +1,20 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { FileProcessorService } from './file-processor.service';
 import { TransactionValidatorService } from './transaction-validator.service';
-import { 
-  Transaction, 
-  ProcessedTransaction, 
-  FileProcessingResult 
+import {
+  Transaction,
+  ProcessedTransaction,
+  FileProcessingResult,
 } from '../interfaces/transaction.interface';
 import { ProcessFileDto } from '../dto/process-file.dto';
-import { CreateTransactionDto, UpdateTransactionDto } from '../dto/transaction.dto';
+import {
+  CreateTransactionDto,
+  UpdateTransactionDto,
+} from '../dto/transaction.dto';
 
 @Injectable()
 export class VouchersService {
@@ -18,18 +25,24 @@ export class VouchersService {
     private readonly transactionValidatorService: TransactionValidatorService,
   ) {}
 
-  async processFile(file: Express.Multer.File, options?: ProcessFileDto): Promise<FileProcessingResult> {
+  async processFile(
+    file: Express.Multer.File,
+    options?: ProcessFileDto,
+  ): Promise<FileProcessingResult> {
     try {
       const startTime = Date.now();
 
       // Procesar el archivo
-      const rawTransactions = await this.fileProcessorService.parseFile(file, options);
+      const rawTransactions = await this.fileProcessorService.parseFile(
+        file,
+        options,
+      );
 
       // Validar transacciones
       const validationResults = await Promise.all(
-        rawTransactions.map(transaction => 
-          this.transactionValidatorService.validateTransaction(transaction)
-        )
+        rawTransactions.map((transaction) =>
+          this.transactionValidatorService.validateTransaction(transaction),
+        ),
       );
 
       // Filtrar transacciones válidas
@@ -38,7 +51,7 @@ export class VouchersService {
 
       rawTransactions.forEach((transaction, index) => {
         const validation = validationResults[index];
-        
+
         if (validation.isValid) {
           const processedTransaction: ProcessedTransaction = {
             ...transaction,
@@ -70,7 +83,9 @@ export class VouchersService {
         processingTime,
       };
     } catch (error) {
-      throw new BadRequestException(`Error al procesar el archivo: ${error.message}`);
+      throw new BadRequestException(
+        `Error al procesar el archivo: ${error.message}`,
+      );
     }
   }
 
@@ -79,14 +94,16 @@ export class VouchersService {
   }
 
   async getTransactionById(id: string): Promise<ProcessedTransaction> {
-    const transaction = this.transactions.find(t => t.id === id);
+    const transaction = this.transactions.find((t) => t.id === id);
     if (!transaction) {
       throw new NotFoundException(`Transacción con ID ${id} no encontrada`);
     }
     return transaction;
   }
 
-  async createTransaction(createTransactionDto: CreateTransactionDto): Promise<ProcessedTransaction> {
+  async createTransaction(
+    createTransactionDto: CreateTransactionDto,
+  ): Promise<ProcessedTransaction> {
     const transaction: ProcessedTransaction = {
       ...createTransactionDto,
       id: this.generateId(),
@@ -97,17 +114,23 @@ export class VouchersService {
     };
 
     // Validar la transacción
-    const validation = await this.transactionValidatorService.validateTransaction(transaction);
+    const validation =
+      await this.transactionValidatorService.validateTransaction(transaction);
     if (!validation.isValid) {
-      throw new BadRequestException(`Transacción inválida: ${validation.errors.join(', ')}`);
+      throw new BadRequestException(
+        `Transacción inválida: ${validation.errors.join(', ')}`,
+      );
     }
 
     this.transactions.push(transaction);
     return transaction;
   }
 
-  async updateTransaction(id: string, updateTransactionDto: UpdateTransactionDto): Promise<ProcessedTransaction> {
-    const index = this.transactions.findIndex(t => t.id === id);
+  async updateTransaction(
+    id: string,
+    updateTransactionDto: UpdateTransactionDto,
+  ): Promise<ProcessedTransaction> {
+    const index = this.transactions.findIndex((t) => t.id === id);
     if (index === -1) {
       throw new NotFoundException(`Transacción con ID ${id} no encontrada`);
     }
@@ -145,9 +168,14 @@ export class VouchersService {
     }
 
     // Validar la transacción actualizada
-    const validation = await this.transactionValidatorService.validateTransaction(updatedTransaction);
+    const validation =
+      await this.transactionValidatorService.validateTransaction(
+        updatedTransaction,
+      );
     if (!validation.isValid) {
-      throw new BadRequestException(`Transacción inválida: ${validation.errors.join(', ')}`);
+      throw new BadRequestException(
+        `Transacción inválida: ${validation.errors.join(', ')}`,
+      );
     }
 
     this.transactions[index] = updatedTransaction;
@@ -155,7 +183,7 @@ export class VouchersService {
   }
 
   async deleteTransaction(id: string): Promise<void> {
-    const index = this.transactions.findIndex(t => t.id === id);
+    const index = this.transactions.findIndex((t) => t.id === id);
     if (index === -1) {
       throw new NotFoundException(`Transacción con ID ${id} no encontrada`);
     }
@@ -163,13 +191,18 @@ export class VouchersService {
     this.transactions.splice(index, 1);
   }
 
-  async getTransactionsByStatus(status: 'pending' | 'processed' | 'failed'): Promise<ProcessedTransaction[]> {
-    return this.transactions.filter(t => t.status === status);
+  async getTransactionsByStatus(
+    status: 'pending' | 'processed' | 'failed',
+  ): Promise<ProcessedTransaction[]> {
+    return this.transactions.filter((t) => t.status === status);
   }
 
-  async getTransactionsByDateRange(startDate: Date, endDate: Date): Promise<ProcessedTransaction[]> {
-    return this.transactions.filter(t => 
-      t.date >= startDate && t.date <= endDate
+  async getTransactionsByDateRange(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<ProcessedTransaction[]> {
+    return this.transactions.filter(
+      (t) => t.date >= startDate && t.date <= endDate,
     );
   }
 
@@ -181,10 +214,16 @@ export class VouchersService {
     totalAmount: number;
   }> {
     const total = this.transactions.length;
-    const pending = this.transactions.filter(t => t.status === 'pending').length;
-    const processed = this.transactions.filter(t => t.status === 'processed').length;
-    const failed = this.transactions.filter(t => t.status === 'failed').length;
-    
+    const pending = this.transactions.filter(
+      (t) => t.status === 'pending',
+    ).length;
+    const processed = this.transactions.filter(
+      (t) => t.status === 'processed',
+    ).length;
+    const failed = this.transactions.filter(
+      (t) => t.status === 'failed',
+    ).length;
+
     const totalAmount = this.transactions.reduce((sum, t) => {
       return sum + (t.type === 'credit' ? t.amount : -t.amount);
     }, 0);

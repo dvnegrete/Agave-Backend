@@ -273,9 +273,9 @@ describe('AuthService', () => {
         error: { message: 'Invalid token' },
       });
 
-      await expect(
-        service.getCurrentUser('invalid-token'),
-      ).rejects.toThrow(UnauthorizedException);
+      await expect(service.getCurrentUser('invalid-token')).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
   });
-}); 
+});

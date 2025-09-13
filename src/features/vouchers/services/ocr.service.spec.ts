@@ -25,7 +25,9 @@ describe('OcrService', () => {
     }).compile();
 
     service = module.get<OcrService>(OcrService);
-    googleCloudConfig = module.get<GoogleCloudConfigService>(GoogleCloudConfigService);
+    googleCloudConfig = module.get<GoogleCloudConfigService>(
+      GoogleCloudConfigService,
+    );
   });
 
   it('should be defined', () => {
@@ -34,18 +36,24 @@ describe('OcrService', () => {
 
   describe('validateImageFormat', () => {
     it('should validate JPEG format', async () => {
-      const jpegBuffer = Buffer.from([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10]);
-      await expect(service.validateImageFormat(jpegBuffer, 'test.jpg')).resolves.not.toThrow();
+      const jpegBuffer = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
+      await expect(
+        service.validateImageFormat(jpegBuffer, 'test.jpg'),
+      ).resolves.not.toThrow();
     });
 
     it('should validate PNG format', async () => {
-      const pngBuffer = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A]);
-      await expect(service.validateImageFormat(pngBuffer, 'test.png')).resolves.not.toThrow();
+      const pngBuffer = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a]);
+      await expect(
+        service.validateImageFormat(pngBuffer, 'test.png'),
+      ).resolves.not.toThrow();
     });
 
     it('should throw error for invalid format', async () => {
       const invalidBuffer = Buffer.from([0x00, 0x01, 0x02, 0x03]);
-      await expect(service.validateImageFormat(invalidBuffer, 'test.txt')).rejects.toThrow(BadRequestException);
+      await expect(
+        service.validateImageFormat(invalidBuffer, 'test.txt'),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -58,4 +66,3 @@ describe('OcrService', () => {
     });
   });
 });
-

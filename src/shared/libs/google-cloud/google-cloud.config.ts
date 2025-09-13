@@ -29,7 +29,9 @@ export class GoogleCloudConfigService {
       type: 'service_account',
       project_id: this.configService.get<string>('PROJECT_ID_GCP'),
       private_key_id: this.configService.get<string>('PRIVATE_KEY_ID'),
-      private_key: this.configService.get<string>('PRIVATE_KEY_GCP')?.replace(/\\n/g, '\n'),
+      private_key: this.configService
+        .get<string>('PRIVATE_KEY_GCP')
+        ?.replace(/\\n/g, '\n'),
       client_email: this.configService.get<string>('CLIENT_EMAIL_GCP'),
       client_id: this.configService.get<string>('CLIENT_ID_GCP'),
       auth_uri: 'https://accounts.google.com/o/oauth2/auth',
@@ -39,8 +41,14 @@ export class GoogleCloudConfigService {
     };
 
     // Validar que todas las credenciales estén presentes
-    if (!credentials.project_id || !credentials.private_key || !credentials.client_email) {
-      throw new Error('Credenciales de Google Cloud incompletas. Verifica PROJECT_ID_GCP, PRIVATE_KEY_GCP, y CLIENT_EMAIL_GCP');
+    if (
+      !credentials.project_id ||
+      !credentials.private_key ||
+      !credentials.client_email
+    ) {
+      throw new Error(
+        'Credenciales de Google Cloud incompletas. Verifica PROJECT_ID_GCP, PRIVATE_KEY_GCP, y CLIENT_EMAIL_GCP',
+      );
     }
 
     return JSON.stringify(credentials);
@@ -86,7 +94,10 @@ export class GoogleCloudConfigService {
       this.getConfig();
       return true;
     } catch (error) {
-      this.logger.warn('Configuración de Google Cloud incompleta:', error.message);
+      this.logger.warn(
+        'Configuración de Google Cloud incompleta:',
+        error.message,
+      );
       return false;
     }
   }

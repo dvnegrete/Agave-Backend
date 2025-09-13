@@ -19,10 +19,11 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "db:init": "bash scripts/init-db.sh",
-    "db:generate": "prisma generate",
-    "db:deploy": "prisma migrate deploy",
-    "db:dev": "prisma migrate dev",
-    "db:push": "prisma db push"
+    "typeorm": "typeorm-ts-node-commonjs",
+    "db:generate": "npm run typeorm migration:generate -- -d src/shared/config/datasource.ts",
+    "db:deploy": "npm run typeorm migration:run -- -d src/shared/config/datasource.ts",
+    "db:dev": "npm run typeorm migration:run -- -d src/shared/config/datasource.ts",
+    "db:push": "psql $DATABASE_URL -f bd_initial.sql"
   },
   "dependencies": {
     "@google-cloud/speech": "^7.2.0",
@@ -35,17 +36,19 @@
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.1.6",
-    "@prisma/client": "^6.13.0",
+    "@nestjs/typeorm": "^11.0.0",
     "@supabase/supabase-js": "^2.54.0",
     "@types/multer": "^2.0.0",
+    "@types/pg": "^8.15.5",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
     "multer": "^2.0.2",
     "openai": "^5.12.2",
-    "prisma": "^6.13.0",
+    "pg": "^8.16.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "tsconfig-paths": "^4.2.0",
+    "typeorm": "^0.3.26",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

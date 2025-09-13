@@ -9,13 +9,17 @@ export interface BankStatementModel {
   headerKeywords: string[];
 
   /** Mapea una fila (CSV/XLSX) a la entidad de dominio */
-  mapRowToTransaction(row: any[], options?: UploadFileDto): TransactionBank | null;
+  mapRowToTransaction(
+    row: any[],
+    options?: UploadFileDto,
+  ): TransactionBank | null;
 
   /** Opcional: mapea una línea TXT al dominio */
-  mapTxtLine?: (line: string, options?: UploadFileDto) => TransactionBank | null;
+  mapTxtLine?: (
+    line: string,
+    options?: UploadFileDto,
+  ) => TransactionBank | null;
 
   /** Opcional: mapea un item JSON al dominio */
   mapJsonItem?: (item: any, options?: UploadFileDto) => TransactionBank;
 }
-
-

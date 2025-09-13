@@ -1,7 +1,17 @@
-import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  BadRequestException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient } from '@supabase/supabase-js';
-import { SignUpDto, SignInDto, OAuthSignInDto, RefreshTokenDto, AuthResponseDto } from './dto/auth.dto';
+import {
+  SignUpDto,
+  SignInDto,
+  OAuthSignInDto,
+  RefreshTokenDto,
+  AuthResponseDto,
+} from './dto/auth.dto';
 import { AuthError, User } from '@supabase/supabase-js';
 
 @Injectable()
@@ -13,16 +23,21 @@ export class AuthService {
     // Inicializar clientes de Supabase usando ConfigService
     const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
     const supabaseAnonKey = this.configService.get<string>('SUPABASE_ANON_KEY');
-    const supabaseServiceRoleKey = this.configService.get<string>('SUPABASE_SERVICE_ROLE_KEY');
+    const supabaseServiceRoleKey = this.configService.get<string>(
+      'SUPABASE_SERVICE_ROLE_KEY',
+    );
 
     if (!supabaseUrl || !supabaseAnonKey) {
       throw new Error('Configuración de Supabase incompleta');
     }
 
     this.supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
-    
+
     if (supabaseServiceRoleKey) {
-      this.supabaseAdminClient = createClient(supabaseUrl, supabaseServiceRoleKey);
+      this.supabaseAdminClient = createClient(
+        supabaseUrl,
+        supabaseServiceRoleKey,
+      );
     }
   }
 
@@ -67,10 +82,12 @@ export class AuthService {
 
   async signIn(signInDto: SignInDto): Promise<AuthResponseDto> {
     try {
-      const { data, error } = await this.supabaseClient.auth.signInWithPassword({
-        email: signInDto.email,
-        password: signInDto.password,
-      });
+      const { data, error } = await this.supabaseClient.auth.signInWithPassword(
+        {
+          email: signInDto.email,
+          password: signInDto.password,
+        },
+      );
 
       if (error) {
         throw new UnauthorizedException('Credenciales inválidas');
@@ -120,7 +137,9 @@ export class AuthService {
     }
   }
 
-  async refreshToken(refreshTokenDto: RefreshTokenDto): Promise<AuthResponseDto> {
+  async refreshToken(
+    refreshTokenDto: RefreshTokenDto,
+  ): Promise<AuthResponseDto> {
     try {
       const { data, error } = await this.supabaseClient.auth.refreshSession({
         refresh_token: refreshTokenDto.refreshToken,
@@ -168,8 +187,11 @@ export class AuthService {
 
   async getCurrentUser(accessToken: string): Promise<User | null> {
     try {
-      const { data: { user }, error } = await this.supabaseClient.auth.getUser(accessToken);
-      
+      const {
+        data: { user },
+        error,
+      } = await this.supabaseClient.auth.getUser(accessToken);
+
       if (error) {
         throw new UnauthorizedException('Token inválido');
       }
@@ -185,7 +207,8 @@ export class AuthService {
 
   async handleOAuthCallback(code: string): Promise<AuthResponseDto> {
     try {
-      const { data, error } = await this.supabaseClient.auth.exchangeCodeForSession(code);
+      const { data, error } =
+        await this.supabaseClient.auth.exchangeCodeForSession(code);
 
       if (error) {
         throw new BadRequestException(error.message);
@@ -212,4 +235,4 @@ export class AuthService {
       throw new BadRequestException('Error interno del servidor');
     }
   }
-} 
+}

@@ -1,8 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { PrismaService } from './shared/database/prisma.service';
-import { DatabaseConfigService } from './shared/config/database.config';
+import { getDataSourceToken } from '@nestjs/typeorm';
 
 describe('AppController', () => {
   let appController: AppController;
@@ -13,15 +12,9 @@ describe('AppController', () => {
       providers: [
         AppService,
         {
-          provide: PrismaService,
+          provide: getDataSourceToken(),
           useValue: {
-            $queryRaw: jest.fn().mockResolvedValue([{ '?column?': 1 }]),
-          },
-        },
-        {
-          provide: DatabaseConfigService,
-          useValue: {
-            getConnectionString: jest.fn().mockReturnValue('postgresql://user:pass@localhost:5432/db'),
+            query: jest.fn().mockResolvedValue([{ '?column?': 1 }]),
           },
         },
       ],

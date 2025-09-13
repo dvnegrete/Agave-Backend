@@ -4,7 +4,10 @@ import { Storage } from '@google-cloud/storage';
 import { Translate } from '@google-cloud/translate/build/src/v2';
 import { TextToSpeechClient } from '@google-cloud/text-to-speech';
 import { SpeechClient } from '@google-cloud/speech';
-import { GoogleCloudConfigService, GoogleCloudConfig } from './google-cloud.config';
+import {
+  GoogleCloudConfigService,
+  GoogleCloudConfig,
+} from './google-cloud.config';
 
 export interface GoogleCloudServices {
   vision?: ImageAnnotatorClient;
@@ -30,7 +33,9 @@ export class GoogleCloudClient implements OnModuleInit {
   private async initialize(): Promise<void> {
     try {
       if (!this.configService.isEnabled) {
-        this.logger.warn('Google Cloud no está configurado. Los servicios no estarán disponibles.');
+        this.logger.warn(
+          'Google Cloud no está configurado. Los servicios no estarán disponibles.',
+        );
         return;
       }
 
@@ -110,7 +115,10 @@ export class GoogleCloudClient implements OnModuleInit {
           projectId: this.config.projectId,
         });
       } catch (error) {
-        this.logger.error('Error al inicializar Cloud Translate client:', error);
+        this.logger.error(
+          'Error al inicializar Cloud Translate client:',
+          error,
+        );
         return null;
       }
     }

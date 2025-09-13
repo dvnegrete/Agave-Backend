@@ -21,7 +21,8 @@ export class OpenAIService {
         messages: [
           {
             role: 'system',
-            content: "Eres un extractor de datos de comprobantes de pago. Responde SOLO en JSON. Campos requeridos: monto (MXN), fecha_pago (YYYY-MM-DD), referencia, banco, emisor. Si algún campo falta o es inválido, incluye 'faltan_datos': true y 'pregunta' con texto breve para pedirlo. Si todo está correcto, 'faltan_datos': false."
+            content:
+              "Eres un extractor de datos de comprobantes de pago. Responde SOLO en JSON. Campos requeridos: monto (MXN), fecha_pago (YYYY-MM-DD), referencia, banco, emisor. Si algún campo falta o es inválido, incluye 'faltan_datos': true y 'pregunta' con texto breve para pedirlo. Si todo está correcto, 'faltan_datos': false.",
           },
           {
             role: 'user',
@@ -37,7 +38,6 @@ export class OpenAIService {
       }
 
       return JSON.parse(responseContent);
-
     } catch (error) {
       this.logger.error('Error al procesar el texto con OpenAI:', error);
       throw new Error(`Error en la comunicación con OpenAI: ${error.message}`);
