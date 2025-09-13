@@ -12,7 +12,6 @@ import {
   BadRequestException,
   ParseFilePipe,
   MaxFileSizeValidator,
-  FileTypeValidator,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { TransactionsBankService } from '../services/transactions-bank.service';
@@ -23,6 +22,7 @@ import {
 } from '../dto/transaction-bank.dto';
 import { UploadFileDto } from '../dto/upload-file.dto';
 import { ProcessedBankTransaction } from '../interfaces/transaction-bank.interface';
+import { BankFileValidator } from '../validators/bank-file.validator';
 
 @Controller('transactions-bank')
 export class TransactionsBankController {
@@ -33,56 +33,34 @@ export class TransactionsBankController {
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
   async uploadFile(
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({
+            maxSize: 10 * 1024 * 1024, // 10MB
+            message: 'El archivo es demasiado grande. Tamaño máximo: 10MB',
+          }),
+          new BankFileValidator({
+            allowedExtensions: ['.csv', '.xlsx', '.txt', '.json'],
+            allowedMimeTypes: [
+              'text/csv',
+              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+              'text/plain',
+              'application/json',
+            ],
+          }),
+        ],
+        fileIsRequired: true,
+        exceptionFactory: (error) => {
+          return new BadRequestException(error);
+        },
+      }),
+    )
+    file: Express.Multer.File,
     @Body() uploadFileDto: UploadFileDto,
     @Query('bank') bank?: string,
   ) {
     try {
-      // Validación manual del archivo
-      if (!file) {
-        throw new BadRequestException('No se ha proporcionado ningún archivo');
-      }
-
-      if (!file.originalname) {
-        throw new BadRequestException('El archivo no tiene un nombre válido');
-      }
-
-      if (!file.mimetype) {
-        throw new BadRequestException(
-          'El archivo no tiene un tipo MIME válido',
-        );
-      }
-
-      // Validar tamaño del archivo (10MB)
-      const maxSize = 10 * 1024 * 1024;
-      if (file.size > maxSize) {
-        throw new BadRequestException(
-          `El archivo es demasiado grande. Tamaño máximo: ${maxSize / (1024 * 1024)}MB`,
-        );
-      }
-
-      // Validar tipo de archivo
-      const allowedMimeTypes = [
-        'text/csv',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // xlsx
-        'text/plain',
-        'application/json',
-      ];
-
-      const allowedExtensions = ['.csv', '.xlsx', '.txt', '.json'];
-      const fileExtension = file.originalname
-        .toLowerCase()
-        .substring(file.originalname.lastIndexOf('.'));
-
-      if (
-        !allowedMimeTypes.includes(file.mimetype) &&
-        !allowedExtensions.includes(fileExtension)
-      ) {
-        throw new BadRequestException(
-          'Tipo de archivo no soportado. Formatos permitidos: CSV, XLSX, TXT, JSON',
-        );
-      }
-
       // Combinar el parámetro bank del query con las opciones del DTO
       const options: UploadFileDto = {
         ...uploadFileDto,
@@ -98,7 +76,9 @@ export class TransactionsBankController {
         ...result,
       };
     } catch (error) {
-      throw new BadRequestException(error.message);
+      throw new BadRequestException(
+        error instanceof Error ? error.message : 'Error al procesar el archivo',
+      );
     }
   }
 
@@ -178,7 +158,9 @@ export class TransactionsBankController {
         );
         results.push(result);
       } catch (error) {
-        errors.push(`Transacción ${i + 1}: ${error.message}`);
+        errors.push(
+          `Transacción ${i + 1}: ${error instanceof Error ? error.message : 'Error desconocido'}`,
+        );
       }
     }
 
@@ -206,7 +188,11 @@ export class TransactionsBankController {
         ...result,
       };
     } catch (error) {
-      throw new BadRequestException(error.message);
+      throw new BadRequestException(
+        error instanceof Error
+          ? error.message
+          : 'Error al realizar la reconciliación',
+      );
     }
   }
 
