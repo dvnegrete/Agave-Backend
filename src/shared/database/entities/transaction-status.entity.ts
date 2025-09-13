@@ -43,10 +43,10 @@ export class TransactionStatus {
   @ManyToOne(
     () => TransactionBank,
     (transactionBank) => transactionBank.transactionStatuses,
-    { 
+    {
       nullable: true,
       onUpdate: 'CASCADE',
-      onDelete: 'CASCADE'
+      onDelete: 'CASCADE',
     },
   )
   @JoinColumn({ name: 'transactions_bank_id' })
@@ -55,7 +55,7 @@ export class TransactionStatus {
   @ManyToOne(() => Voucher, (voucher) => voucher.transactionStatuses, {
     nullable: true,
     onUpdate: 'SET NULL',
-    onDelete: 'SET NULL'
+    onDelete: 'SET NULL',
   })
   @JoinColumn({ name: 'vouchers_id' })
   voucher: Voucher;

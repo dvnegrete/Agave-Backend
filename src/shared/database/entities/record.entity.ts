@@ -49,58 +49,62 @@ export class Record {
   @UpdateDateColumn()
   updated_at: Date;
 
-  @ManyToOne(() => TransactionStatus, (transactionStatus) => transactionStatus.records, { 
-    nullable: true,
-    onUpdate: 'CASCADE',
-    onDelete: 'CASCADE'
-  })
+  @ManyToOne(
+    () => TransactionStatus,
+    (transactionStatus) => transactionStatus.records,
+    {
+      nullable: true,
+      onUpdate: 'CASCADE',
+      onDelete: 'CASCADE',
+    },
+  )
   @JoinColumn({ name: 'transaction_status_id' })
   transactionStatus: TransactionStatus;
 
-  @ManyToOne(() => Voucher, (voucher) => voucher.records, { 
+  @ManyToOne(() => Voucher, (voucher) => voucher.records, {
     nullable: true,
     onUpdate: 'CASCADE',
-    onDelete: 'SET NULL'
+    onDelete: 'SET NULL',
   })
   @JoinColumn({ name: 'vouchers_id' })
   voucher: Voucher;
 
-  @ManyToOne(() => CtaExtraordinaryFee, (fee) => fee.records, { 
+  @ManyToOne(() => CtaExtraordinaryFee, (fee) => fee.records, {
     nullable: true,
     onUpdate: 'CASCADE',
-    onDelete: 'CASCADE'
+    onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'cta_extraordinary_fee_id' })
   ctaExtraordinaryFee: CtaExtraordinaryFee;
 
-  @ManyToOne(() => CtaMaintenance, (maintenance) => maintenance.records, { 
+  @ManyToOne(() => CtaMaintenance, (maintenance) => maintenance.records, {
     nullable: true,
     onUpdate: 'CASCADE',
-    onDelete: 'CASCADE'
+    onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'cta_maintence_id' })
   ctaMaintenance: CtaMaintenance;
 
-  @ManyToOne(() => CtaPenalties, (penalties) => penalties.records, { 
+  @ManyToOne(() => CtaPenalties, (penalties) => penalties.records, {
     nullable: true,
     onUpdate: 'CASCADE',
-    onDelete: 'CASCADE'
+    onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'cta_penalities_id' })
   ctaPenalties: CtaPenalties;
 
-  @ManyToOne(() => CtaWater, (water) => water.records, { 
+  @ManyToOne(() => CtaWater, (water) => water.records, {
     nullable: true,
     onUpdate: 'CASCADE',
-    onDelete: 'CASCADE'
+    onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'cta_water_id' })
   ctaWater: CtaWater;
 
-  @ManyToOne(() => CtaOtherPayments, (otherPayments) => otherPayments.records, { 
+  @ManyToOne(() => CtaOtherPayments, (otherPayments) => otherPayments.records, {
     nullable: true,
     onUpdate: 'CASCADE',
-    onDelete: 'CASCADE'
+    onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'cta_other_payments_id' })
   ctaOtherPayments: CtaOtherPayments;

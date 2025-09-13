@@ -85,6 +85,37 @@ export function parseAmountFlexible(amountInput: string | number): number {
   return amount;
 }
 
+export function parseAmountWithSign(amountInput: string | number): {
+  amount: number;
+  isNegative: boolean;
+} {
+  if (amountInput === null || amountInput === undefined || amountInput === '') {
+    throw new Error('Monto requerido');
+  }
+
+  let isNegative = false;
+  let numericValue: number;
+
+  if (typeof amountInput === 'number') {
+    numericValue = amountInput;
+    isNegative = amountInput < 0;
+  } else {
+    const strAmount = amountInput.toString().trim();
+    isNegative = strAmount.startsWith('-') || strAmount.startsWith('(');
+    const cleanAmount = strAmount.replace(/[^\d.,-]/g, '');
+    numericValue = parseFloat(cleanAmount.replace(',', '.'));
+
+    if (isNaN(numericValue)) {
+      throw new Error(`Monto inválido: ${amountInput}`);
+    }
+  }
+
+  return {
+    amount: Math.abs(numericValue),
+    isNegative,
+  };
+}
+
 export function parseBooleanFlexible(value: any): boolean {
   if (typeof value === 'boolean') return value;
   if (!value) throw new Error('Valor booleano requerido');

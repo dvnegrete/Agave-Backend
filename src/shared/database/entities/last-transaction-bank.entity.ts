@@ -26,10 +26,10 @@ export class LastTransactionBank {
   @ManyToOne(
     () => TransactionBank,
     (transactionBank) => transactionBank.lastTransactions,
-    { 
+    {
       nullable: true,
       onUpdate: 'CASCADE',
-      onDelete: 'CASCADE'
+      onDelete: 'CASCADE',
     },
   )
   @JoinColumn({ name: 'transactions_bank_id' })

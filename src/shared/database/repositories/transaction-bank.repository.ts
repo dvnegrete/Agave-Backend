@@ -23,6 +23,7 @@ export class TransactionBankRepository {
       amount: data.amount,
       currency: data.currency,
       is_deposit: data.is_deposit,
+      bank_name: (data as any).bank_name,
       confirmation_status: data.validation_flag || false,
     });
     return this.transactionBankRepository.save(transactionBank);
@@ -39,6 +40,7 @@ export class TransactionBankRepository {
         amount: transaction.amount,
         currency: transaction.currency,
         is_deposit: transaction.is_deposit,
+        bank_name: (transaction as any).bank_name,
         confirmation_status: transaction.validation_flag || false,
       }),
     );
@@ -85,11 +87,14 @@ export class TransactionBankRepository {
     if (data.amount !== undefined) updateData.amount = data.amount;
     if (data.currency) updateData.currency = data.currency;
     if (data.is_deposit !== undefined) updateData.is_deposit = data.is_deposit;
+    if ((data as any).bank_name) updateData.bank_name = (data as any).bank_name;
     if (data.validation_flag !== undefined)
       updateData.confirmation_status = data.validation_flag;
 
     await this.transactionBankRepository.update(id, updateData);
-    const updated = await this.transactionBankRepository.findOne({ where: { id } });
+    const updated = await this.transactionBankRepository.findOne({
+      where: { id },
+    });
     if (!updated) {
       throw new Error('Transaction not found after update');
     }
@@ -150,9 +155,7 @@ export class TransactionBankRepository {
       currencies: currencies
         .map((c) => c.currency)
         .filter((c): c is string => !!c),
-      concepts: concepts
-        .map((c) => c.concept)
-        .filter((c): c is string => !!c),
+      concepts: concepts.map((c) => c.concept).filter((c): c is string => !!c),
     };
   }
 
@@ -166,8 +169,6 @@ export class TransactionBankRepository {
       .having('COUNT(transaction.concept) > 1')
       .getRawMany<{ concept: string; count: number }>();
 
-    return duplicates
-      .map((d) => d.concept)
-      .filter((c): c is string => !!c);
+    return duplicates.map((d) => d.concept).filter((c): c is string => !!c);
   }
 }

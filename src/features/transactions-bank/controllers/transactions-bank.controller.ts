@@ -35,6 +35,7 @@ export class TransactionsBankController {
   async uploadFile(
     @UploadedFile() file: Express.Multer.File,
     @Body() uploadFileDto: UploadFileDto,
+    @Query('bank') bank?: string,
   ) {
     try {
       // Validación manual del archivo
@@ -82,9 +83,15 @@ export class TransactionsBankController {
         );
       }
 
+      // Combinar el parámetro bank del query con las opciones del DTO
+      const options: UploadFileDto = {
+        ...uploadFileDto,
+        bank: bank || uploadFileDto.bank,
+      };
+
       const result = await this.transactionsBankService.processFile(
         file,
-        uploadFileDto,
+        options,
       );
       return {
         message: 'Archivo de transacciones bancarias procesado exitosamente',
@@ -274,6 +281,7 @@ export class TransactionsBankController {
       'Monto',
       'Tipo',
       'Moneda',
+      'Banco',
       'Estado',
       'Fecha de Creación',
     ];
@@ -286,6 +294,7 @@ export class TransactionsBankController {
       transaction.amount,
       transaction.is_deposit ? 'DEPOSITO' : 'RETIRO',
       transaction.currency,
+      transaction.bank_name || '',
       transaction.status,
       transaction.createdAt.toISOString(),
     ]);

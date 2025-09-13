@@ -4,9 +4,10 @@ import { TransactionBank } from '../interfaces/transaction-bank.interface';
 import { UploadFileDto } from '../dto/upload-file.dto';
 import {
   getFileExtension,
-  hasHeaderKeywords,
+  findHeaderRowIndex,
   splitCSVLine,
   bufferToString,
+  parseAmountWithSign,
 } from '../../../shared/common';
 import { resolveBankStatementModel } from '../models/model-resolver';
 import { BankStatementModel } from '../models/bank-statement-model.interface';
@@ -54,9 +55,10 @@ export class FileProcessorService {
     const lines = content.split('\n').filter((line) => line.trim());
     const transactions: TransactionBank[] = [];
 
-    // Saltar la primera línea si es un encabezado segun el modelo
-    const hasHeaderRow = hasHeaderKeywords(lines[0], model.headerKeywords);
-    const dataLines = hasHeaderRow ? lines.slice(1) : lines;
+    // Encontrar automáticamente la fila de encabezados
+    const headerRowIndex = findHeaderRowIndex(lines, model.headerKeywords);
+    const dataLines =
+      headerRowIndex >= 0 ? lines.slice(headerRowIndex + 1) : lines;
 
     for (let i = 0; i < dataLines.length; i++) {
       const line = dataLines[i].trim();
@@ -88,9 +90,13 @@ export class FileProcessorService {
 
     const transactions: TransactionBank[] = [];
 
-    // Saltar encabezado si existe, segun el modelo
-    const hasHeaderRow = hasHeaderKeywords(data[0] as any, model.headerKeywords);
-    const dataRows = hasHeaderRow ? data.slice(1) : data;
+    // Encontrar automáticamente la fila de encabezados
+    const headerRowIndex = findHeaderRowIndex(
+      data as unknown[][],
+      model.headerKeywords,
+    );
+    const dataRows =
+      headerRowIndex >= 0 ? data.slice(headerRowIndex + 1) : data;
 
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i] as any[];
@@ -124,7 +130,7 @@ export class FileProcessorService {
       try {
         const transaction = model.mapTxtLine
           ? model.mapTxtLine(line, options)
-          : this.parseGenericTxtLine(line);
+          : this.parseGenericTxtLine(line, options);
         if (transaction) {
           transactions.push(transaction);
         }
@@ -136,7 +142,10 @@ export class FileProcessorService {
     return transactions;
   }
 
-  private parseGenericTxtLine(line: string): TransactionBank | null {
+  private parseGenericTxtLine(
+    line: string,
+    options?: UploadFileDto,
+  ): TransactionBank | null {
     // Formato genérico: FECHA|HORA|CONCEPTO|MONTO|MONEDA|TIPO_DEPOSITO (true/false)
     const parts = line.split('|');
     if (parts.length < 6) {
@@ -146,16 +155,31 @@ export class FileProcessorService {
     }
     const [dateStr, timeStr, concept, amountStr, currency, isDepositStr] =
       parts;
-    const amount = Number(amountStr.replace(/[^\d.,-]/g, '').replace(',', '.'));
+
+    // Handle negative amounts properly
+    const amountResult = parseAmountWithSign(amountStr);
     const bool = isDepositStr.toLowerCase().trim();
-    const isDeposit = ['true', '1', 'yes', 'si', 'sí'].includes(bool);
+    let isDeposit = ['true', '1', 'yes', 'si', 'sí'].includes(bool);
+
+    // If no explicit deposit flag and amount is negative, treat as withdrawal
+    if (
+      !['true', '1', 'yes', 'si', 'sí', 'false', '0', 'no'].includes(bool) &&
+      amountResult.isNegative
+    ) {
+      isDeposit = false;
+    }
+
+    // Determine bank name from options
+    const bankName = options?.bank || options?.bankName || '';
+
     return {
       date: dateStr.trim(),
       time: timeStr.trim(),
       concept: concept.trim(),
-      amount: isNaN(amount) ? 0 : amount,
+      amount: amountResult.amount, // Always positive (absolute value)
       currency: currency.trim(),
       is_deposit: isDeposit,
+      bank_name: bankName,
       validation_flag: false,
       status: 'pending',
     };

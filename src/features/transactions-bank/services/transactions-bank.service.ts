@@ -78,6 +78,7 @@ export class TransactionsBankService {
             amount: transaction.amount,
             currency: transaction.currency,
             is_deposit: transaction.is_deposit,
+            bank_name: transaction.bank_name,
             validation_flag: transaction.validation_flag,
           })),
         );
@@ -252,6 +253,7 @@ export class TransactionsBankService {
       amount: transaction.amount,
       currency: transaction.currency,
       is_deposit: transaction.is_deposit,
+      bank_name: transaction.bank_name,
       validation_flag: transaction.confirmation_status,
       status: transaction.confirmation_status ? 'reconciled' : 'pending',
       createdAt: transaction.created_at,

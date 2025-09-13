@@ -34,6 +34,10 @@ export class CreateTransactionBankDto {
   is_deposit: boolean;
 
   @IsOptional()
+  @IsString()
+  bank_name?: string;
+
+  @IsOptional()
   @IsBoolean()
   validation_flag?: boolean;
 }
@@ -62,6 +66,10 @@ export class UpdateTransactionBankDto {
   @IsOptional()
   @IsBoolean()
   is_deposit?: boolean;
+
+  @IsOptional()
+  @IsString()
+  bank_name?: string;
 
   @IsOptional()
   @IsBoolean()

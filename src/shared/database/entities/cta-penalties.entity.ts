@@ -31,10 +31,10 @@ export class CtaPenalties {
   @UpdateDateColumn()
   updated_at: Date;
 
-  @ManyToOne(() => Period, (period) => period.penalties, { 
+  @ManyToOne(() => Period, (period) => period.penalties, {
     nullable: true,
     onUpdate: 'CASCADE',
-    onDelete: 'NO ACTION'
+    onDelete: 'NO ACTION',
   })
   @JoinColumn({ name: 'period_id' })
   period: Period;

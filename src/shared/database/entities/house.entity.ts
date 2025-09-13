@@ -29,14 +29,14 @@ export class House {
 
   @ManyToOne(() => User, (user) => user.houses, {
     onUpdate: 'CASCADE',
-    onDelete: 'CASCADE'
+    onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'user_id' })
   user: User;
 
   @ManyToOne(() => Record, (record) => record.houses, {
     onUpdate: 'CASCADE',
-    onDelete: 'CASCADE'
+    onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'record_id' })
   record: Record;

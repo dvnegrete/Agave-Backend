@@ -30,7 +30,7 @@ export class CtaMaintenance {
 
   @ManyToOne(() => Period, (period) => period.maintenances, {
     onUpdate: 'CASCADE',
-    onDelete: 'NO ACTION'
+    onDelete: 'NO ACTION',
   })
   @JoinColumn({ name: 'period_id' })
   period: Period;

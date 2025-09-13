@@ -18,6 +18,10 @@ export class UploadFileDto {
 
   @IsOptional()
   @IsString()
+  bank?: string;
+
+  @IsOptional()
+  @IsString()
   accountNumber?: string;
 
   @IsOptional()

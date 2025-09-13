@@ -2,7 +2,7 @@ import { Module, Global } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { DatabaseConfigService } from '../config/database.config';
-import { 
+import {
   User,
   House,
   Record,
@@ -15,7 +15,7 @@ import {
   CtaMaintenance,
   CtaPenalties,
   CtaWater,
-  CtaOtherPayments
+  CtaOtherPayments,
 } from './entities';
 import { TransactionBankRepository } from './repositories/transaction-bank.repository';
 
@@ -42,7 +42,7 @@ import { TransactionBankRepository } from './repositories/transaction-bank.repos
       CtaMaintenance,
       CtaPenalties,
       CtaWater,
-      CtaOtherPayments
+      CtaOtherPayments,
     ]),
   ],
   providers: [DatabaseConfigService, TransactionBankRepository],

@@ -6,6 +6,7 @@ export interface TransactionBank {
   amount: number;
   currency: string;
   is_deposit: boolean;
+  bank_name?: string;
   validation_flag?: boolean;
   status?: 'pending' | 'processed' | 'failed' | 'reconciled';
   createdAt?: Date;

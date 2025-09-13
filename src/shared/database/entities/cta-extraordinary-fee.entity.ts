@@ -30,7 +30,7 @@ export class CtaExtraordinaryFee {
 
   @ManyToOne(() => Period, (period) => period.extraordinaryFees, {
     onUpdate: 'CASCADE',
-    onDelete: 'NO ACTION'
+    onDelete: 'NO ACTION',
   })
   @JoinColumn({ name: 'period_id' })
   period: Period;
