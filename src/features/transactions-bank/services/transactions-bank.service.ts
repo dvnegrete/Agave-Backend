@@ -520,7 +520,7 @@ export class TransactionsBankService {
       const isDuplicate = isSameDate && isSameTime && isSameConcept && isSameAmount && isSameBank;
 
       if (isDuplicate) {
-        console.log(`Duplicado en archivo detectado: fecha=${transaction.date}, hora=${transaction.time}, concepto="${transaction.concept}", monto=${transaction.amount}, banco="${transaction.bank_name}"`);
+        console.error(`Duplicado en archivo detectado: fecha=${transaction.date}, hora=${transaction.time}, concepto="${transaction.concept}", monto=${transaction.amount}, banco="${transaction.bank_name}"`);
       }
 
       return isDuplicate;
