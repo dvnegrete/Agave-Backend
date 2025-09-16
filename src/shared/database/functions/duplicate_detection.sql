@@ -16,7 +16,7 @@ BEGIN
         tb.bank_name
     INTO last_transaction_record
     FROM last_transaction_bank ltb
-    JOIN transactions_bank tb ON ltb.transaction_bank_id = tb.id
+    JOIN transactions_bank tb ON ltb.transactions_bank_id = tb.id
     ORDER BY ltb.created_at DESC
     LIMIT 1;
 
