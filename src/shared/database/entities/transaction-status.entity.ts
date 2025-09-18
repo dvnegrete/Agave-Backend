@@ -25,8 +25,6 @@ export class TransactionStatus {
   })
   validation_status: ValidationStatus;
 
-  @Column({ type: 'timestamp' })
-  date: Date;
 
   @Column({ type: 'bigint', nullable: true })
   transactions_bank_id: string;
