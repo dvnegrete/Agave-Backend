@@ -25,8 +25,11 @@
     "db:dev": "npm run typeorm migration:run -- -d src/shared/config/datasource.ts",
     "db:push": "psql $DATABASE_URL -f bd_initial.sql",
     "db:install-triggers": "bash -c 'set -a && source .env && set +a && psql \"${DATABASE_URL/\\?pgbouncer=true/}\" -f src/shared/database/functions/duplicate_detection.sql'",
+    "db:install-indexes": "bash -c 'set -a && source .env && set +a && psql \"${DATABASE_URL/\\?pgbouncer=true/}\" -f src/shared/database/indexes/deposits_unconfirmed_index.sql'",
+    "db:setup": "npm run db:install-triggers && npm run db:install-indexes",
     "db:test-triggers": "bash -c 'set -a && source .env && set +a && psql $DATABASE_URL -f src/shared/database/functions/test_duplicate_detection.sql'",
-    "db:check-schema": "bash -c 'set -a && source .env && set +a && psql \"${DATABASE_URL/\\?pgbouncer=true/}\" -c \"\\d last_transaction_bank\"'"
+    "db:check-schema": "bash -c 'set -a && source .env && set +a && psql \"${DATABASE_URL/\\?pgbouncer=true/}\" -c \"\\d last_transaction_bank\"'",
+    "db:check-transactions": "bash -c 'set -a && source .env && set +a && psql \"${DATABASE_URL/\\?pgbouncer=true/}\" -c \"\\d transactions_bank\"'"
   },
   "dependencies": {
     "@google-cloud/speech": "^7.2.0",
