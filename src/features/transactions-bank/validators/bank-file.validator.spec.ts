@@ -74,7 +74,9 @@ describe('BankFileValidator', () => {
   it('should build appropriate error message', () => {
     const errorMessage = validator.buildErrorMessage();
     expect(errorMessage).toContain('Tipo de archivo no soportado');
-    expect(errorMessage).toContain('Extensiones permitidas: .csv, .xlsx, .txt, .json');
+    expect(errorMessage).toContain(
+      'Extensiones permitidas: .csv, .xlsx, .txt, .json',
+    );
     expect(errorMessage).toContain('Tipos MIME permitidos');
   });
 

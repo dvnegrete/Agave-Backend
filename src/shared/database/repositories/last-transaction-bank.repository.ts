@@ -43,7 +43,9 @@ export class LastTransactionBankRepository {
     await this.lastTransactionBankRepository.clear();
   }
 
-  async findByTransactionId(transactionsBankId: string): Promise<LastTransactionBank | null> {
+  async findByTransactionId(
+    transactionsBankId: string,
+  ): Promise<LastTransactionBank | null> {
     return this.lastTransactionBankRepository.findOne({
       where: { transactions_bank_id: transactionsBankId },
       relations: ['transactionBank'],

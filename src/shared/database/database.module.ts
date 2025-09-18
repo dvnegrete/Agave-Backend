@@ -46,7 +46,16 @@ import { LastTransactionBankRepository } from './repositories/last-transaction-b
       CtaOtherPayments,
     ]),
   ],
-  providers: [DatabaseConfigService, TransactionBankRepository, LastTransactionBankRepository],
-  exports: [DatabaseConfigService, TypeOrmModule, TransactionBankRepository, LastTransactionBankRepository],
+  providers: [
+    DatabaseConfigService,
+    TransactionBankRepository,
+    LastTransactionBankRepository,
+  ],
+  exports: [
+    DatabaseConfigService,
+    TypeOrmModule,
+    TransactionBankRepository,
+    LastTransactionBankRepository,
+  ],
 })
 export class DatabaseModule {}

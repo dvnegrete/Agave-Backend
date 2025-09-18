@@ -33,8 +33,12 @@ describe('TransactionBankRepository - Date Handling', () => {
         confirmation_status: false,
       };
 
-      (mockTypeOrmRepository.create as jest.Mock).mockReturnValue(mockTransaction);
-      (mockTypeOrmRepository.save as jest.Mock).mockResolvedValue(mockTransaction);
+      (mockTypeOrmRepository.create as jest.Mock).mockReturnValue(
+        mockTransaction,
+      );
+      (mockTypeOrmRepository.save as jest.Mock).mockResolvedValue(
+        mockTransaction,
+      );
 
       const inputData = {
         date: '2025-07-31', // ISO string format
@@ -50,14 +54,15 @@ describe('TransactionBankRepository - Date Handling', () => {
       await repository.create(inputData);
 
       // Verify that create was called with a Date object that represents July 31 in local timezone
-      const createCall = (mockTypeOrmRepository.create as jest.Mock).mock.calls[0][0];
+      const createCall = (mockTypeOrmRepository.create as jest.Mock).mock
+        .calls[0][0];
       const createdDate = createCall.date;
 
       expect(createdDate).toBeInstanceOf(Date);
       expect(createdDate.getFullYear()).toBe(2025);
       expect(createdDate.getMonth()).toBe(6); // July = 6 (0-indexed)
       expect(createdDate.getDate()).toBe(31);
-      
+
       // Verify the date represents July 31 in local timezone, not UTC
       expect(createdDate.toLocaleDateString()).toContain('7/31/2025');
     });
@@ -71,7 +76,9 @@ describe('TransactionBankRepository - Date Handling', () => {
       (mockTypeOrmRepository.create as jest.Mock)
         .mockReturnValueOnce(mockTransactions[0])
         .mockReturnValueOnce(mockTransactions[1]);
-      (mockTypeOrmRepository.save as jest.Mock).mockResolvedValue(mockTransactions);
+      (mockTypeOrmRepository.save as jest.Mock).mockResolvedValue(
+        mockTransactions,
+      );
 
       const inputData = [
         {
@@ -99,13 +106,14 @@ describe('TransactionBankRepository - Date Handling', () => {
       await repository.createMany(inputData);
 
       // Verify both dates were converted correctly
-      const createCalls = (mockTypeOrmRepository.create as jest.Mock).mock.calls;
-      
+      const createCalls = (mockTypeOrmRepository.create as jest.Mock).mock
+        .calls;
+
       const firstDate = createCalls[0][0].date;
       expect(firstDate.getFullYear()).toBe(2025);
       expect(firstDate.getMonth()).toBe(6); // July
       expect(firstDate.getDate()).toBe(31);
-      
+
       const secondDate = createCalls[1][0].date;
       expect(secondDate.getFullYear()).toBe(2025);
       expect(secondDate.getMonth()).toBe(0); // January
@@ -119,8 +127,12 @@ describe('TransactionBankRepository - Date Handling', () => {
         date: inputDate,
       };
 
-      (mockTypeOrmRepository.create as jest.Mock).mockReturnValue(mockTransaction);
-      (mockTypeOrmRepository.save as jest.Mock).mockResolvedValue(mockTransaction);
+      (mockTypeOrmRepository.create as jest.Mock).mockReturnValue(
+        mockTransaction,
+      );
+      (mockTypeOrmRepository.save as jest.Mock).mockResolvedValue(
+        mockTransaction,
+      );
 
       const inputData = {
         date: inputDate.toISOString().split('T')[0], // Convert to string for DTO
@@ -135,7 +147,8 @@ describe('TransactionBankRepository - Date Handling', () => {
 
       await repository.create(inputData);
 
-      const createCall = (mockTypeOrmRepository.create as jest.Mock).mock.calls[0][0];
+      const createCall = (mockTypeOrmRepository.create as jest.Mock).mock
+        .calls[0][0];
       // Since we convert the ISO string to local date, check that the date components match
       expect(createCall.date.getFullYear()).toBe(inputDate.getFullYear());
       expect(createCall.date.getMonth()).toBe(inputDate.getMonth());
@@ -149,7 +162,9 @@ describe('TransactionBankRepository - Date Handling', () => {
       };
 
       (mockTypeOrmRepository.update as jest.Mock).mockResolvedValue(undefined);
-      (mockTypeOrmRepository.findOne as jest.Mock).mockResolvedValue(mockUpdatedTransaction);
+      (mockTypeOrmRepository.findOne as jest.Mock).mockResolvedValue(
+        mockUpdatedTransaction,
+      );
 
       const updateData = {
         date: '2025-07-31', // ISO string
@@ -159,7 +174,8 @@ describe('TransactionBankRepository - Date Handling', () => {
       await repository.update('test-id', updateData);
 
       // Verify update was called with properly converted date
-      const updateCall = (mockTypeOrmRepository.update as jest.Mock).mock.calls[0][1];
+      const updateCall = (mockTypeOrmRepository.update as jest.Mock).mock
+        .calls[0][1];
       const updatedDate = updateCall.date;
 
       expect(updatedDate).toBeInstanceOf(Date);
@@ -179,8 +195,12 @@ describe('TransactionBankRepository - Date Handling', () => {
 
       for (const dateString of edgeCases) {
         const mockTransaction = { id: 'test', date: new Date() };
-        (mockTypeOrmRepository.create as jest.Mock).mockReturnValue(mockTransaction);
-        (mockTypeOrmRepository.save as jest.Mock).mockResolvedValue(mockTransaction);
+        (mockTypeOrmRepository.create as jest.Mock).mockReturnValue(
+          mockTransaction,
+        );
+        (mockTypeOrmRepository.save as jest.Mock).mockResolvedValue(
+          mockTransaction,
+        );
 
         const inputData = {
           date: dateString,
@@ -195,9 +215,11 @@ describe('TransactionBankRepository - Date Handling', () => {
 
         await repository.create(inputData);
 
-        const createCall = (mockTypeOrmRepository.create as jest.Mock).mock.calls.slice(-1)[0][0];
+        const createCall = (
+          mockTypeOrmRepository.create as jest.Mock
+        ).mock.calls.slice(-1)[0][0];
         const createdDate = createCall.date;
-        
+
         const [year, month, day] = dateString.split('-').map(Number);
         expect(createdDate.getFullYear()).toBe(year);
         expect(createdDate.getMonth()).toBe(month - 1); // month is 0-indexed

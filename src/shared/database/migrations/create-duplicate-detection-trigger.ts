@@ -1,11 +1,11 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class CreateDuplicateDetectionTrigger implements MigrationInterface {
-    name = 'CreateDuplicateDetectionTrigger' + Date.now();
+  name = 'CreateDuplicateDetectionTrigger' + Date.now();
 
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        // Crear la función de detección de duplicados
-        await queryRunner.query(`
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    // Crear la función de detección de duplicados
+    await queryRunner.query(`
             -- Función para detectar duplicados en transacciones bancarias
             -- Implementa las reglas de negocio para ignorar inserciones duplicadas
 
@@ -76,8 +76,8 @@ export class CreateDuplicateDetectionTrigger implements MigrationInterface {
             $$ LANGUAGE plpgsql;
         `);
 
-        // Crear el trigger
-        await queryRunner.query(`
+    // Crear el trigger
+    await queryRunner.query(`
             -- Eliminar trigger existente si existe
             DROP TRIGGER IF EXISTS trigger_check_transaction_duplicate ON transactions_bank;
 
@@ -87,17 +87,17 @@ export class CreateDuplicateDetectionTrigger implements MigrationInterface {
                 FOR EACH ROW
                 EXECUTE FUNCTION check_transaction_duplicate();
         `);
-    }
+  }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        // Eliminar el trigger
-        await queryRunner.query(`
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    // Eliminar el trigger
+    await queryRunner.query(`
             DROP TRIGGER IF EXISTS trigger_check_transaction_duplicate ON transactions_bank;
         `);
 
-        // Eliminar la función
-        await queryRunner.query(`
+    // Eliminar la función
+    await queryRunner.query(`
             DROP FUNCTION IF EXISTS check_transaction_duplicate();
         `);
-    }
+  }
 }

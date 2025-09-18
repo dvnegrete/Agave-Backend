@@ -27,7 +27,7 @@ export class TransactionsBankService {
     private readonly transactionValidatorService: TransactionValidatorService,
     private readonly bankTransactionRepository: TransactionBankRepository,
     private readonly lastTransactionBankRepository: LastTransactionBankRepository,
-  ) { }
+  ) {}
 
   async processFile(
     file: Express.Multer.File,
@@ -44,9 +44,6 @@ export class TransactionsBankService {
 
       // Determinar el nombre del banco del archivo actual
       const currentBankName = options?.bank || options?.bankName || '';
-
-      // Obtener el registro de referencia para evitar duplicados
-      const referenceTransaction = await this.getReferenceTransactionForBank(currentBankName);
 
       // Validar transacciones
       const validationResults = await Promise.all(
@@ -97,12 +94,15 @@ export class TransactionsBankService {
           );
         } catch (error) {
           console.error('Error al insertar transacciones:', error);
-          throw new BadRequestException(`Error al guardar transacciones: ${error.message}`);
+          throw new BadRequestException(
+            `Error al guardar transacciones: ${error.message}`,
+          );
         }
 
         // Encontrar la transacción más reciente por fecha y hora
         if (savedTransactions.length > 0) {
-          const latestTransaction = this.findLatestTransaction(savedTransactions);
+          const latestTransaction =
+            this.findLatestTransaction(savedTransactions);
           if (latestTransaction) {
             await this.saveLastTransactionReference(latestTransaction.id);
           }
@@ -116,15 +116,16 @@ export class TransactionsBankService {
       const dateRange =
         dates.length > 0
           ? {
-            start: dates[0],
-            end: dates[dates.length - 1],
-          }
+              start: dates[0],
+              end: dates[dates.length - 1],
+            }
           : undefined;
 
       // Calcular estadísticas
       const actuallyInserted = savedTransactions.length;
       const duplicatesIgnored = validTransactions.length - actuallyInserted;
-      const invalidTransactions = rawTransactions.length - validTransactions.length;
+      const invalidTransactions =
+        rawTransactions.length - validTransactions.length;
 
       return {
         success: errors.length === 0,
@@ -319,7 +320,10 @@ export class TransactionsBankService {
     }
 
     return transactions.reduce((latest, current) => {
-      const currentDateTime = this.combineDateAndTime(current.date, current.time);
+      const currentDateTime = this.combineDateAndTime(
+        current.date,
+        current.time,
+      );
       const latestDateTime = this.combineDateAndTime(latest.date, latest.time);
 
       return currentDateTime > latestDateTime ? current : latest;
@@ -354,10 +358,14 @@ export class TransactionsBankService {
     }
   }
 
-  private async saveLastTransactionReference(transactionId: string): Promise<void> {
+  private async saveLastTransactionReference(
+    transactionId: string,
+  ): Promise<void> {
     try {
       await this.lastTransactionBankRepository.create(transactionId);
-      console.log(`Última transacción guardada en last_transaction_bank: ${transactionId}`);
+      console.log(
+        `Última transacción guardada en last_transaction_bank: ${transactionId}`,
+      );
     } catch (error) {
       console.error('Error al guardar la última transacción:', error);
       // No lanzamos la excepción para no interrumpir el proceso principal
@@ -376,27 +384,4 @@ export class TransactionsBankService {
       return null;
     }
   }
-
-  // Esta función se mantiene solo para obtener referencia informativa
-  // El trigger SQL maneja automáticamente la lógica de validación
-  private async getReferenceTransactionForBank(currentBankName: string): Promise<any | null> {
-    try {
-      const recentRecords = await this.lastTransactionBankRepository.findRecent(7);
-      if (!recentRecords || recentRecords.length === 0) {
-        return null;
-      }
-
-      for (const record of recentRecords) {
-        if (record.transactionBank && record.transactionBank.bank_name === currentBankName) {
-          return record.transactionBank;
-        }
-      }
-
-      return recentRecords[0].transactionBank;
-    } catch (error) {
-      console.error('Error al obtener el registro de referencia para el banco:', error);
-      return null;
-    }
-  }
-
 }

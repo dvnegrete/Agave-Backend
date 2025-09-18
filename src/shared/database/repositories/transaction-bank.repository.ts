@@ -18,7 +18,10 @@ export class TransactionBankRepository {
   async create(data: CreateTransactionBankDto): Promise<TransactionBank> {
     // If data.date is already an ISO string (YYYY-MM-DD), create Date in local timezone to avoid UTC offset
     let date: Date;
-    if (typeof data.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(data.date)) {
+    if (
+      typeof data.date === 'string' &&
+      /^\d{4}-\d{2}-\d{2}$/.test(data.date)
+    ) {
       const [year, month, day] = data.date.split('-').map(Number);
       date = new Date(year, month - 1, day); // month is 0-indexed
     } else {
@@ -44,7 +47,10 @@ export class TransactionBankRepository {
     const transactionBanks = data.map((transaction) => {
       // If transaction.date is already an ISO string (YYYY-MM-DD), create Date in local timezone to avoid UTC offset
       let date: Date;
-      if (typeof transaction.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(transaction.date)) {
+      if (
+        typeof transaction.date === 'string' &&
+        /^\d{4}-\d{2}-\d{2}$/.test(transaction.date)
+      ) {
         const [year, month, day] = transaction.date.split('-').map(Number);
         date = new Date(year, month - 1, day); // month is 0-indexed
       } else {
@@ -101,7 +107,10 @@ export class TransactionBankRepository {
 
     if (data.date) {
       // If data.date is already an ISO string (YYYY-MM-DD), create Date in local timezone to avoid UTC offset
-      if (typeof data.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(data.date)) {
+      if (
+        typeof data.date === 'string' &&
+        /^\d{4}-\d{2}-\d{2}$/.test(data.date)
+      ) {
         const [year, month, day] = data.date.split('-').map(Number);
         updateData.date = new Date(year, month - 1, day); // month is 0-indexed
       } else {
@@ -204,7 +213,7 @@ export class TransactionBankRepository {
   ): Promise<TransactionBank[]> {
     const startOfDay = new Date(date);
     startOfDay.setHours(0, 0, 0, 0);
-    
+
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
 

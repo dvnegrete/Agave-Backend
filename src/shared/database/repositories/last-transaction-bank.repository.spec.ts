@@ -27,7 +27,9 @@ describe('LastTransactionBankRepository', () => {
       ],
     }).compile();
 
-    repository = module.get<LastTransactionBankRepository>(LastTransactionBankRepository);
+    repository = module.get<LastTransactionBankRepository>(
+      LastTransactionBankRepository,
+    );
   });
 
   it('should be defined', () => {
@@ -55,10 +57,10 @@ describe('LastTransactionBankRepository', () => {
 
   describe('findLatest', () => {
     it('should find the latest transaction record', async () => {
-      const mockEntity = { 
-        id: 1, 
+      const mockEntity = {
+        id: 1,
         transactions_bank_id: 'bank_txn_123456',
-        created_at: new Date()
+        created_at: new Date(),
       };
 
       (mockRepository.findOne as jest.Mock).mockResolvedValue(mockEntity);
@@ -84,10 +86,10 @@ describe('LastTransactionBankRepository', () => {
   describe('findByTransactionId', () => {
     it('should find record by transaction ID', async () => {
       const transactionId = 'bank_txn_123456';
-      const mockEntity = { 
-        id: 1, 
+      const mockEntity = {
+        id: 1,
         transactions_bank_id: transactionId,
-        created_at: new Date()
+        created_at: new Date(),
       };
 
       (mockRepository.findOne as jest.Mock).mockResolvedValue(mockEntity);
