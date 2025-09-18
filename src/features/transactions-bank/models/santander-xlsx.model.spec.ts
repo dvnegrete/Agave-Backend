@@ -120,4 +120,66 @@ describe('SantanderXlsxModel', () => {
       expect(tx.date).toBe(expected);
     });
   });
+
+  describe('Date format handling', () => {
+    it('should default to DD/MM format for ambiguous dates in XLSX files', () => {
+      const row = ['02/01/2025', '10:30:00', 'CONCEPTO', '100.50', '', 'USD'];
+
+      const result = SantanderXlsxModel.mapRowToTransaction(row, {
+        bank: 'TestBank',
+      });
+
+      expect(result).toEqual({
+        date: '2025-01-02', // XLSX: Should interpret as DD/MM (Jan 2nd, not Feb 1st)
+        time: '10:30:00',
+        concept: 'CONCEPTO',
+        amount: 100.5,
+        currency: 'USD',
+        is_deposit: false,
+        bank_name: 'TestBank',
+        validation_flag: false,
+        status: 'pending',
+      });
+    });
+
+    it('should handle DD/MM auto-detection when day > 12 in XLSX', () => {
+      const row = ['15/01/2025', '10:30:00', 'CONCEPTO', '100.50', '', 'EUR'];
+
+      const result = SantanderXlsxModel.mapRowToTransaction(row, {
+        bank: 'TestBank',
+      });
+
+      expect(result).toEqual({
+        date: '2025-01-15', // Should auto-detect as DD/MM (15 > 12)
+        time: '10:30:00',
+        concept: 'CONCEPTO',
+        amount: 100.5,
+        currency: 'EUR',
+        is_deposit: false,
+        bank_name: 'TestBank',
+        validation_flag: false,
+        status: 'pending',
+      });
+    });
+
+    it('should handle MM/DD auto-detection when day > 12 in XLSX', () => {
+      const row = ['01/15/2025', '10:30:00', 'CONCEPTO', '100.50', '', 'CAD'];
+
+      const result = SantanderXlsxModel.mapRowToTransaction(row, {
+        bank: 'TestBank',
+      });
+
+      expect(result).toEqual({
+        date: '2025-01-15', // Should auto-detect as MM/DD (15 > 12)
+        time: '10:30:00',
+        concept: 'CONCEPTO',
+        amount: 100.5,
+        currency: 'CAD',
+        is_deposit: false,
+        bank_name: 'TestBank',
+        validation_flag: false,
+        status: 'pending',
+      });
+    });
+  });
 });

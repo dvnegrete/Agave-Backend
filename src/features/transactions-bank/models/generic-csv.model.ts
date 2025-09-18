@@ -35,55 +35,74 @@ const safeToString = (value: unknown): string => {
   return '';
 };
 
-export const SantanderXlsxModel: BankStatementModel = {
-  name: 'SantanderXlsx',
+export const GenericCsvModel: BankStatementModel = {
+  name: 'GenericCsv',
   headerKeywords: [
     'fecha',
     'date',
     'hora',
     'time',
+    'sucursal',
+    'branch',
     'concepto',
     'concept',
     'retiro',
     'withdrawal',
     'deposito',
+    'depósito',
     'deposit',
-    'moneda',
-    'currency',
+    'saldo',
+    'balance',
   ],
 
   mapRowToTransaction: (row: unknown[], options?: any) => {
-    // Columnas esperadas: FECHA, HORA, CONCEPTO, RETIRO, DEPOSITO, MONEDA
-    const [fecha, hora, concepto, retiro, deposito, moneda] = row as [
-      unknown,
-      unknown,
-      unknown,
-      unknown,
-      unknown,
-      unknown,
-    ];
+    // Formato específico esperado: FECHA,HORA,SUCURSAL,CONCEPTO,RETIRO,DEPÓSITO,SALDO
+    // Solo procesamos: FECHA(0), HORA(1), CONCEPTO(3), RETIRO(4), DEPÓSITO(5)
+    // Ignoramos: SUCURSAL(2), SALDO(6) y cualquier campo adicional
+
+    if (row.length < 6) {
+      throw new Error(
+        'CSV debe tener al menos 6 columnas: FECHA,HORA,SUCURSAL,CONCEPTO,RETIRO,DEPÓSITO',
+      );
+    }
+
+    // Mapear campos por posición específica
+    const fecha = row[0]; // FECHA
+    const hora = row[1]; // HORA
+    // row[2] es SUCURSAL - ignoramos
+    const concepto = row[3]; // CONCEPTO
+    const retiro = row[4]; // RETIRO
+    const deposito = row[5]; // DEPÓSITO
+    // row[6] es SALDO - ignoramos
 
     let amount = 0;
     let isDeposit = false;
+    const currency = 'MXN'; // Siempre usar MXN como default
 
-    if (retiro && retiro !== '' && retiro !== 0) {
-      const retiroResult = parseAmountWithSign(safeToString(retiro));
-      amount = retiroResult.amount; // Always positive (absolute value)
-      isDeposit = false; // Withdrawals are not deposits
-    } else if (deposito && deposito !== '' && deposito !== 0) {
-      const depositoResult = parseAmountWithSign(safeToString(deposito));
-      amount = depositoResult.amount; // Always positive (absolute value)
-      isDeposit = true; // Deposits are deposits
+    // Determinar monto y tipo basado en RETIRO/DEPÓSITO
+    const retiroStr = safeToString(retiro).trim();
+    const depositoStr = safeToString(deposito).trim();
+
+    if (retiroStr && retiroStr !== '' && retiroStr !== '0') {
+      // Es un retiro
+      const retiroResult = parseAmountWithSign(retiroStr);
+      amount = retiroResult.amount;
+      isDeposit = false;
+    } else if (depositoStr && depositoStr !== '' && depositoStr !== '0') {
+      // Es un depósito
+      const depositoResult = parseAmountWithSign(depositoStr);
+      amount = depositoResult.amount;
+      isDeposit = true;
     } else {
-      throw new Error('Debe tener un valor en RETIRO o DEPOSITO');
+      throw new Error('Debe tener un valor en RETIRO o DEPÓSITO');
     }
 
     let formattedDate = '';
     try {
-      // Use DD/MM format preference for XLSX files
+      // Use MM/DD format preference for CSV files
       const parsedDate = parseContextualDate(
         fecha ? safeToString(fecha) : '',
-        'DD/MM',
+        'MM/DD',
       );
       formattedDate = parsedDate.toISOString().split('T')[0];
     } catch {
@@ -99,7 +118,7 @@ export const SantanderXlsxModel: BankStatementModel = {
       time: hora ? safeToString(hora).trim() : '',
       concept: concepto ? safeToString(concepto).trim() : '',
       amount,
-      currency: moneda ? safeToString(moneda).trim() : 'MXN',
+      currency,
       is_deposit: isDeposit,
       bank_name: bankName,
       validation_flag: false,
@@ -169,3 +188,4 @@ export const SantanderXlsxModel: BankStatementModel = {
     };
   },
 };
+

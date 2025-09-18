@@ -1,8 +1,10 @@
 import { BankStatementModel } from './bank-statement-model.interface';
 import { SantanderXlsxModel } from './santander-xlsx.model';
+import { GenericCsvModel } from './generic-csv.model';
 
 const REGISTERED_MODELS: Record<string, BankStatementModel> = {
   [SantanderXlsxModel.name]: SantanderXlsxModel,
+  [GenericCsvModel.name]: GenericCsvModel,
 };
 
 export function resolveBankStatementModel(
@@ -18,6 +20,11 @@ export function resolveBankStatementModel(
   const normalizedBank = (opts?.bankName || '').toLowerCase();
   const ext = (opts?.fileExtension || '').toLowerCase();
 
+  // For CSV files, use GenericCsvModel
+  if (ext === 'csv') {
+    return GenericCsvModel;
+  }
+
   if (
     (normalizedBank.includes('santander') || !normalizedBank) &&
     ext === 'xlsx'
@@ -25,6 +32,9 @@ export function resolveBankStatementModel(
     return SantanderXlsxModel;
   }
 
-  // 3) Fallback por defecto: SantanderXlsx
+  // 3) Fallback por defecto: SantanderXlsx para XLSX, GenericCsv para CSV
+  if (ext === 'csv') {
+    return GenericCsvModel;
+  }
   return SantanderXlsxModel;
 }
