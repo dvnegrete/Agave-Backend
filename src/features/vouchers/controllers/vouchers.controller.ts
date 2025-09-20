@@ -24,6 +24,20 @@ import { ProcessFileDto } from '../dto/process-file.dto';
 import { ProcessedTransaction } from '../interfaces/transaction.interface';
 import { OcrService } from '../services/ocr.service';
 import { OcrServiceDto, OcrResponseDto } from '../dto/ocr-service.dto';
+import { getVouchersBusinessRules } from '@/shared/config/business-rules.config';
+
+interface StructuredData {
+  monto: string;
+  fecha_pago: string;
+  referencia: string;
+  hora_transaccion: string;
+}
+
+interface StructuredDataWithCasa extends StructuredData {
+  casa: number | null;
+  faltan_datos?: boolean;
+  pregunta?: string;
+}
 
 @Controller('vouchers')
 export class VouchersController {
@@ -75,18 +89,27 @@ export class VouchersController {
     )
     file: Express.Multer.File,
     @Body() ocrServiceDto: OcrServiceDto,
-  ): Promise<OcrResponseDto> {
+  ) {
     try {
       // Validar formato de imagen
       await this.ocrService.validateImageFormat(file.buffer, file.originalname);
 
       // Procesar OCR
-      const result = await this.ocrService.extractTextFromImage(
+      const resultOCR = await this.ocrService.extractTextFromImage(
         file.buffer,
         file.originalname,
         ocrServiceDto.language,
       );
-      return result;
+      const dataWithHouse = this.extractCentavos(resultOCR.structuredData);
+
+      // Generar respuesta según los casos
+      const whatsappMessage = this.generateWhatsAppMessage(dataWithHouse);
+
+      return {
+        ...resultOCR,
+        structuredData: dataWithHouse,
+        whatsappMessage,
+      };
     } catch (error) {
       throw new BadRequestException(error.message);
     }
@@ -291,6 +314,73 @@ export class VouchersController {
       exportDate: new Date().toISOString(),
       count: transactions.length,
     };
+  }
+
+  private extractCentavos(
+    structuredData: StructuredData,
+  ): StructuredDataWithCasa {
+    const modifiedData: StructuredDataWithCasa = {
+      ...structuredData,
+      casa: null,
+    };
+    const businessRules = getVouchersBusinessRules();
+
+    if (modifiedData.monto) {
+      const montoStr = String(modifiedData.monto);
+      const parts = montoStr.split('.');
+
+      if (parts.length === 2) {
+        const centavos = parseInt(parts[1], 10);
+
+        if (
+          isNaN(centavos) ||
+          centavos === 0 ||
+          centavos > businessRules.maxCasas
+        ) {
+          modifiedData.casa = null;
+        } else if (
+          centavos >= businessRules.minCasas &&
+          centavos <= businessRules.maxCasas
+        ) {
+          modifiedData.casa = centavos;
+        } else {
+          modifiedData.casa = null;
+        }
+      } else {
+        modifiedData.casa = null;
+      }
+    } else {
+      modifiedData.casa = null;
+    }
+
+    return modifiedData;
+  }
+
+  private generateWhatsAppMessage(data: StructuredDataWithCasa): string {
+    // Caso 3: faltan_datos = true
+    if (data.faltan_datos) {
+      return `No pude extraer los siguientes datos del comprobante que enviaste. Por favor indícame los valores correctos para los siguientes conceptos:\n\n${data.pregunta || 'Datos faltantes no especificados'}`;
+    }
+
+    // Caso 2: faltan_datos = false y casa = null
+    if (!data.faltan_datos && data.casa === null) {
+      return `Para poder registrar tu pago por favor indica el número de casa a la que corresponde el pago: (El valor debe ser entre 1 y 66).`;
+    }
+
+    // Caso 1: faltan_datos = false y casa es un valor numérico
+    if (!data.faltan_datos && typeof data.casa === 'number') {
+      return `Voy a registrar tu pago con el estatus "pendiente verificación en banco" con los siguientes datos que he encontrado en el comprobante:
+Monto de pago: ${data.monto}
+Fecha de Pago: ${data.fecha_pago}
+Numero de Casa: ${data.casa}
+Referencia: ${data.referencia}
+Hora de Transacción: ${data.hora_transaccion}
+
+Si los datos son correctos, escribe SI`;
+    }
+
+    // Fallback
+    return 'Error al procesar el comprobante. Por favor intenta nuevamente.';
   }
 
   private generateCSV(transactions: ProcessedTransaction[]): string {

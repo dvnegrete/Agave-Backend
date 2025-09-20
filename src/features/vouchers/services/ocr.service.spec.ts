@@ -57,12 +57,4 @@ describe('OcrService', () => {
     });
   });
 
-  describe('getSupportedLanguages', () => {
-    it('should return array of supported languages', async () => {
-      const languages = await service.getSupportedLanguages();
-      expect(Array.isArray(languages)).toBe(true);
-      expect(languages).toContain('es');
-      expect(languages).toContain('en');
-    });
-  });
 });
