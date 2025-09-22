@@ -13,6 +13,7 @@ import {
   ParseFilePipe,
   MaxFileSizeValidator,
   FileTypeValidator,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { VouchersService } from '../services/vouchers.service';
@@ -314,6 +315,25 @@ export class VouchersController {
       exportDate: new Date().toISOString(),
       count: transactions.length,
     };
+  }
+
+  @Get('webhook/whatsapp')
+  verifyWebhook(
+    @Query('hub.mode') mode?: string,
+    @Query('hub.challenge') challenge?: string,
+    @Query('hub.verify_token') verifyToken?: string,
+  ) {
+    const expectedToken = process.env.ACCESS_TOKEN_VERIFY_WA;
+
+    if (!expectedToken) {
+      throw new UnauthorizedException('Access token not configured');
+    }
+
+    if (mode === 'subscribe' && verifyToken === expectedToken) {
+      return challenge;
+    }
+
+    throw new UnauthorizedException('Invalid verification token');
   }
 
   private extractCentavos(
