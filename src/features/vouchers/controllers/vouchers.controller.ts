@@ -26,6 +26,7 @@ import { ProcessedTransaction } from '../interfaces/transaction.interface';
 import { OcrService } from '../services/ocr.service';
 import { OcrServiceDto, OcrResponseDto } from '../dto/ocr-service.dto';
 import { getVouchersBusinessRules } from '@/shared/config/business-rules.config';
+import { WhatsAppMessageClassifierService } from '../services/whatsapp-message-classifier.service';
 
 interface StructuredData {
   monto: string;
@@ -45,6 +46,7 @@ export class VouchersController {
   constructor(
     private readonly vouchersService: VouchersService,
     private readonly ocrService: OcrService,
+    private readonly messageClassifier: WhatsAppMessageClassifierService,
   ) { }
 
   @Post('upload')
@@ -259,8 +261,7 @@ export class VouchersController {
   /**
    * Procesa mensajes entrantes desde el webhook de WhatsApp.
    * Este endpoint recibe las notificaciones de mensajes enviados por usuarios de WhatsApp.
-   * Extrae el número de teléfono del remitente y el contenido del mensaje, mostrándolos en consola.
-   * Envía una respuesta automática "Mensaje recibido" al remitente.
+   * Usa IA para clasificar el mensaje y determinar la respuesta apropiada.
    *
    * @param body - Payload del webhook de WhatsApp con la estructura de mensajes
    * @returns Objeto con status de éxito
@@ -282,8 +283,16 @@ export class VouchersController {
         console.log('Número de WhatsApp:', phoneNumber);
         console.log('Mensaje recibido:', messageText);
 
-        // Enviar respuesta automática
-        await this.sendWhatsAppMessage(phoneNumber, 'Mensaje recibido');
+        // Clasificar el mensaje usando IA
+        const classification = await this.messageClassifier.classifyMessage(messageText);
+
+        console.log('Clasificación:', {
+          intent: classification.intent,
+          confidence: classification.confidence,
+        });
+
+        // Enviar respuesta basada en la clasificación
+        await this.sendWhatsAppMessage(phoneNumber, classification.response);
       }
 
       return { success: true };

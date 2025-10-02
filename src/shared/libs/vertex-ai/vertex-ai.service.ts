@@ -12,7 +12,7 @@ export class VertexAIService {
 
   constructor(private readonly vertexAIClient: VertexAIClient) {}
 
-  async processTextWithPrompt(text: string): Promise<any> {
+  async processTextWithPrompt(text: string, customPrompt?: string): Promise<any> {
     const vertexAI = this.vertexAIClient.getClient();
     if (!vertexAI) {
       this.logger.error('El cliente de Vertex AI no está disponible.');
@@ -34,7 +34,7 @@ export class VertexAIService {
       },
     });
 
-    const prompt = `Eres un extractor de datos de comprobantes de pago. Responde SOLO en JSON. Campos requeridos: monto (MXN), fecha_pago (YYYY-MM-DD), referencia, hora_transaccion. Si algún campo falta o es inválido, incluye 'faltan_datos': true y 'pregunta' con texto breve para pedirlo. Si todo está correcto, 'faltan_datos': false. El texto a analizar es: \n\n${text}`;
+    const prompt = customPrompt || `Eres un extractor de datos de comprobantes de pago. Responde SOLO en JSON. Campos requeridos: monto (MXN), fecha_pago (YYYY-MM-DD), referencia, hora_transaccion. Si algún campo falta o es inválido, incluye 'faltan_datos': true y 'pregunta' con texto breve para pedirlo. Si todo está correcto, 'faltan_datos': false. El texto a analizar es: \n\n${text}`;
 
     try {
       const resp = await generativeModel.generateContent(prompt);

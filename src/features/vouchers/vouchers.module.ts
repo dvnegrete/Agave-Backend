@@ -4,6 +4,7 @@ import { VouchersService } from './services/vouchers.service';
 import { FileProcessorService } from './services/file-processor.service';
 import { TransactionValidatorService } from './services/transaction-validator.service';
 import { OcrService } from './services/ocr.service';
+import { WhatsAppMessageClassifierService } from './services/whatsapp-message-classifier.service';
 import { GoogleCloudModule } from '@/shared/libs/google-cloud';
 import { VertexAIModule } from '@/shared/libs/vertex-ai/vertex-ai.module';
 import { OpenAIModule } from '@/shared/libs/openai/openai.module';
@@ -16,6 +17,7 @@ import { OpenAIModule } from '@/shared/libs/openai/openai.module';
     FileProcessorService,
     TransactionValidatorService,
     OcrService,
+    WhatsAppMessageClassifierService,
   ],
   exports: [VouchersService],
 })
