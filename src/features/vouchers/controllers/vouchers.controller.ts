@@ -260,6 +260,7 @@ export class VouchersController {
    * Procesa mensajes entrantes desde el webhook de WhatsApp.
    * Este endpoint recibe las notificaciones de mensajes enviados por usuarios de WhatsApp.
    * Extrae el número de teléfono del remitente y el contenido del mensaje, mostrándolos en consola.
+   * Envía una respuesta automática "Mensaje recibido" al remitente.
    *
    * @param body - Payload del webhook de WhatsApp con la estructura de mensajes
    * @returns Objeto con status de éxito
@@ -280,6 +281,9 @@ export class VouchersController {
 
         console.log('Número de WhatsApp:', phoneNumber);
         console.log('Mensaje recibido:', messageText);
+
+        // Enviar respuesta automática
+        await this.sendWhatsAppMessage(phoneNumber, 'Mensaje recibido');
       }
 
       return { success: true };
@@ -388,5 +392,59 @@ Si los datos son correctos, escribe SI`;
       ...rows.map((row) => row.join(',')),
     ].join('\n');
     return csvContent;
+  }
+
+  /**
+   * Envía un mensaje de texto a través de WhatsApp Business API
+   * @param to Número de teléfono del destinatario
+   * @param message Mensaje de texto a enviar
+   */
+  private async sendWhatsAppMessage(
+    to: string,
+    message: string,
+  ): Promise<void> {
+    try {
+      const token = process.env.TOKEN_WA;
+      const phoneNumberId = process.env.PHONE_NUMBER_ID_WA;
+
+      if (!token || !phoneNumberId) {
+        console.error(
+          'WhatsApp no está configurado correctamente (falta TOKEN_WA o PHONE_NUMBER_ID_WA)',
+        );
+        return;
+      }
+
+      const url = `https://graph.facebook.com/v23.0/${phoneNumberId}/messages`;
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: to,
+          type: 'text',
+          text: {
+            preview_url: false,
+            body: message,
+          },
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error(
+          `Error al enviar mensaje de WhatsApp: ${JSON.stringify(data)}`,
+        );
+      } else {
+        console.log(`Mensaje enviado exitosamente a ${to}`);
+      }
+    } catch (error) {
+      console.error(`Error al enviar mensaje de WhatsApp: ${error.message}`);
+    }
   }
 }
