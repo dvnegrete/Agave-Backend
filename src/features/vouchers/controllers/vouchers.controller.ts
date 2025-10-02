@@ -45,7 +45,7 @@ export class VouchersController {
   constructor(
     private readonly vouchersService: VouchersService,
     private readonly ocrService: OcrService,
-  ) {}
+  ) { }
 
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
@@ -116,6 +116,10 @@ export class VouchersController {
     }
   }
 
+  /**
+   * TODO: Verificar si es funcional en producción, sino es así, eliminar este endpoint.
+   * @returns JSON con el estado de configuración del servicio OCR (Google Cloud)
+   */
   @Get('ocr-service/status')
   async getOcrStatus(): Promise<{
     isConfigured: boolean;
@@ -191,6 +195,10 @@ export class VouchersController {
     return await this.vouchersService.getAllTransactions();
   }
 
+  /**
+   * TODO: Verificar si es funcional en producción, sino es así, eliminar este endpoint.
+   * @returns Resumen de transacciones: total, por estado, por categoría, etc.
+   */
   @Get('summary')
   async getTransactionSummary() {
     return await this.vouchersService.getTransactionSummary();
@@ -229,94 +237,6 @@ export class VouchersController {
     return { message: 'Transacción eliminada exitosamente' };
   }
 
-  @Post('batch')
-  async createBatchTransactions(
-    @Body() transactions: CreateTransactionDto[],
-  ): Promise<ProcessedTransaction[]> {
-    const results: ProcessedTransaction[] = [];
-    const errors: string[] = [];
-
-    for (let i = 0; i < transactions.length; i++) {
-      try {
-        const result = await this.vouchersService.createTransaction(
-          transactions[i],
-        );
-        results.push(result);
-      } catch (error) {
-        errors.push(`Transacción ${i + 1}: ${error.message}`);
-      }
-    }
-
-    if (errors.length > 0) {
-      throw new BadRequestException({
-        message: 'Algunas transacciones no pudieron ser procesadas',
-        successful: results.length,
-        failed: errors.length,
-        errors,
-      });
-    }
-
-    return results;
-  }
-
-  @Get('export/csv')
-  async exportToCSV(
-    @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string,
-    @Query('status') status?: 'pending' | 'processed' | 'failed',
-  ) {
-    let transactions: ProcessedTransaction[];
-
-    if (status) {
-      transactions = await this.vouchersService.getTransactionsByStatus(status);
-    } else if (startDate && endDate) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      transactions = await this.vouchersService.getTransactionsByDateRange(
-        start,
-        end,
-      );
-    } else {
-      transactions = await this.vouchersService.getAllTransactions();
-    }
-
-    const csvContent = this.generateCSV(transactions);
-
-    return {
-      content: csvContent,
-      filename: `transactions_${new Date().toISOString().split('T')[0]}.csv`,
-      count: transactions.length,
-    };
-  }
-
-  @Get('export/json')
-  async exportToJSON(
-    @Query('startDate') startDate?: string,
-    @Query('endDate') endDate?: string,
-    @Query('status') status?: 'pending' | 'processed' | 'failed',
-  ) {
-    let transactions: ProcessedTransaction[];
-
-    if (status) {
-      transactions = await this.vouchersService.getTransactionsByStatus(status);
-    } else if (startDate && endDate) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      transactions = await this.vouchersService.getTransactionsByDateRange(
-        start,
-        end,
-      );
-    } else {
-      transactions = await this.vouchersService.getAllTransactions();
-    }
-
-    return {
-      transactions,
-      exportDate: new Date().toISOString(),
-      count: transactions.length,
-    };
-  }
-
   @Get('webhook/whatsapp')
   verifyWebhook(
     @Query('hub.mode') mode?: string,
@@ -334,6 +254,39 @@ export class VouchersController {
     }
 
     throw new UnauthorizedException('Invalid verification token');
+  }
+
+  /**
+   * Procesa mensajes entrantes desde el webhook de WhatsApp.
+   * Este endpoint recibe las notificaciones de mensajes enviados por usuarios de WhatsApp.
+   * Extrae el número de teléfono del remitente y el contenido del mensaje, mostrándolos en consola.
+   *
+   * @param body - Payload del webhook de WhatsApp con la estructura de mensajes
+   * @returns Objeto con status de éxito
+   * @throws BadRequestException si hay error procesando el mensaje
+   */
+  @Post('webhook/whatsapp')
+  async receiveWhatsAppMessage(@Body() body: any) {
+    try {
+      // Extraer datos del webhook de WhatsApp
+      const entry = body.entry?.[0];
+      const changes = entry?.changes?.[0];
+      const value = changes?.value;
+      const messages = value?.messages?.[0];
+
+      if (messages) {
+        const phoneNumber = messages.from;
+        const messageText = messages.text?.body || '';
+
+        console.log('Número de WhatsApp:', phoneNumber);
+        console.log('Mensaje recibido:', messageText);
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error procesando mensaje de WhatsApp:', error);
+      throw new BadRequestException('Error processing WhatsApp message');
+    }
   }
 
   private extractCentavos(
