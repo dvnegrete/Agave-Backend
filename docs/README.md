@@ -4,6 +4,8 @@
 
 Documentación completa del backend de Agave, incluyendo arquitectura, features, base de datos y configuración.
 
+> 📚 **Guía de navegación**: Ver [DOCUMENTATION_STRUCTURE.md](DOCUMENTATION_STRUCTURE.md) para entender la organización completa de la documentación.
+
 ## Table of Contents
 
 ### 🏗️ Architecture
@@ -23,6 +25,24 @@ Documentación completa del backend de Agave, incluyendo arquitectura, features,
 - [API Endpoints](features/transactions-bank/README.md#api-endpoints) - REST API documentation
 - [Business Logic](features/transactions-bank/README.md#business-logic) - Reglas de negocio
 - [File Processing](features/transactions-bank/README.md#supported-formats) - Formatos soportados
+
+#### Vouchers & OCR
+- [**Vouchers Module Overview**](modules/vouchers/README.md) - Módulo de procesamiento de comprobantes
+- [**OCR Implementation**](modules/vouchers/ocr-implementation.md) - Implementación de OCR con Google Cloud Vision
+- [WhatsApp Integration](modules/vouchers/README.md#whatsapp-integration) - Integración con WhatsApp Business API
+
+### 📦 Shared Modules
+
+#### Google Cloud Platform
+- [**Google Cloud Library**](modules/google-cloud/README.md) - Librería unificada para servicios de GCP
+- [Vision API Setup](../GOOGLE_CLOUD_VISION_SETUP.md) - Configuración de Google Cloud Vision
+- [Services Available](modules/google-cloud/README.md#servicios-disponibles) - Vision, Storage, Translate, TTS, STT
+
+#### Content Dictionary System
+- [**Content System Overview**](modules/content/README.md) - Sistema centralizado de mensajes y configuración
+- [Messages](modules/content/README.md#mensajes) - Mensajes de WhatsApp y Transacciones Bancarias
+- [Prompts](modules/content/README.md#prompts-de-ia) - Prompts de IA centralizados
+- [Business Values](modules/content/README.md#configuración) - Valores de negocio y configuración
 
 ## Quick Start
 
@@ -87,13 +107,22 @@ npm run db:check-transactions  # View table schema
 ```
 src/
 ├── features/                # Business logic modules
-│   └── transactions-bank/   # Bank transaction processing
+│   ├── transactions-bank/   # Bank transaction processing
+│   └── vouchers/           # Voucher processing with OCR & WhatsApp
 ├── shared/                  # Shared utilities and services
 │   ├── database/           # Database layer
 │   │   ├── entities/       # TypeORM entities
 │   │   ├── repositories/   # Data access layer
 │   │   ├── functions/      # SQL functions & triggers
 │   │   └── indexes/        # Database indexes
+│   ├── libs/               # External service integrations
+│   │   ├── google-cloud/   # GCP services (Vision, Storage, etc.)
+│   │   ├── openai/         # OpenAI integration
+│   │   └── vertex-ai/      # Google Vertex AI integration
+│   ├── content/            # Centralized messages, prompts & config
+│   │   ├── messages/       # All user-facing messages
+│   │   ├── prompts/        # AI prompts
+│   │   └── config/         # Business values & URLs
 │   └── config/             # Configuration management
 ```
 
@@ -122,6 +151,17 @@ POST   /transactions-bank/upload         # Upload bank statement file
 GET    /transactions-bank                # Get all transactions
 GET    /transactions-bank/:id            # Get specific transaction
 GET    /transactions-bank/status/:status # Get by status
+POST   /transactions-bank/reconcile      # Reconcile transactions
+GET    /transactions-bank/export/csv     # Export to CSV
+GET    /transactions-bank/export/json    # Export to JSON
+```
+
+### Vouchers & OCR Endpoints
+```http
+POST   /vouchers/ocr-service             # Process voucher with OCR
+GET    /vouchers/ocr-service/languages   # Get supported languages
+POST   /vouchers/whatsapp-webhook        # WhatsApp webhook
+GET    /vouchers/whatsapp-webhook        # WhatsApp verification
 ```
 
 ## Development Guidelines
@@ -157,9 +197,22 @@ DATABASE_URL=postgresql://user:pass@host:port/db
 PORT=3000
 NODE_ENV=development
 
-# External services (if used)
+# External services
 SUPABASE_URL=your_supabase_url
 SUPABASE_ANON_KEY=your_supabase_key
+
+# Google Cloud Platform
+GOOGLE_CLOUD_PROJECT_ID=your-project-id
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/credentials.json
+PROJECT_ID_GCP=your-project-id
+
+# WhatsApp Business API
+WHATSAPP_API_TOKEN=your_whatsapp_token
+PHONE_NUMBER_ID_WA=your_phone_number_id
+VERIFY_TOKEN_WA=your_verify_token
+
+# AI Services
+OPENAI_API_KEY=your_openai_key
 ```
 
 ## Monitoring & Debugging
@@ -204,6 +257,8 @@ npm run start:prod
 - [Database Schema](database/schema.md) - Complete database documentation
 - [Triggers](database/triggers.md) - Duplicate detection logic
 - [Setup Commands](database/setup.md) - All npm commands reference
+- [Google Cloud Setup](../GOOGLE_CLOUD_VISION_SETUP.md) - GCP configuration guide
+- [Content Dictionary](modules/content/README.md) - Centralized content system
 
 ### Troubleshooting
 - Check [Setup Guide](database/setup.md#troubleshooting) for common issues

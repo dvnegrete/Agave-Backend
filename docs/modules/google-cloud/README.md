@@ -2,8 +2,6 @@
 
 Esta librería proporciona una interfaz unificada para acceder a múltiples servicios de Google Cloud Platform desde una sola instancia.
 
-> 📚 **Documentación completa**: Ver [docs/modules/google-cloud/README.md](../../../../docs/modules/google-cloud/README.md)
-
 ## Características
 
 - **Patrón Singleton**: Una sola instancia del cliente para toda la aplicación

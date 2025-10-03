@@ -2,8 +2,6 @@
 
 Este directorio contiene **todos los mensajes, prompts y configuración** de la aplicación en un solo lugar centralizado con **type-safety completo**.
 
-> 📚 **Documentación completa**: Ver [docs/modules/content/README.md](../../../docs/modules/content/README.md)
-
 ## 📁 Estructura
 
 ```
