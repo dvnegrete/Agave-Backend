@@ -53,7 +53,8 @@ export class WhatsAppMessageClassifierService {
       return {
         intent: MessageIntent.OFF_TOPIC,
         confidence: 0,
-        response: 'Disculpa, hubo un error al procesar tu mensaje. Por favor, intenta nuevamente.',
+        response:
+          'Disculpa, hubo un error al procesar tu mensaje. Por favor, intenta nuevamente.',
       };
     }
   }
@@ -110,7 +111,10 @@ Mensaje del usuario a clasificar:
    */
   private async classifyWithVertexAI(prompt: string): Promise<any> {
     try {
-      const response = await this.vertexAIService.processTextWithPrompt('', prompt);
+      const response = await this.vertexAIService.processTextWithPrompt(
+        '',
+        prompt,
+      );
       return response;
     } catch (error) {
       this.logger.error(`Error con Vertex AI: ${error.message}`);
@@ -123,7 +127,10 @@ Mensaje del usuario a clasificar:
    */
   private async classifyWithOpenAI(prompt: string): Promise<any> {
     try {
-      const response = await this.openAIService.processTextWithPrompt('', prompt);
+      const response = await this.openAIService.processTextWithPrompt(
+        '',
+        prompt,
+      );
       return response;
     } catch (error) {
       this.logger.error(`Error con OpenAI: ${error.message}`);

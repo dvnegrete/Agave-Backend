@@ -308,7 +308,8 @@ export class VouchersController {
           console.log('Mensaje de texto recibido:', messageText);
 
           // Clasificar el mensaje usando IA
-          const classification = await this.messageClassifier.classifyMessage(messageText);
+          const classification =
+            await this.messageClassifier.classifyMessage(messageText);
 
           console.log('Clasificación:', {
             intent: classification.intent,

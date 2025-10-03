@@ -8,14 +8,19 @@ export class OpenAIService {
 
   constructor(private readonly openAIClient: OpenAIClient) {}
 
-  async processTextWithPrompt(text: string, customPrompt?: string): Promise<any> {
+  async processTextWithPrompt(
+    text: string,
+    customPrompt?: string,
+  ): Promise<any> {
     const client = this.openAIClient.getClient();
     if (!client) {
       this.logger.error('El cliente de OpenAI no está disponible.');
       throw new Error('El servicio de OpenAI no está configurado.');
     }
 
-    const systemPrompt = customPrompt || "Eres un extractor de datos de comprobantes de pago. Responde SOLO en JSON. Campos requeridos: monto (MXN), fecha_pago (YYYY-MM-DD), referencia, hora_transaccion. Si algún campo falta o es inválido, incluye 'faltan_datos': true y 'pregunta' con texto breve para pedirlo. Si todo está correcto, 'faltan_datos': false.";
+    const systemPrompt =
+      customPrompt ||
+      "Eres un extractor de datos de comprobantes de pago. Responde SOLO en JSON. Campos requeridos: monto (MXN), fecha_pago (YYYY-MM-DD), referencia, hora_transaccion. Si algún campo falta o es inválido, incluye 'faltan_datos': true y 'pregunta' con texto breve para pedirlo. Si todo está correcto, 'faltan_datos': false.";
 
     try {
       const completion = await client.chat.completions.create({

@@ -56,5 +56,4 @@ describe('OcrService', () => {
       ).rejects.toThrow(BadRequestException);
     });
   });
-
 });

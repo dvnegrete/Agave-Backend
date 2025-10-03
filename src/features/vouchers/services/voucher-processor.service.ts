@@ -2,14 +2,14 @@ import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { OcrService } from './ocr.service';
 import { getVouchersBusinessRules } from '@/shared/config/business-rules.config';
 
-interface StructuredData {
+export interface StructuredData {
   monto: string;
   fecha_pago: string;
   referencia: string;
   hora_transaccion: string;
 }
 
-interface StructuredDataWithCasa extends StructuredData {
+export interface StructuredDataWithCasa extends StructuredData {
   casa: number | null;
   faltan_datos?: boolean;
   pregunta?: string;
