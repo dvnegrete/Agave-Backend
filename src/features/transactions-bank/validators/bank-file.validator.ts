@@ -1,4 +1,5 @@
 import { FileValidator } from '@nestjs/common';
+import { TransactionsBankErrorMessages } from '@/shared/content';
 
 export interface BankFileValidatorOptions {
   allowedExtensions?: string[];
@@ -38,14 +39,14 @@ export class BankFileValidator extends FileValidator<BankFileValidatorOptions> {
     const { allowedExtensions = [], allowedMimeTypes = [] } =
       this.validationOptions;
 
-    let message = 'Tipo de archivo no soportado.';
+    let message = TransactionsBankErrorMessages.unsupportedFileType;
 
     if (allowedExtensions.length > 0) {
-      message += ` Extensiones permitidas: ${allowedExtensions.join(', ')}.`;
+      message += ` ${TransactionsBankErrorMessages.allowedExtensions(allowedExtensions)}`;
     }
 
     if (allowedMimeTypes.length > 0) {
-      message += ` Tipos MIME permitidos: ${allowedMimeTypes.join(', ')}.`;
+      message += ` ${TransactionsBankErrorMessages.allowedMimeTypes(allowedMimeTypes)}`;
     }
 
     return message;

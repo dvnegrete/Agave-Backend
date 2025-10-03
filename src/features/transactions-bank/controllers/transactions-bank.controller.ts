@@ -23,6 +23,11 @@ import {
 import { UploadFileDto } from '../dto/upload-file.dto';
 import { ProcessedBankTransaction } from '../interfaces/transaction-bank.interface';
 import { BankFileValidator } from '../validators/bank-file.validator';
+import {
+  TransactionsBankSuccessMessages,
+  TransactionsBankErrorMessages,
+  BusinessValues,
+} from '@/shared/content';
 
 @Controller('transactions-bank')
 export class TransactionsBankController {
@@ -37,17 +42,16 @@ export class TransactionsBankController {
       new ParseFilePipe({
         validators: [
           new MaxFileSizeValidator({
-            maxSize: 10 * 1024 * 1024, // 10MB
-            message: 'El archivo es demasiado grande. Tamaño máximo: 10MB',
+            maxSize: BusinessValues.files.maxSizeBytes,
+            message: TransactionsBankErrorMessages.fileTooLarge,
           }),
           new BankFileValidator({
-            allowedExtensions: ['.csv', '.xlsx', '.txt', '.json'],
+            allowedExtensions: [
+              ...BusinessValues.files.allowedExtensions,
+            ] as string[],
             allowedMimeTypes: [
-              'text/csv',
-              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-              'text/plain',
-              'application/json',
-            ],
+              ...BusinessValues.files.allowedMimeTypes,
+            ] as string[],
           }),
         ],
         fileIsRequired: true,
@@ -72,12 +76,14 @@ export class TransactionsBankController {
         options,
       );
       return {
-        message: 'Archivo de transacciones bancarias procesado exitosamente',
+        message: TransactionsBankSuccessMessages.fileProcessed,
         ...result,
       };
     } catch (error) {
       throw new BadRequestException(
-        error instanceof Error ? error.message : 'Error al procesar el archivo',
+        error instanceof Error
+          ? error.message
+          : TransactionsBankErrorMessages.fileProcessingError,
       );
     }
   }
@@ -141,7 +147,7 @@ export class TransactionsBankController {
     @Param('id') id: string,
   ): Promise<{ message: string }> {
     await this.transactionsBankService.deleteTransaction(id);
-    return { message: 'Transacción bancaria eliminada exitosamente' };
+    return { message: TransactionsBankSuccessMessages.transactionDeleted };
   }
 
   @Post('batch')
@@ -166,7 +172,7 @@ export class TransactionsBankController {
 
     if (errors.length > 0) {
       throw new BadRequestException({
-        message: 'Algunas transacciones bancarias no pudieron ser procesadas',
+        message: TransactionsBankErrorMessages.batchProcessingError,
         successful: results.length,
         failed: errors.length,
         errors,
@@ -184,14 +190,14 @@ export class TransactionsBankController {
           reconciliationDto,
         );
       return {
-        message: 'Reconciliación completada',
+        message: TransactionsBankSuccessMessages.reconciliationCompleted,
         ...result,
       };
     } catch (error) {
       throw new BadRequestException(
         error instanceof Error
           ? error.message
-          : 'Error al realizar la reconciliación',
+          : TransactionsBankErrorMessages.reconciliationError,
       );
     }
   }

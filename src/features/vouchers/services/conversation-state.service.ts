@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { StructuredDataWithCasa } from './voucher-processor.service';
+import { BusinessValues } from '@/shared/content';
 
 /**
  * Estados posibles de una conversación
@@ -31,11 +32,14 @@ export interface ConversationContext {
 export class ConversationStateService {
   private readonly logger = new Logger(ConversationStateService.name);
   private readonly conversations: Map<string, ConversationContext> = new Map();
-  private readonly SESSION_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutos
+  private readonly SESSION_TIMEOUT_MS = BusinessValues.session.timeoutMs;
 
   constructor() {
-    // Limpiar sesiones expiradas cada 5 minutos
-    setInterval(() => this.cleanExpiredSessions(), 5 * 60 * 1000);
+    // Limpiar sesiones expiradas automáticamente
+    setInterval(
+      () => this.cleanExpiredSessions(),
+      BusinessValues.session.cleanupIntervalMs,
+    );
   }
 
   /**
@@ -180,13 +184,15 @@ export class ConversationStateService {
   }
 
   /**
-   * Extrae número de casa de un mensaje (1-66)
+   * Extrae número de casa de un mensaje
+   * Usa los valores de negocio configurados (min-max casas)
    */
   extractHouseNumber(message: string): number | null {
+    const { min, max } = BusinessValues.houses;
     const match = message.match(/\b([1-9]|[1-5][0-9]|6[0-6])\b/);
     if (match) {
       const num = parseInt(match[1], 10);
-      if (num >= 1 && num <= 66) {
+      if (num >= min && num <= max) {
         return num;
       }
     }

@@ -19,6 +19,10 @@ import {
   UpdateTransactionBankDto,
   ReconciliationDto,
 } from '../dto/transaction-bank.dto';
+import {
+  TransactionsBankErrorMessages,
+  TransactionsBankWarningMessages,
+} from '@/shared/content';
 
 @Injectable()
 export class TransactionsBankService {
@@ -95,7 +99,7 @@ export class TransactionsBankService {
         } catch (error) {
           console.error('Error al insertar transacciones:', error);
           throw new BadRequestException(
-            `Error al guardar transacciones: ${error.message}`,
+            TransactionsBankErrorMessages.savingError(error.message),
           );
         }
 
@@ -143,7 +147,7 @@ export class TransactionsBankService {
       };
     } catch (error) {
       throw new BadRequestException(
-        `Error al procesar el archivo: ${error.message}`,
+        TransactionsBankErrorMessages.fileProcessingErrorDetail(error.message),
       );
     }
   }
@@ -157,7 +161,7 @@ export class TransactionsBankService {
     const transaction = await this.bankTransactionRepository.findById(id);
     if (!transaction) {
       throw new NotFoundException(
-        `Transacción bancaria con ID ${id} no encontrada`,
+        TransactionsBankErrorMessages.transactionNotFound(id),
       );
     }
     return this.mapToProcessedTransaction(transaction);
@@ -239,7 +243,9 @@ export class TransactionsBankService {
     const duplicateConcepts = this.findDuplicateConcepts(finalTransactions);
     if (duplicateConcepts.length > 0) {
       discrepancies.push(
-        `Conceptos duplicados encontrados: ${duplicateConcepts.join(', ')}`,
+        TransactionsBankWarningMessages.duplicateConceptsFound(
+          duplicateConcepts,
+        ),
       );
     }
 
@@ -248,7 +254,9 @@ export class TransactionsBankService {
     );
     if (highAmountTransactions.length > 0) {
       discrepancies.push(
-        `${highAmountTransactions.length} transacciones de monto alto`,
+        TransactionsBankWarningMessages.highAmountTransactions(
+          highAmountTransactions.length,
+        ),
       );
     }
 

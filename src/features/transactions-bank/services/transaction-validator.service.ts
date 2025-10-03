@@ -8,15 +8,27 @@ import {
   DATE_ISO_PATTERN,
   CURRENCY_CODE_PATTERN,
 } from '../../../shared/common';
+import {
+  TransactionsBankValidationMessages,
+  TransactionsBankWarningMessages,
+  BusinessValues,
+} from '@/shared/content';
 
 @Injectable()
 export class TransactionValidatorService {
-  private readonly MAX_AMOUNT = 10000000; // 10 millones
-  private readonly MIN_AMOUNT = 0.01; // 1 centavo
-  private readonly MAX_CONCEPT_LENGTH = 500;
+  private readonly MAX_AMOUNT = BusinessValues.transactionsBank.maxAmount;
+  private readonly MIN_AMOUNT = BusinessValues.transactionsBank.minAmount;
+  private readonly MAX_CONCEPT_LENGTH =
+    BusinessValues.transactionsBank.maxConceptLength;
   private readonly DATE_PATTERN = DATE_ISO_PATTERN;
   private readonly TIME_PATTERN = TIME_PATTERN;
   private readonly CURRENCY_PATTERN = CURRENCY_CODE_PATTERN;
+  private readonly SUPPORTED_CURRENCIES =
+    BusinessValues.transactionsBank.supportedCurrencies;
+  private readonly SUSPICIOUS_KEYWORDS =
+    BusinessValues.transactionsBank.suspiciousKeywords;
+  private readonly SUSPICIOUS_AMOUNTS =
+    BusinessValues.transactionsBank.suspiciousAmounts;
 
   async validateTransaction(
     transaction: TransactionBank,
@@ -54,45 +66,49 @@ export class TransactionValidatorService {
 
   private validateDate(date: string, errors: string[]): void {
     if (!date || date.trim().length === 0) {
-      errors.push('Fecha es requerida');
+      errors.push(TransactionsBankValidationMessages.date.required);
       return;
     }
 
     if (!this.DATE_PATTERN.test(date.trim())) {
-      errors.push('Formato de fecha inválido. Use YYYY-MM-DD');
+      errors.push(TransactionsBankValidationMessages.date.invalidFormat);
       return;
     }
 
     const dateObj = new Date(date);
     if (isNaN(dateObj.getTime())) {
-      errors.push('Fecha inválida');
+      errors.push(TransactionsBankValidationMessages.date.invalid);
       return;
     }
 
     const now = new Date();
     const futureDate = new Date();
-    futureDate.setDate(now.getDate() + 30); // 30 días en el futuro
+    futureDate.setDate(
+      now.getDate() + BusinessValues.transactionsBank.dateValidation.maxFutureDays,
+    );
 
     if (dateObj > futureDate) {
-      errors.push('La fecha no puede ser más de 30 días en el futuro');
+      errors.push(TransactionsBankValidationMessages.date.tooFarInFuture);
     }
 
     const pastDate = new Date();
-    pastDate.setFullYear(now.getFullYear() - 10); // 10 años en el pasado
+    pastDate.setFullYear(
+      now.getFullYear() - BusinessValues.transactionsBank.dateValidation.maxPastYears,
+    );
 
     if (dateObj < pastDate) {
-      errors.push('La fecha no puede ser más de 10 años en el pasado');
+      errors.push(TransactionsBankValidationMessages.date.tooFarInPast);
     }
   }
 
   private validateTime(time: string, errors: string[]): void {
     if (!time || time.trim().length === 0) {
-      errors.push('Hora es requerida');
+      errors.push(TransactionsBankValidationMessages.time.required);
       return;
     }
 
     if (!this.TIME_PATTERN.test(time.trim())) {
-      errors.push('Formato de hora inválido. Use HH:MM:SS');
+      errors.push(TransactionsBankValidationMessages.time.invalidFormat);
     }
   }
 
@@ -102,18 +118,20 @@ export class TransactionValidatorService {
     warnings: string[],
   ): void {
     if (!concept || concept.trim().length === 0) {
-      errors.push('Concepto es requerido');
+      errors.push(TransactionsBankValidationMessages.concept.required);
       return;
     }
 
     if (concept.trim().length > this.MAX_CONCEPT_LENGTH) {
       errors.push(
-        `El concepto no puede exceder ${this.MAX_CONCEPT_LENGTH} caracteres`,
+        TransactionsBankValidationMessages.concept.tooLong(
+          this.MAX_CONCEPT_LENGTH,
+        ),
       );
     }
 
     if (concept.trim().length < 3) {
-      warnings.push('El concepto es muy corto');
+      warnings.push(TransactionsBankValidationMessages.concept.tooShort);
     }
 
     // Verificar caracteres especiales sospechosos
@@ -126,7 +144,9 @@ export class TransactionValidatorService {
 
     for (const pattern of suspiciousPatterns) {
       if (pattern.test(concept)) {
-        errors.push('El concepto contiene caracteres no permitidos');
+        errors.push(
+          TransactionsBankValidationMessages.concept.invalidCharacters,
+        );
         break;
       }
     }
@@ -138,54 +158,60 @@ export class TransactionValidatorService {
     warnings: string[],
   ): void {
     if (typeof amount !== 'number' || isNaN(amount)) {
-      errors.push('Monto debe ser un número válido');
+      errors.push(TransactionsBankValidationMessages.amount.invalid);
       return;
     }
 
     if (amount < this.MIN_AMOUNT) {
-      errors.push(`El monto mínimo es ${this.MIN_AMOUNT}`);
+      errors.push(
+        TransactionsBankValidationMessages.amount.belowMinimum(this.MIN_AMOUNT),
+      );
     }
 
     if (amount > this.MAX_AMOUNT) {
-      errors.push(`El monto máximo es ${this.MAX_AMOUNT}`);
+      errors.push(
+        TransactionsBankValidationMessages.amount.aboveMaximum(this.MAX_AMOUNT),
+      );
     }
 
     // Verificar si el monto es un número entero (sin decimales)
     if (amount % 1 === 0) {
-      warnings.push('El monto no tiene decimales');
+      warnings.push(TransactionsBankValidationMessages.amount.noDecimals);
     }
 
     // Verificar montos sospechosos
-    const suspiciousAmounts = [999999, 1000000, 0, 1, 9999999, 10000000];
-    if (suspiciousAmounts.includes(amount)) {
-      warnings.push('Monto sospechoso detectado');
+    if ((this.SUSPICIOUS_AMOUNTS as readonly number[]).includes(amount)) {
+      warnings.push(TransactionsBankValidationMessages.amount.suspicious);
     }
   }
 
   private validateCurrency(currency: string, errors: string[]): void {
     if (!currency || currency.trim().length === 0) {
-      errors.push('Moneda es requerida');
+      errors.push(TransactionsBankValidationMessages.currency.required);
       return;
     }
 
     if (!this.CURRENCY_PATTERN.test(currency.trim())) {
-      errors.push(
-        'Formato de moneda inválido. Use código de 3 letras (ej: MXN, USD)',
-      );
+      errors.push(TransactionsBankValidationMessages.currency.invalidFormat);
     }
 
     // Verificar monedas soportadas
-    const supportedCurrencies = ['MXN', 'USD', 'EUR', 'CAD'];
-    if (!supportedCurrencies.includes(currency.trim().toUpperCase())) {
+    const currencyUpper = currency.trim().toUpperCase();
+    if (
+      !(this.SUPPORTED_CURRENCIES as readonly string[]).includes(currencyUpper)
+    ) {
       errors.push(
-        `Moneda no soportada: ${currency}. Monedas soportadas: ${supportedCurrencies.join(', ')}`,
+        TransactionsBankValidationMessages.currency.notSupported(
+          currency,
+          [...this.SUPPORTED_CURRENCIES],
+        ),
       );
     }
   }
 
   private validateIsDeposit(isDeposit: boolean, errors: string[]): void {
     if (typeof isDeposit !== 'boolean') {
-      errors.push('Tipo de depósito debe ser un valor booleano');
+      errors.push(TransactionsBankValidationMessages.isDeposit.invalid);
     }
   }
 
@@ -195,57 +221,49 @@ export class TransactionValidatorService {
     warnings: string[],
   ): void {
     // Regla: Depósitos muy grandes requieren atención especial
-    if (transaction.is_deposit && transaction.amount > 100000) {
-      warnings.push('Depósito de monto alto detectado');
+    if (
+      transaction.is_deposit &&
+      transaction.amount >
+        BusinessValues.transactionsBank.highAmountThresholds.deposit
+    ) {
+      warnings.push(TransactionsBankWarningMessages.highDeposit);
     }
 
     // Regla: Retiros muy grandes requieren atención especial
-    if (!transaction.is_deposit && transaction.amount > 50000) {
-      warnings.push('Retiro de monto alto detectado');
+    if (
+      !transaction.is_deposit &&
+      transaction.amount >
+        BusinessValues.transactionsBank.highAmountThresholds.withdrawal
+    ) {
+      warnings.push(TransactionsBankWarningMessages.highWithdrawal);
     }
 
     // Regla: Verificar transacciones en horarios no comerciales
     const timeParts = transaction.time.split(':');
     const hour = parseInt(timeParts[0]);
     if (hour < 6 || hour > 22) {
-      warnings.push('Transacción fuera de horario comercial');
+      warnings.push(TransactionsBankWarningMessages.outsideBusinessHours);
     }
 
     // Regla: Verificar transacciones en fines de semana
     const dateObj = new Date(transaction.date);
     const dayOfWeek = dateObj.getDay();
     if (dayOfWeek === 0 || dayOfWeek === 6) {
-      warnings.push('Transacción en fin de semana');
+      warnings.push(TransactionsBankWarningMessages.weekend);
     }
 
     // Regla: Verificar conceptos sospechosos
-    const suspiciousKeywords = [
-      'test',
-      'prueba',
-      'demo',
-      'temporal',
-      'temp',
-      'xxxxx',
-      'aaaaa',
-      'zzzzz',
-      'unknown',
-      'desconocido',
-      'deposito',
-      'retiro',
-      'transferencia',
-    ];
-
     const concept = transaction.concept.toLowerCase();
-    for (const keyword of suspiciousKeywords) {
+    for (const keyword of this.SUSPICIOUS_KEYWORDS) {
       if (concept.includes(keyword)) {
-        warnings.push('Concepto sospechoso detectado');
+        warnings.push(TransactionsBankWarningMessages.suspiciousConcept);
         break;
       }
     }
 
     // Regla: Verificar montos redondos sospechosos
     if (transaction.amount % 1000 === 0 && transaction.amount > 10000) {
-      warnings.push('Monto redondo alto detectado');
+      warnings.push(TransactionsBankWarningMessages.highRoundAmount);
     }
   }
 

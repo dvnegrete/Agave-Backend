@@ -1,6 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { VertexAIService } from '@/shared/libs/vertex-ai/vertex-ai.service';
 import { OpenAIService } from '@/shared/libs/openai/openai.service';
+import {
+  MessageClassifierPrompt,
+  GreetingMessages,
+  OffTopicMessages,
+  ContextualMessages,
+  URLs,
+} from '@/shared/content';
 
 export enum MessageIntent {
   PAYMENT_VOUCHER = 'payment_voucher', // Envío de comprobante
@@ -60,45 +67,10 @@ export class WhatsAppMessageClassifierService {
 
   /**
    * Construye el prompt para clasificar el mensaje
+   * Usa el prompt centralizado del sistema de contenido
    */
   private buildClassificationPrompt(messageText: string): string {
-    return `Eres un asistente automático de WhatsApp para un condominio. Tu ÚNICA función es procesar comprobantes de pago que los usuarios envían como imágenes o PDFs.
-
-IMPORTANTE: NO puedes proporcionar información sobre estados de cuenta, saldos, montos a pagar, fechas de vencimiento, ni ninguna otra información de pagos. Solo procesas comprobantes.
-
-Tu trabajo es clasificar el mensaje del usuario en una de estas categorías:
-
-1. "payment_voucher" - Si el mensaje indica que:
-   - Está enviando un comprobante de pago
-   - Ya realizó un pago y quiere reportarlo
-   - Menciona "comprobante", "pago realizado", "transferencia hecha", "ya pagué"
-   - Pregunta cómo enviar el comprobante
-
-2. "greeting" - Si es un saludo simple:
-   - Hola, Buenos días, Buenas tardes, Qué tal, etc.
-
-3. "off_topic" - Si el mensaje NO está relacionado con enviar comprobantes:
-   - Preguntas sobre estado de pagos, saldos, cuánto debe pagar
-   - Preguntas sobre fechas de pago, cuenta bancaria, métodos de pago
-   - Preguntas sobre mantenimiento, servicios, quejas
-   - Conversación general
-   - Cualquier tema que NO sea sobre enviar un comprobante de pago
-
-IMPORTANTE: Debes responder SOLO en formato JSON con esta estructura exacta:
-{
-  "intent": "payment_voucher" | "greeting" | "off_topic",
-  "confidence": 0.0 a 1.0,
-  "response": "Texto de respuesta apropiado"
-}
-
-Reglas para las respuestas:
-- Si es "off_topic" y pregunta sobre información de pagos (saldos, estados, montos): Responder "Para consultar información sobre tus pagos, saldos o estados de cuenta, por favor ingresa al portal web: https://agave1.up.railway.app"
-- Si es "off_topic" y NO pregunta sobre pagos: Responder "Lo lamento, solo estoy configurado para recibir comprobantes de pago del condominio."
-- Si es "greeting": Responder con un saludo breve y directo: "¡Hola! Envíame tu comprobante de pago como imagen o PDF para procesarlo."
-- Si es "payment_voucher": Responder "Perfecto, por favor envía tu comprobante de pago como imagen o PDF."
-
-Mensaje del usuario a clasificar:
-"${messageText}"`;
+    return MessageClassifierPrompt.build(messageText);
   }
 
   /**
@@ -166,17 +138,18 @@ Mensaje del usuario a clasificar:
 
   /**
    * Obtiene una respuesta por defecto según el intent
+   * Usa los mensajes centralizados del sistema de contenido
    */
   private getDefaultResponse(intent: MessageIntent): string {
     switch (intent) {
       case MessageIntent.OFF_TOPIC:
-        return 'Lo lamento, solo estoy configurado para recibir comprobantes de pago del condominio. Para consultar información sobre tus pagos, por favor ingresa al portal web: https://agave1.up.railway.app';
+        return OffTopicMessages.paymentsInfo(URLs.portalWeb);
       case MessageIntent.GREETING:
-        return '¡Hola! Envíame tu comprobante de pago como imagen o PDF para procesarlo.';
+        return GreetingMessages.initial;
       case MessageIntent.PAYMENT_VOUCHER:
-        return 'Perfecto, por favor envía tu comprobante de pago como imagen o PDF.';
+        return ContextualMessages.requestVoucher;
       default:
-        return 'Lo lamento, solo estoy configurado para recibir comprobantes de pago del condominio.';
+        return OffTopicMessages.default;
     }
   }
 }
