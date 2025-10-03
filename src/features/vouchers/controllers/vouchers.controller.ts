@@ -24,22 +24,10 @@ import {
 import { ProcessFileDto } from '../dto/process-file.dto';
 import { ProcessedTransaction } from '../interfaces/transaction.interface';
 import { OcrService } from '../services/ocr.service';
-import { OcrServiceDto, OcrResponseDto } from '../dto/ocr-service.dto';
-import { getVouchersBusinessRules } from '@/shared/config/business-rules.config';
+import { OcrServiceDto } from '../dto/ocr-service.dto';
 import { WhatsAppMessageClassifierService } from '../services/whatsapp-message-classifier.service';
-
-interface StructuredData {
-  monto: string;
-  fecha_pago: string;
-  referencia: string;
-  hora_transaccion: string;
-}
-
-interface StructuredDataWithCasa extends StructuredData {
-  casa: number | null;
-  faltan_datos?: boolean;
-  pregunta?: string;
-}
+import { VoucherProcessorService } from '../services/voucher-processor.service';
+import { WhatsAppMediaService } from '../services/whatsapp-media.service';
 
 @Controller('vouchers')
 export class VouchersController {
@@ -47,7 +35,9 @@ export class VouchersController {
     private readonly vouchersService: VouchersService,
     private readonly ocrService: OcrService,
     private readonly messageClassifier: WhatsAppMessageClassifierService,
-  ) { }
+    private readonly voucherProcessor: VoucherProcessorService,
+    private readonly whatsappMedia: WhatsAppMediaService,
+  ) {}
 
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
@@ -94,24 +84,18 @@ export class VouchersController {
     @Body() ocrServiceDto: OcrServiceDto,
   ) {
     try {
-      // Validar formato de imagen
-      await this.ocrService.validateImageFormat(file.buffer, file.originalname);
-
-      // Procesar OCR
-      const resultOCR = await this.ocrService.extractTextFromImage(
+      // Procesar voucher usando el servicio unificado
+      const result = await this.voucherProcessor.processVoucher(
         file.buffer,
         file.originalname,
         ocrServiceDto.language,
       );
-      const dataWithHouse = this.extractCentavos(resultOCR.structuredData);
-
-      // Generar respuesta según los casos
-      const whatsappMessage = this.generateWhatsAppMessage(dataWithHouse);
 
       return {
-        ...resultOCR,
-        structuredData: dataWithHouse,
-        whatsappMessage,
+        structuredData: result.structuredData,
+        whatsappMessage: result.whatsappMessage,
+        originalFilename: result.originalFilename,
+        gcsFilename: result.gcsFilename,
       };
     } catch (error) {
       throw new BadRequestException(error.message);
@@ -262,6 +246,7 @@ export class VouchersController {
    * Procesa mensajes entrantes desde el webhook de WhatsApp.
    * Este endpoint recibe las notificaciones de mensajes enviados por usuarios de WhatsApp.
    * Usa IA para clasificar el mensaje y determinar la respuesta apropiada.
+   * Si recibe una imagen o PDF, procesa el comprobante de pago automáticamente.
    *
    * @param body - Payload del webhook de WhatsApp con la estructura de mensajes
    * @returns Objeto con status de éxito
@@ -278,21 +263,69 @@ export class VouchersController {
 
       if (messages) {
         const phoneNumber = messages.from;
-        const messageText = messages.text?.body || '';
+        const messageType = messages.type; // 'text', 'image', 'document', etc.
 
         console.log('Número de WhatsApp:', phoneNumber);
-        console.log('Mensaje recibido:', messageText);
+        console.log('Tipo de mensaje:', messageType);
 
-        // Clasificar el mensaje usando IA
-        const classification = await this.messageClassifier.classifyMessage(messageText);
+        // CASO 1: Mensaje con imagen
+        if (messageType === 'image' && messages.image) {
+          const mediaId = messages.image.id;
+          const mimeType = messages.image.mime_type;
+          const caption = messages.image.caption || '';
 
-        console.log('Clasificación:', {
-          intent: classification.intent,
-          confidence: classification.confidence,
-        });
+          console.log(`Imagen recibida: ${mediaId}, tipo: ${mimeType}`);
+          if (caption) console.log(`Caption: ${caption}`);
 
-        // Enviar respuesta basada en la clasificación
-        await this.sendWhatsAppMessage(phoneNumber, classification.response);
+          await this.processWhatsAppMedia(phoneNumber, mediaId, 'image');
+          return { success: true };
+        }
+
+        // CASO 2: Mensaje con documento (PDF)
+        if (messageType === 'document' && messages.document) {
+          const mediaId = messages.document.id;
+          const mimeType = messages.document.mime_type;
+          const filename = messages.document.filename || 'documento.pdf';
+
+          console.log(`
+            Documento recibido: ${mediaId}, tipo: ${mimeType}, nombre: ${filename}`);
+
+          // Solo procesar si es PDF
+          if (mimeType === 'application/pdf') {
+            await this.processWhatsAppMedia(phoneNumber, mediaId, 'document');
+          } else {
+            await this.sendWhatsAppMessage(
+              phoneNumber,
+              'Solo puedo procesar documentos PDF. Por favor envía tu comprobante como imagen o PDF.',
+            );
+          }
+          return { success: true };
+        }
+
+        // CASO 3: Mensaje de texto
+        if (messageType === 'text' && messages.text) {
+          const messageText = messages.text.body || '';
+          console.log('Mensaje de texto recibido:', messageText);
+
+          // Clasificar el mensaje usando IA
+          const classification = await this.messageClassifier.classifyMessage(messageText);
+
+          console.log('Clasificación:', {
+            intent: classification.intent,
+            confidence: classification.confidence,
+          });
+
+          // Enviar respuesta basada en la clasificación
+          await this.sendWhatsAppMessage(phoneNumber, classification.response);
+          return { success: true };
+        }
+
+        // CASO 4: Otros tipos de mensaje no soportados
+        console.log(`Tipo de mensaje no soportado: ${messageType}`);
+        await this.sendWhatsAppMessage(
+          phoneNumber,
+          'Por favor envía un comprobante de pago como imagen o PDF, o escribe tu consulta sobre pagos.',
+        );
       }
 
       return { success: true };
@@ -302,71 +335,54 @@ export class VouchersController {
     }
   }
 
-  private extractCentavos(
-    structuredData: StructuredData,
-  ): StructuredDataWithCasa {
-    const modifiedData: StructuredDataWithCasa = {
-      ...structuredData,
-      casa: null,
-    };
-    const businessRules = getVouchersBusinessRules();
+  /**
+   * Procesa un archivo multimedia (imagen o PDF) recibido desde WhatsApp
+   * Descarga el archivo, lo procesa con OCR y envía la respuesta
+   */
+  private async processWhatsAppMedia(
+    phoneNumber: string,
+    mediaId: string,
+    mediaType: 'image' | 'document',
+  ): Promise<void> {
+    try {
+      console.log(`Descargando ${mediaType} de WhatsApp: ${mediaId}`);
 
-    if (modifiedData.monto) {
-      const montoStr = String(modifiedData.monto);
-      const parts = montoStr.split('.');
+      // 1. Descargar el archivo desde WhatsApp
+      const { buffer, mimeType, filename } =
+        await this.whatsappMedia.downloadMedia(mediaId);
 
-      if (parts.length === 2) {
-        const centavos = parseInt(parts[1], 10);
+      console.log(
+        `Archivo descargado: ${filename}, tamaño: ${buffer.length} bytes`,
+      );
 
-        if (
-          isNaN(centavos) ||
-          centavos === 0 ||
-          centavos > businessRules.maxCasas
-        ) {
-          modifiedData.casa = null;
-        } else if (
-          centavos >= businessRules.minCasas &&
-          centavos <= businessRules.maxCasas
-        ) {
-          modifiedData.casa = centavos;
-        } else {
-          modifiedData.casa = null;
-        }
-      } else {
-        modifiedData.casa = null;
+      // 2. Validar que el tipo de archivo sea soportado
+      if (!this.whatsappMedia.isSupportedMediaType(mimeType)) {
+        await this.sendWhatsAppMessage(
+          phoneNumber,
+          `El tipo de archivo ${mimeType} no es soportado. Por favor envía una imagen (JPG, PNG, etc.) o PDF, para registrar tu pago`,
+        );
+        return;
       }
-    } else {
-      modifiedData.casa = null;
+
+      // 3. Procesar el comprobante usando el servicio unificado
+      const result = await this.voucherProcessor.processVoucher(
+        buffer,
+        filename,
+        'es', // Idioma español por defecto
+        phoneNumber, // Para tracking
+      );
+
+      // 4. Enviar respuesta con el resultado del procesamiento
+      await this.sendWhatsAppMessage(phoneNumber, result.whatsappMessage);
+
+      console.log(`Comprobante procesado y respuesta enviada a ${phoneNumber}`);
+    } catch (error) {
+      console.error(`Error procesando media de WhatsApp: ${error.message}`);
+      await this.sendWhatsAppMessage(
+        phoneNumber,
+        'Hubo un error al procesar tu comprobante. Por favor intenta nuevamente o envía una imagen más clara.',
+      );
     }
-
-    return modifiedData;
-  }
-
-  private generateWhatsAppMessage(data: StructuredDataWithCasa): string {
-    // Caso 3: faltan_datos = true
-    if (data.faltan_datos) {
-      return `No pude extraer los siguientes datos del comprobante que enviaste. Por favor indícame los valores correctos para los siguientes conceptos:\n\n${data.pregunta || 'Datos faltantes no especificados'}`;
-    }
-
-    // Caso 2: faltan_datos = false y casa = null
-    if (!data.faltan_datos && data.casa === null) {
-      return `Para poder registrar tu pago por favor indica el número de casa a la que corresponde el pago: (El valor debe ser entre 1 y 66).`;
-    }
-
-    // Caso 1: faltan_datos = false y casa es un valor numérico
-    if (!data.faltan_datos && typeof data.casa === 'number') {
-      return `Voy a registrar tu pago con el estatus "pendiente verificación en banco" con los siguientes datos que he encontrado en el comprobante:
-Monto de pago: ${data.monto}
-Fecha de Pago: ${data.fecha_pago}
-Numero de Casa: ${data.casa}
-Referencia: ${data.referencia}
-Hora de Transacción: ${data.hora_transaccion}
-
-Si los datos son correctos, escribe SI`;
-    }
-
-    // Fallback
-    return 'Error al procesar el comprobante. Por favor intenta nuevamente.';
   }
 
   private generateCSV(transactions: ProcessedTransaction[]): string {
