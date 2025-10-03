@@ -28,6 +28,7 @@ import { OcrServiceDto } from '../dto/ocr-service.dto';
 import { WhatsAppMessageClassifierService } from '../services/whatsapp-message-classifier.service';
 import { VoucherProcessorService } from '../services/voucher-processor.service';
 import { WhatsAppMediaService } from '../services/whatsapp-media.service';
+import { ConversationStateService, ConversationState } from '../services/conversation-state.service';
 
 @Controller('vouchers')
 export class VouchersController {
@@ -37,6 +38,7 @@ export class VouchersController {
     private readonly messageClassifier: WhatsAppMessageClassifierService,
     private readonly voucherProcessor: VoucherProcessorService,
     private readonly whatsappMedia: WhatsAppMediaService,
+    private readonly conversationState: ConversationStateService,
   ) {}
 
   @Post('upload')
@@ -307,7 +309,23 @@ export class VouchersController {
           const messageText = messages.text.body || '';
           console.log('Mensaje de texto recibido:', messageText);
 
-          // Clasificar el mensaje usando IA
+          // PRIMERO: Verificar si hay un contexto de conversación activo
+          const context = this.conversationState.getContext(phoneNumber);
+
+          if (context) {
+            console.log(`Contexto activo detectado: ${context.state}`);
+
+            // Actualizar timestamp de último mensaje
+            this.conversationState.updateLastMessageTime(phoneNumber);
+
+            // Manejar según el estado del contexto
+            await this.handleContextualMessage(phoneNumber, messageText, context.state);
+            return { success: true };
+          }
+
+          // Si NO hay contexto, procesar normalmente con el clasificador de IA
+          console.log('No hay contexto activo, clasificando mensaje...');
+
           const classification =
             await this.messageClassifier.classifyMessage(messageText);
 
@@ -373,7 +391,37 @@ export class VouchersController {
         phoneNumber, // Para tracking
       );
 
-      // 4. Enviar respuesta con el resultado del procesamiento
+      // 4. Guardar contexto según el resultado
+      const voucherData = result.structuredData;
+
+      if (!voucherData.faltan_datos && typeof voucherData.casa === 'number') {
+        // CASO 1: Datos completos, guardar para esperar confirmación
+        this.conversationState.saveVoucherForConfirmation(
+          phoneNumber,
+          voucherData,
+          result.gcsFilename,
+          result.originalFilename,
+        );
+        console.log(`Esperando confirmación de ${phoneNumber} para voucher con casa ${voucherData.casa}`);
+      } else if (!voucherData.faltan_datos && voucherData.casa === null) {
+        // CASO 2: Falta número de casa, guardar y esperar respuesta
+        this.conversationState.setContext(phoneNumber, ConversationState.WAITING_HOUSE_NUMBER, {
+          voucherData,
+          gcsFilename: result.gcsFilename,
+          originalFilename: result.originalFilename,
+        });
+        console.log(`Esperando número de casa de ${phoneNumber}`);
+      } else if (voucherData.faltan_datos) {
+        // CASO 3: Faltan datos, guardar y esperar respuesta
+        this.conversationState.setContext(phoneNumber, ConversationState.WAITING_MISSING_DATA, {
+          voucherData,
+          gcsFilename: result.gcsFilename,
+          originalFilename: result.originalFilename,
+        });
+        console.log(`Esperando datos faltantes de ${phoneNumber}`);
+      }
+
+      // 5. Enviar respuesta con el resultado del procesamiento
       await this.sendWhatsAppMessage(phoneNumber, result.whatsappMessage);
 
       console.log(`Comprobante procesado y respuesta enviada a ${phoneNumber}`);
@@ -384,6 +432,163 @@ export class VouchersController {
         'Hubo un error al procesar tu comprobante. Por favor intenta nuevamente o envía una imagen más clara.',
       );
     }
+  }
+
+  /**
+   * Maneja mensajes de texto según el contexto de conversación activo
+   */
+  private async handleContextualMessage(
+    phoneNumber: string,
+    messageText: string,
+    state: ConversationState,
+  ): Promise<void> {
+    switch (state) {
+      case ConversationState.WAITING_CONFIRMATION:
+        await this.handleConfirmation(phoneNumber, messageText);
+        break;
+
+      case ConversationState.WAITING_HOUSE_NUMBER:
+        await this.handleHouseNumberResponse(phoneNumber, messageText);
+        break;
+
+      case ConversationState.WAITING_MISSING_DATA:
+        await this.handleMissingDataResponse(phoneNumber, messageText);
+        break;
+
+      default:
+        console.log(`Estado no manejado: ${state}`);
+        this.conversationState.clearContext(phoneNumber);
+        await this.sendWhatsAppMessage(
+          phoneNumber,
+          'Ha ocurrido un error. Por favor, intenta nuevamente.',
+        );
+    }
+  }
+
+  /**
+   * Maneja la confirmación del usuario (SI/NO)
+   */
+  private async handleConfirmation(
+    phoneNumber: string,
+    messageText: string,
+  ): Promise<void> {
+    const isConfirmation = this.conversationState.isConfirmationMessage(messageText);
+    const isNegation = this.conversationState.isNegationMessage(messageText);
+
+    if (isConfirmation) {
+      // Usuario confirmó, proceder con el registro
+      const savedData = this.conversationState.getVoucherDataForConfirmation(phoneNumber);
+
+      if (!savedData) {
+        await this.sendWhatsAppMessage(
+          phoneNumber,
+          'Ha expirado la sesión. Por favor envía nuevamente el comprobante.',
+        );
+        this.conversationState.clearContext(phoneNumber);
+        return;
+      }
+
+      console.log(`✅ Usuario ${phoneNumber} confirmó el pago. Datos:`, savedData.voucherData);
+
+      // TODO: Aquí se insertará en la BD
+      console.log(`📝 [SIMULACIÓN] Insertando en BD: Casa ${savedData.voucherData.casa}, Monto: ${savedData.voucherData.monto}`);
+
+      await this.sendWhatsAppMessage(
+        phoneNumber,
+        `¡Perfecto! Tu pago ha sido registrado exitosamente con el estatus "pendiente verificación en banco".\n\nCasa: ${savedData.voucherData.casa}\nMonto: ${savedData.voucherData.monto}\n\nTe notificaremos cuando sea verificado. ¡Gracias!`,
+      );
+
+      // Limpiar contexto
+      this.conversationState.clearContext(phoneNumber);
+    } else if (isNegation) {
+      // Usuario canceló
+      console.log(`❌ Usuario ${phoneNumber} canceló el registro`);
+
+      await this.sendWhatsAppMessage(
+        phoneNumber,
+        'Entendido, he cancelado el registro. Si necesitas corregir algo, por favor envía nuevamente el comprobante.',
+      );
+
+      this.conversationState.clearContext(phoneNumber);
+    } else {
+      // Mensaje no reconocido, pedir confirmación nuevamente
+      await this.sendWhatsAppMessage(
+        phoneNumber,
+        'No entendí tu respuesta. Por favor responde con "SI" para confirmar el registro o "NO" para cancelar.',
+      );
+    }
+  }
+
+  /**
+   * Maneja la respuesta del usuario con el número de casa
+   */
+  private async handleHouseNumberResponse(
+    phoneNumber: string,
+    messageText: string,
+  ): Promise<void> {
+    const houseNumber = this.conversationState.extractHouseNumber(messageText);
+
+    if (houseNumber) {
+      const context = this.conversationState.getContext(phoneNumber);
+      const voucherData = context?.data?.voucherData;
+
+      if (!voucherData) {
+        await this.sendWhatsAppMessage(
+          phoneNumber,
+          'Ha expirado la sesión. Por favor envía nuevamente el comprobante.',
+        );
+        this.conversationState.clearContext(phoneNumber);
+        return;
+      }
+
+      // Actualizar los datos con el número de casa
+      voucherData.casa = houseNumber;
+
+      console.log(`🏠 Usuario ${phoneNumber} proporcionó número de casa: ${houseNumber}`);
+
+      // Guardar para confirmación
+      this.conversationState.saveVoucherForConfirmation(
+        phoneNumber,
+        voucherData,
+        context.data?.gcsFilename,
+        context.data?.originalFilename,
+      );
+
+      // Pedir confirmación
+      const confirmationMessage = `Voy a registrar tu pago con el estatus "pendiente verificación en banco" con los siguientes datos que he encontrado en el comprobante:
+      Monto de pago: ${voucherData.monto}
+      Fecha de Pago: ${voucherData.fecha_pago}
+      Numero de Casa: ${voucherData.casa}
+      Referencia: ${voucherData.referencia}
+      Hora de Transacción: ${voucherData.hora_transaccion}
+
+      Si los datos son correctos, escribe SI`;
+
+      await this.sendWhatsAppMessage(phoneNumber, confirmationMessage);
+    } else {
+      await this.sendWhatsAppMessage(
+        phoneNumber,
+        'No pude identificar el número de casa. Por favor envía un número entre 1 y 66.',
+      );
+    }
+  }
+
+  /**
+   * Maneja la respuesta del usuario con datos faltantes
+   */
+  private async handleMissingDataResponse(
+    phoneNumber: string,
+    messageText: string,
+  ): Promise<void> {
+    // TODO: Implementar lógica para procesar datos faltantes proporcionados por el usuario
+    console.log(`📝 Usuario ${phoneNumber} proporcionó datos faltantes: ${messageText}`);
+
+    await this.sendWhatsAppMessage(
+      phoneNumber,
+      'Gracias por la información. Estoy procesando los datos...\n\n(Función en desarrollo)',
+    );
+
+    this.conversationState.clearContext(phoneNumber);
   }
 
   private generateCSV(transactions: ProcessedTransaction[]): string {
