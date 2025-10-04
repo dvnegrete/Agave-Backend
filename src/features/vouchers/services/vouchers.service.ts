@@ -6,7 +6,6 @@ import {
 import { FileProcessorService } from './file-processor.service';
 import { TransactionValidatorService } from './transaction-validator.service';
 import {
-  Transaction,
   ProcessedTransaction,
   FileProcessingResult,
 } from '../interfaces/transaction.interface';
@@ -15,6 +14,7 @@ import {
   CreateTransactionDto,
   UpdateTransactionDto,
 } from '../dto/transaction.dto';
+import { VoucherRepository } from '@/shared/database/repositories/voucher.repository';
 
 @Injectable()
 export class VouchersService {
@@ -23,6 +23,7 @@ export class VouchersService {
   constructor(
     private readonly fileProcessorService: FileProcessorService,
     private readonly transactionValidatorService: TransactionValidatorService,
+    private readonly voucherRepository: VoucherRepository,
   ) {}
 
   async processFile(
@@ -89,8 +90,12 @@ export class VouchersService {
     }
   }
 
-  async getAllTransactions(): Promise<ProcessedTransaction[]> {
-    return this.transactions;
+  /**
+   * Obtiene todos los vouchers desde la base de datos
+   * @returns Lista de todos los vouchers registrados
+   */
+  async getAllTransactions() {
+    return await this.voucherRepository.findAll();
   }
 
   async getTransactionById(id: string): Promise<ProcessedTransaction> {
