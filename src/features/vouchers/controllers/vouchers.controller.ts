@@ -38,6 +38,7 @@ import {
   ContextualMessages,
   OffTopicMessages,
 } from '@/shared/content';
+import { VoucherRepository } from '@/shared/database/repositories/voucher.repository';
 
 @Controller('vouchers')
 export class VouchersController {
@@ -48,6 +49,7 @@ export class VouchersController {
     private readonly voucherProcessor: VoucherProcessorService,
     private readonly whatsappMedia: WhatsAppMediaService,
     private readonly conversationState: ConversationStateService,
+    private readonly voucherRepository: VoucherRepository,
   ) {}
 
   @Post('upload')
@@ -512,26 +514,35 @@ export class VouchersController {
         savedData.voucherData,
       );
 
-      // TODO: Aquí se insertará en la BD y se generará el código de confirmación
-      // PASO 1: Generar código de confirmación
+      // PASO 1: Generar código de confirmación único
       const confirmationCode = this.voucherProcessor.generateConfirmationCode();
       console.log(`🔐 Código de confirmación generado: ${confirmationCode}`);
 
-      // PASO 2: Insertar en BD con el código
-      console.log(
-        `📝 [SIMULACIÓN] Insertando en BD: Casa ${savedData.voucherData.casa}, Monto: ${savedData.voucherData.monto}, Código: ${confirmationCode}`,
-      );
-      // Cuando implementes el INSERT:
-      // const voucher = await this.voucherRepository.save({
-      //   date: new Date(savedData.voucherData.fecha_pago),
-      //   authorization_number: savedData.voucherData.referencia,
-      //   confirmation_code: confirmationCode,  // ⬅️ Guardar código generado
-      //   amount: parseFloat(savedData.voucherData.monto),
-      //   confirmation_status: false,
-      //   url: savedData.gcsFilename,
-      // });
+      // PASO 2: Insertar voucher en la base de datos
+      try {
+        const voucher = await this.voucherRepository.create({
+          date: savedData.voucherData.fecha_pago,
+          authorization_number: savedData.voucherData.referencia,
+          confirmation_code: confirmationCode,
+          amount: parseFloat(savedData.voucherData.monto),
+          confirmation_status: false, // Pendiente verificación en banco
+          url: savedData.gcsFilename,
+        });
 
-      // PASO 3: Enviar mensaje con el código de confirmación
+        console.log(
+          `✅ Voucher insertado en BD con ID: ${voucher.id}, Código: ${voucher.confirmation_code}`,
+        );
+      } catch (error) {
+        console.error('❌ Error al insertar voucher en BD:', error);
+        await this.sendWhatsAppMessage(
+          phoneNumber,
+          'Hubo un error al registrar tu pago. Por favor intenta nuevamente más tarde.',
+        );
+        this.conversationState.clearContext(phoneNumber);
+        return;
+      }
+
+      // PASO 3: Enviar mensaje de éxito con el código de confirmación
       const confirmationData = {
         casa: savedData.voucherData.casa!,
         monto: savedData.voucherData.monto,

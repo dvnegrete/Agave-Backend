@@ -19,6 +19,7 @@ import {
 } from './entities';
 import { TransactionBankRepository } from './repositories/transaction-bank.repository';
 import { LastTransactionBankRepository } from './repositories/last-transaction-bank.repository';
+import { VoucherRepository } from './repositories/voucher.repository';
 
 @Global()
 @Module({
@@ -50,12 +51,14 @@ import { LastTransactionBankRepository } from './repositories/last-transaction-b
     DatabaseConfigService,
     TransactionBankRepository,
     LastTransactionBankRepository,
+    VoucherRepository,
   ],
   exports: [
     DatabaseConfigService,
     TypeOrmModule,
     TransactionBankRepository,
     LastTransactionBankRepository,
+    VoucherRepository,
   ],
 })
 export class DatabaseModule {}
