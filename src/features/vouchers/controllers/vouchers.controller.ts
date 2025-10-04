@@ -39,6 +39,7 @@ import {
   OffTopicMessages,
 } from '@/shared/content';
 import { VoucherRepository } from '@/shared/database/repositories/voucher.repository';
+import { CloudStorageService } from '@/shared/libs/google-cloud';
 
 @Controller('vouchers')
 export class VouchersController {
@@ -50,6 +51,7 @@ export class VouchersController {
     private readonly whatsappMedia: WhatsAppMediaService,
     private readonly conversationState: ConversationStateService,
     private readonly voucherRepository: VoucherRepository,
+    private readonly cloudStorageService: CloudStorageService,
   ) {}
 
   @Post('upload')
@@ -135,8 +137,6 @@ export class VouchersController {
     try {
       const visionClient =
         this.ocrService['googleCloudClient'].getVisionClient();
-      const storageClient =
-        this.ocrService['googleCloudClient'].getStorageClient();
       const translateClient =
         this.ocrService['googleCloudClient'].getTranslateClient();
       const textToSpeechClient =
@@ -146,11 +146,20 @@ export class VouchersController {
 
       const config = this.ocrService['googleCloudClient'].getConfig();
 
+      // Verificar Cloud Storage usando CloudStorageService
+      let storageAvailable = false;
+      try {
+        const storageClient = this.ocrService['googleCloudClient'].getStorageClient();
+        storageAvailable = !!storageClient;
+      } catch {
+        storageAvailable = false;
+      }
+
       return {
         isConfigured: this.ocrService['googleCloudClient'].isReady(),
         services: {
           vision: !!visionClient,
-          storage: !!storageClient,
+          storage: storageAvailable,
           translate: !!translateClient,
           textToSpeech: !!textToSpeechClient,
           speech: !!speechClient,
@@ -566,6 +575,25 @@ export class VouchersController {
     } else if (isNegation) {
       // Usuario canceló
       console.log(`❌ Usuario ${phoneNumber} canceló el registro`);
+
+      // Obtener datos guardados para eliminar el archivo
+      const savedData =
+        this.conversationState.getVoucherDataForConfirmation(phoneNumber);
+
+      if (savedData?.gcsFilename) {
+        try {
+          // Eliminar archivo de Cloud Storage
+          await this.cloudStorageService.deleteFile(savedData.gcsFilename);
+          console.log(
+            `🗑️  Archivo eliminado de GCS: ${savedData.gcsFilename}`,
+          );
+        } catch (error) {
+          console.error(
+            `⚠️  Error al eliminar archivo de GCS: ${error.message}`,
+          );
+          // No detenemos el flujo si falla la eliminación
+        }
+      }
 
       await this.sendWhatsAppMessage(
         phoneNumber,

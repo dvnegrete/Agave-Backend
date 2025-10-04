@@ -17,3 +17,11 @@ export {
 
 // Módulo
 export { GoogleCloudModule } from './google-cloud.module';
+
+// Servicios
+export {
+  CloudStorageService,
+  UploadFileOptions,
+  UploadFileResult,
+  CloudStorageFile,
+} from './storage/cloud-storage.service';

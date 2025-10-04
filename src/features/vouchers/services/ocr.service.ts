@@ -1,7 +1,6 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { OcrResponseDto } from '../dto/ocr-service.dto';
-import { GoogleCloudClient } from '@/shared/libs/google-cloud';
-import { v4 as uuidv4 } from 'uuid';
+import { GoogleCloudClient, CloudStorageService } from '@/shared/libs/google-cloud';
 import { OpenAIService } from '@/shared/libs/openai/openai.service';
 import { VertexAIService } from '@/shared/libs/vertex-ai/vertex-ai.service';
 
@@ -11,6 +10,7 @@ export class OcrService {
 
   constructor(
     private readonly googleCloudClient: GoogleCloudClient,
+    private readonly cloudStorageService: CloudStorageService,
     private readonly openAIService: OpenAIService,
     private readonly vertexAIService: VertexAIService,
   ) {}
@@ -28,23 +28,24 @@ export class OcrService {
     const startTime = Date.now();
 
     const visionClient = this.googleCloudClient.getVisionClient();
-    const storageClient = this.googleCloudClient.getStorageClient();
     const config = this.googleCloudClient.getConfig();
     const bucketName = config?.voucherBucketName;
 
-    if (!visionClient || !storageClient || !bucketName) {
+    if (!visionClient || !bucketName) {
       return this.simulateOcrResult(filename, language, startTime);
     }
 
-    // 1. Subir archivo a GCS (común para todos los tipos)
-    const fileExtension = filename.split('.').pop() || 'bin';
-    const gcsFileName = `p-${this.formatTimestamp(new Date())}-${uuidv4()}.${fileExtension}`;
-    const file = storageClient.bucket(bucketName).file(gcsFileName);
-
     try {
-      await file.save(imageBuffer, { resumable: false });
+      // 1. Subir archivo a GCS usando CloudStorageService
+      const uploadResult = await this.cloudStorageService.upload(
+        imageBuffer,
+        filename,
+        { generateUniqueName: true },
+      );
 
-      const gcsUri = `gs://${bucketName}/${gcsFileName}`;
+      const gcsUri = uploadResult.gcsUri;
+      const gcsFileName = uploadResult.fileName;
+      const fileExtension = filename.split('.').pop() || 'bin';
       const mimeType = this.getMimeType(fileExtension);
       const isAsyncSupported = [
         'application/pdf',
@@ -83,30 +84,28 @@ export class OcrService {
           );
           await operation.promise();
 
-          const [resultFiles] = await storageClient
-            .bucket(bucketName)
-            .getFiles({ prefix: outputPrefix });
+          // Obtener archivos de resultados usando CloudStorageService
+          const resultFiles = await this.cloudStorageService.getAllFiles({
+            prefix: outputPrefix,
+          });
+
           for (const resultFile of resultFiles) {
             resultFilesToDelete.push(resultFile.name);
-            const [contents] = await resultFile.download();
+            // Descargar y procesar cada archivo de resultado usando CloudStorageService
+            const contents = await this.cloudStorageService.downloadFile(
+              resultFile.name,
+            );
             const resultJson = JSON.parse(contents.toString());
             for (const pageResponse of resultJson.responses) {
               allText += pageResponse.fullTextAnnotation?.text || '';
             }
           }
         } finally {
+          // Eliminar archivos de resultado usando CloudStorageService
           if (resultFilesToDelete.length > 0) {
-            for (const fileName of resultFilesToDelete) {
-              await storageClient
-                .bucket(bucketName)
-                .file(fileName)
-                .delete()
-                .catch((err) =>
-                  this.logger.error(
-                    `Error al eliminar el archivo de resultado ${fileName}: ${err.message}`,
-                  ),
-                );
-            }
+            await this.cloudStorageService.deleteMultipleFiles(
+              resultFilesToDelete,
+            );
           }
         }
       } else {
@@ -195,7 +194,11 @@ export class OcrService {
     language?: string,
     startTime?: number,
   ): OcrResponseDto {
-    const gcsFileName = `p-${this.formatTimestamp(new Date())}-${uuidv4()}.${filename.split('.').pop()}`;
+    // Simula el nombre de archivo que se generaría
+    const timestamp = this.formatTimestamp(new Date());
+    const extension = filename.split('.').pop() || 'bin';
+    const gcsFileName = `p-${timestamp}-simulated.${extension}`;
+
     return {
       structuredData: {
         monto: '123.45',
