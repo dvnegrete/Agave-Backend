@@ -33,6 +33,7 @@ export class WhatsAppMessageClassifierService {
   ) {
     // Determinar qué servicio usar basado en variables de entorno
     this.useVertexAI = !!process.env.PROJECT_ID_GCP;
+    this.useVertexAI = false; // Deshabilitar Vertex AI temporalmente
   }
 
   /**
