@@ -23,6 +23,7 @@ export interface ConversationContext {
     voucherData?: StructuredDataWithCasa;
     gcsFilename?: string;
     originalFilename?: string;
+    confirmationCode?: string;
     missingFields?: string[];
     [key: string]: any;
   };
@@ -136,11 +137,13 @@ export class ConversationStateService {
     voucherData: StructuredDataWithCasa,
     gcsFilename?: string,
     originalFilename?: string,
+    confirmationCode?: string,
   ): void {
     this.setContext(phoneNumber, ConversationState.WAITING_CONFIRMATION, {
       voucherData,
       gcsFilename,
       originalFilename,
+      confirmationCode,
     });
   }
 
@@ -151,6 +154,7 @@ export class ConversationStateService {
     voucherData: StructuredDataWithCasa;
     gcsFilename?: string;
     originalFilename?: string;
+    confirmationCode?: string;
   } | null {
     const context = this.getContext(phoneNumber);
 

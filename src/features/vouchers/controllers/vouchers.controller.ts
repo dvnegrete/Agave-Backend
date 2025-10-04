@@ -404,12 +404,13 @@ export class VouchersController {
       const voucherData = result.structuredData;
 
       if (!voucherData.faltan_datos && typeof voucherData.casa === 'number') {
-        // CASO 1: Datos completos, guardar para esperar confirmación
+        // CASO 1: Datos completos, guardar para esperar confirmación (SIN código aún)
         this.conversationState.saveVoucherForConfirmation(
           phoneNumber,
           voucherData,
           result.gcsFilename,
           result.originalFilename,
+          // NO pasamos confirmationCode aquí - se generará después del INSERT
         );
         console.log(
           `Esperando confirmación de ${phoneNumber} para voucher con casa ${voucherData.casa}`,
@@ -511,17 +512,33 @@ export class VouchersController {
         savedData.voucherData,
       );
 
-      // TODO: Aquí se insertará en la BD
-      console.log(
-        `📝 [SIMULACIÓN] Insertando en BD: Casa ${savedData.voucherData.casa}, Monto: ${savedData.voucherData.monto}`,
-      );
+      // TODO: Aquí se insertará en la BD y se generará el código de confirmación
+      // PASO 1: Generar código de confirmación
+      const confirmationCode = this.voucherProcessor.generateConfirmationCode();
+      console.log(`🔐 Código de confirmación generado: ${confirmationCode}`);
 
+      // PASO 2: Insertar en BD con el código
+      console.log(
+        `📝 [SIMULACIÓN] Insertando en BD: Casa ${savedData.voucherData.casa}, Monto: ${savedData.voucherData.monto}, Código: ${confirmationCode}`,
+      );
+      // Cuando implementes el INSERT:
+      // const voucher = await this.voucherRepository.save({
+      //   date: new Date(savedData.voucherData.fecha_pago),
+      //   authorization_number: savedData.voucherData.referencia,
+      //   confirmation_code: confirmationCode,  // ⬅️ Guardar código generado
+      //   amount: parseFloat(savedData.voucherData.monto),
+      //   confirmation_status: false,
+      //   url: savedData.gcsFilename,
+      // });
+
+      // PASO 3: Enviar mensaje con el código de confirmación
       const confirmationData = {
         casa: savedData.voucherData.casa!,
         monto: savedData.voucherData.monto,
         fecha_pago: savedData.voucherData.fecha_pago,
         referencia: savedData.voucherData.referencia,
         hora_transaccion: savedData.voucherData.hora_transaccion,
+        confirmation_code: confirmationCode, // ⬅️ Ahora sí incluimos el código
       };
 
       await this.sendWhatsAppMessage(
@@ -576,12 +593,14 @@ export class VouchersController {
         `🏠 Usuario ${phoneNumber} proporcionó número de casa: ${houseNumber}`,
       );
 
-      // Guardar para confirmación
+      // Guardar para confirmación (SIN código de confirmación aún)
+      // El código se generará después del INSERT en BD
       this.conversationState.saveVoucherForConfirmation(
         phoneNumber,
         voucherData,
         context.data?.gcsFilename,
         context.data?.originalFilename,
+        // NO generamos código aquí - se generará después del INSERT
       );
 
       // Pedir confirmación
@@ -623,40 +642,6 @@ export class VouchersController {
     );
 
     this.conversationState.clearContext(phoneNumber);
-  }
-
-  private generateCSV(transactions: ProcessedTransaction[]): string {
-    const headers = [
-      'ID',
-      'Fecha',
-      'Descripción',
-      'Monto',
-      'Tipo',
-      'Número de Cuenta',
-      'Referencia',
-      'Categoría',
-      'Estado',
-      'Fecha de Creación',
-    ];
-
-    const rows = transactions.map((transaction) => [
-      transaction.id,
-      transaction.date.toISOString().split('T')[0],
-      `"${transaction.description.replace(/"/g, '""')}"`,
-      transaction.amount,
-      transaction.type,
-      transaction.accountNumber,
-      transaction.reference || '',
-      transaction.category || '',
-      transaction.status,
-      transaction.createdAt.toISOString(),
-    ]);
-
-    const csvContent = [
-      headers.join(','),
-      ...rows.map((row) => row.join(',')),
-    ].join('\n');
-    return csvContent;
   }
 
   /**

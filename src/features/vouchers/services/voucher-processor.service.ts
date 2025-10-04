@@ -22,6 +22,7 @@ export interface VoucherProcessingResult {
   originalFilename: string;
   gcsFilename?: string;
   phoneNumber?: string; // Opcional, solo para WhatsApp
+  confirmationCode?: string; // Código de confirmación único para el pago
 }
 
 @Injectable()
@@ -29,6 +30,19 @@ export class VoucherProcessorService {
   private readonly logger = new Logger(VoucherProcessorService.name);
 
   constructor(private readonly ocrService: OcrService) {}
+
+  /**
+   * Genera un código de confirmación único
+   * Formato: YYYYMM-XXXXXXX (año + mes + 7 caracteres aleatorios)
+   * Ejemplo: 202410-A7K2M3P
+   */
+  generateConfirmationCode(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const random = Math.random().toString(36).substring(2, 9).toUpperCase();
+    return `${year}${month}-${random}`;
+  }
 
   /**
    * Procesa un comprobante de pago (voucher) desde un buffer de archivo
@@ -77,7 +91,7 @@ export class VoucherProcessorService {
         `[${source}] Número de casa extraído: ${dataWithHouse.casa || 'No identificado'}`,
       );
 
-      // 4. Generar mensaje de respuesta según los casos
+      // 4. Generar mensaje de respuesta según los casos (SIN código de confirmación todavía)
       const whatsappMessage = this.generateWhatsAppMessage(dataWithHouse);
 
       // 5. Log del resultado final
@@ -85,7 +99,11 @@ export class VoucherProcessorService {
       this.logger.log(`[${source}] Mensaje generado: ${whatsappMessage}`);
 
       // TODO: Aquí se insertará en la BD cuando esté listo
+      // El código de confirmación se generará DESPUÉS del INSERT en la BD
       this.logger.log(`[${source}] ⚠️  Pendiente: Inserción en BD (TypeORM)`);
+      this.logger.log(
+        `[${source}] ⚠️  El confirmation_code se generará al momento del INSERT`,
+      );
 
       return {
         success: true,
@@ -94,6 +112,7 @@ export class VoucherProcessorService {
         originalFilename: resultOCR.originalFilename,
         gcsFilename: resultOCR.gcsFilename,
         phoneNumber,
+        // confirmationCode se generará después del INSERT
       };
     } catch (error) {
       const source = phoneNumber ? 'WhatsApp' : 'HTTP Upload';
@@ -152,6 +171,7 @@ export class VoucherProcessorService {
 
   /**
    * Genera el mensaje de respuesta de WhatsApp según el estado de los datos
+   * NOTA: Este mensaje NO incluye el código de confirmación porque aún no se ha insertado en BD
    */
   private generateWhatsAppMessage(data: StructuredDataWithCasa): string {
     // Caso 3: faltan_datos = true
@@ -172,7 +192,7 @@ export class VoucherProcessorService {
       Numero de Casa: ${data.casa}
       Referencia: ${data.referencia}
       Hora de Transacción: ${data.hora_transaccion}
-      
+
       Si los datos son correctos, escribe SI`;
     }
 

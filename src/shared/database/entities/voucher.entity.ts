@@ -20,6 +20,9 @@ export class Voucher {
   @Column({ type: 'varchar', length: 255, nullable: true })
   authorization_number: string;
 
+  @Column({ type: 'varchar', length: 20, unique: true, nullable: true })
+  confirmation_code: string;
+
   @Column({ type: 'float' })
   amount: number;
 

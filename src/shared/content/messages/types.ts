@@ -18,4 +18,5 @@ export interface ConfirmationData {
   fecha_pago: string;
   referencia: string;
   hora_transaccion: string;
+  confirmation_code?: string;
 }
