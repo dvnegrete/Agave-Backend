@@ -196,19 +196,23 @@ export class VouchersService {
     this.transactions.splice(index, 1);
   }
 
-  async getTransactionsByStatus(
-    status: 'pending' | 'processed' | 'failed',
-  ): Promise<ProcessedTransaction[]> {
-    return this.transactions.filter((t) => t.status === status);
+  /**
+   * Obtiene vouchers filtrados por estado de confirmación
+   * @param confirmed - true para confirmados, false para pendientes
+   * @returns Lista de vouchers filtrados
+   */
+  async getTransactionsByStatus(confirmed: boolean) {
+    return await this.voucherRepository.findByConfirmationStatus(confirmed);
   }
 
-  async getTransactionsByDateRange(
-    startDate: Date,
-    endDate: Date,
-  ): Promise<ProcessedTransaction[]> {
-    return this.transactions.filter(
-      (t) => t.date >= startDate && t.date <= endDate,
-    );
+  /**
+   * Obtiene vouchers en un rango de fechas
+   * @param startDate - Fecha inicial
+   * @param endDate - Fecha final
+   * @returns Lista de vouchers en el rango especificado
+   */
+  async getTransactionsByDateRange(startDate: Date, endDate: Date) {
+    return await this.voucherRepository.findByDateRange(startDate, endDate);
   }
 
   async getTransactionSummary(): Promise<{

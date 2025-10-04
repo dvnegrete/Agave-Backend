@@ -177,20 +177,24 @@ export class VouchersController {
 
   @Get()
   async getAllTransactions(
-    @Query('status') status?: 'pending' | 'processed' | 'failed',
+    @Query('confirmation_status') confirmationStatus?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
-    if (status) {
-      return await this.vouchersService.getTransactionsByStatus(status);
+    // Filtrar por confirmation_status (true = confirmado, false = pendiente)
+    if (confirmationStatus !== undefined) {
+      const isConfirmed = confirmationStatus === 'true';
+      return await this.vouchersService.getTransactionsByStatus(isConfirmed);
     }
 
+    // Filtrar por rango de fechas
     if (startDate && endDate) {
       const start = new Date(startDate);
       const end = new Date(endDate);
       return await this.vouchersService.getTransactionsByDateRange(start, end);
     }
 
+    // Retornar todos los vouchers
     return await this.vouchersService.getAllTransactions();
   }
 

@@ -191,6 +191,55 @@ GET /vouchers/ocr-service/languages
 }
 ```
 
+### Vouchers Management
+
+#### Get All Vouchers
+```http
+GET /vouchers
+```
+
+**Query Parameters:**
+- `confirmation_status` (optional): Filter by confirmation status
+  - `true` - Vouchers confirmados (verificados en banco)
+  - `false` - Vouchers pendientes (sin verificar)
+- `startDate` (optional): Fecha inicial (formato: YYYY-MM-DD)
+- `endDate` (optional): Fecha final (formato: YYYY-MM-DD)
+
+**Examples:**
+```bash
+# Todos los vouchers
+GET /vouchers
+
+# Vouchers confirmados
+GET /vouchers?confirmation_status=true
+
+# Vouchers pendientes
+GET /vouchers?confirmation_status=false
+
+# Vouchers por rango de fechas
+GET /vouchers?startDate=2024-01-01&endDate=2024-12-31
+
+# Vouchers pendientes en octubre 2024
+GET /vouchers?confirmation_status=false&startDate=2024-10-01&endDate=2024-10-31
+```
+
+**Response:**
+```json
+[
+  {
+    "id": 1,
+    "date": "2024-10-03T00:00:00.000Z",
+    "authorization_number": "REF123456",
+    "confirmation_code": "202410-A7K2M3P",
+    "amount": 1500.15,
+    "confirmation_status": false,
+    "url": "vouchers/2024-10-03/comprobante_1696348800000.jpg",
+    "created_at": "2024-10-03T14:30:45.000Z",
+    "updated_at": "2024-10-03T14:30:45.000Z"
+  }
+]
+```
+
 ### WhatsApp Webhook
 
 #### Webhook Verification (GET)
