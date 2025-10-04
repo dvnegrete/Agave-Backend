@@ -305,7 +305,43 @@ const fileContent = await this.cloudStorageService.downloadFile(
 const jsonData = JSON.parse(fileContent.toString());
 ```
 
-#### 6. Funciones auxiliares
+#### 6. `getSignedUrl(fileName, options)`
+
+Genera una URL firmada para acceso temporal a archivos privados.
+
+```typescript
+// URL firmada válida por 1 hora (default)
+const signedUrl = await this.cloudStorageService.getSignedUrl(
+  'vouchers/comprobante.jpg'
+);
+
+// URL firmada personalizada
+const signedUrl = await this.cloudStorageService.getSignedUrl(
+  'vouchers/comprobante.jpg',
+  {
+    expiresInMinutes: 30,  // Válida por 30 minutos
+    action: 'read'         // Permiso de lectura
+  }
+);
+
+// Usar en frontend
+return {
+  id: voucher.id,
+  viewUrl: signedUrl  // URL temporal para visualizar el archivo
+};
+```
+
+**Opciones disponibles:**
+- `bucketName`: Bucket del archivo (opcional)
+- `expiresInMinutes`: Tiempo de validez en minutos (default: 60)
+- `action`: Tipo de acción ('read', 'write', 'delete')
+
+**Casos de uso:**
+- Mostrar comprobantes en frontend sin hacer público el bucket
+- Compartir archivos temporalmente
+- Acceso controlado a documentos sensibles
+
+#### 7. Funciones auxiliares
 
 ```typescript
 // Verificar si existe

@@ -233,12 +233,57 @@ GET /vouchers?confirmation_status=false&startDate=2024-10-01&endDate=2024-10-31
     "confirmation_code": "202410-A7K2M3P",
     "amount": 1500.15,
     "confirmation_status": false,
-    "url": "vouchers/2024-10-03/comprobante_1696348800000.jpg",
+    "url": "p-2024-10-03_14-30-45-abc123.jpg",
     "created_at": "2024-10-03T14:30:45.000Z",
     "updated_at": "2024-10-03T14:30:45.000Z"
   }
 ]
 ```
+
+#### Get Voucher by ID
+
+Obtiene un voucher específico por su ID y genera una URL firmada temporal para visualizar el archivo.
+
+```http
+GET /vouchers/:id
+```
+
+**Path Parameters:**
+- `id` (required): ID del voucher en la base de datos
+
+**Example:**
+```bash
+GET /vouchers/1
+```
+
+**Response:**
+```json
+{
+  "id": 1,
+  "date": "2024-10-03T00:00:00.000Z",
+  "authorization_number": "REF123456",
+  "confirmation_code": "202410-A7K2M3P",
+  "amount": 1500.15,
+  "confirmation_status": false,
+  "url": "p-2024-10-03_14-30-45-abc123.jpg",
+  "viewUrl": "https://storage.googleapis.com/bucket/p-2024-10-03_14-30-45-abc123.jpg?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=...",
+  "created_at": "2024-10-03T14:30:45.000Z",
+  "updated_at": "2024-10-03T14:30:45.000Z"
+}
+```
+
+**Campos de respuesta:**
+- `url`: Nombre del archivo en Cloud Storage
+- `viewUrl`: URL firmada temporal para visualizar el archivo (válida por 1 hora)
+  - Si el voucher no tiene archivo asociado, `viewUrl` será `null`
+  - La URL firmada expira después de 60 minutos
+  - Permite visualizar archivos privados sin hacer público el bucket
+
+**Notas:**
+- La `viewUrl` es una URL firmada que permite acceso temporal al archivo
+- No requiere autenticación adicional durante el período de validez
+- Ideal para mostrar comprobantes en interfaces frontend
+- Si no existe el archivo o falla la generación, `viewUrl` será `null` pero el endpoint retorna los datos del voucher
 
 ### WhatsApp Webhook
 

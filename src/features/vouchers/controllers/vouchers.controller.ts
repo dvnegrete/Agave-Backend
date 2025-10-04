@@ -10,6 +10,7 @@ import {
   UploadedFile,
   UseInterceptors,
   BadRequestException,
+  NotFoundException,
   ParseFilePipe,
   MaxFileSizeValidator,
   FileTypeValidator,
@@ -216,11 +217,43 @@ export class VouchersController {
     return await this.vouchersService.getTransactionSummary();
   }
 
+  /**
+   * Obtiene un voucher por ID y genera URL firmada para visualizar el archivo
+   * @param id - ID del voucher en la base de datos
+   * @returns Datos del voucher con URL de visualización temporal
+   */
   @Get(':id')
-  async getTransactionById(
-    @Param('id') id: string,
-  ): Promise<ProcessedTransaction> {
-    return await this.vouchersService.getTransactionById(id);
+  async getTransactionById(@Param('id') id: string) {
+    // Buscar voucher en la base de datos
+    const voucher = await this.voucherRepository.findById(parseInt(id));
+
+    if (!voucher) {
+      throw new NotFoundException(`Voucher con ID ${id} no encontrado`);
+    }
+
+    // Generar URL firmada si existe el archivo en Cloud Storage
+    let viewUrl: string | null = null;
+    if (voucher.url) {
+      try {
+        // Generar URL firmada válida por 1 hora
+        viewUrl = await this.cloudStorageService.getSignedUrl(voucher.url, {
+          expiresInMinutes: 60,
+          action: 'read',
+        });
+      } catch (error) {
+        console.error(
+          `⚠️  Error al generar URL de visualización para voucher ${id}: ${error.message}`,
+        );
+        // No detener la respuesta si falla la generación de URL
+        viewUrl = null;
+      }
+    }
+
+    return {
+      confirmation_status: voucher.confirmation_status,
+      url: voucher.url,
+      viewUrl, // URL firmada para visualización temporal
+    };
   }
 
   @Post()

@@ -367,6 +367,59 @@ export class CloudStorageService {
   }
 
   /**
+   * Genera una URL firmada para acceso temporal a un archivo privado
+   *
+   * @param fileName - Nombre del archivo
+   * @param options - Opciones de configuración
+   * @returns URL firmada con acceso temporal
+   *
+   * @example
+   * ```typescript
+   * // URL válida por 1 hora
+   * const signedUrl = await cloudStorageService.getSignedUrl('vouchers/file.jpg', {
+   *   expiresInMinutes: 60
+   * });
+   * ```
+   */
+  async getSignedUrl(
+    fileName: string,
+    options: {
+      bucketName?: string;
+      expiresInMinutes?: number;
+      action?: 'read' | 'write' | 'delete';
+    } = {},
+  ): Promise<string> {
+    try {
+      const storageClient = this.getStorageClient();
+      const bucket = options.bucketName || this.getDefaultBucketName();
+      const expiresInMinutes = options.expiresInMinutes || 60; // Default: 1 hora
+      const action = options.action || 'read';
+
+      const file = storageClient.bucket(bucket).file(fileName);
+
+      const [signedUrl] = await file.getSignedUrl({
+        version: 'v4',
+        action,
+        expires: Date.now() + expiresInMinutes * 60 * 1000,
+      });
+
+      this.logger.log(
+        `URL firmada generada para ${fileName} (válida por ${expiresInMinutes} minutos)`,
+      );
+
+      return signedUrl;
+    } catch (error) {
+      this.logger.error(
+        `Error al generar URL firmada: ${error.message}`,
+        error,
+      );
+      throw new BadRequestException(
+        `Error al generar URL de acceso: ${error.message}`,
+      );
+    }
+  }
+
+  /**
    * Obtiene la URL pública de un archivo
    *
    * @param fileName - Nombre del archivo
