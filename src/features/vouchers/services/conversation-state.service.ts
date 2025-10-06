@@ -10,10 +10,8 @@ export enum ConversationState {
   WAITING_CONFIRMATION = 'waiting_confirmation', // Esperando "SI" para confirmar datos del voucher
   WAITING_HOUSE_NUMBER = 'waiting_house_number', // Esperando número de casa
   WAITING_MISSING_DATA = 'waiting_missing_data', // Esperando datos faltantes
-
-  // TODO: Implementar estados para corrección de datos cuando usuario dice "NO"
-  // WAITING_CORRECTION_TYPE = 'waiting_correction_type', // Esperando qué dato corregir (monto, fecha, casa, etc.)
-  // WAITING_CORRECTION_VALUE = 'waiting_correction_value', // Esperando el nuevo valor del dato a corregir
+  WAITING_CORRECTION_TYPE = 'waiting_correction_type', // Esperando qué dato corregir (monto, fecha, casa, referencia, hora)
+  WAITING_CORRECTION_VALUE = 'waiting_correction_value', // Esperando el nuevo valor del dato a corregir
 }
 
 /**
@@ -29,6 +27,7 @@ export interface ConversationContext {
     originalFilename?: string;
     confirmationCode?: string;
     missingFields?: string[];
+    fieldToCorrect?: string; // Campo que el usuario está corrigiendo
     [key: string]: any;
   };
 }
@@ -242,6 +241,8 @@ export class ConversationStateService {
         [ConversationState.WAITING_CONFIRMATION]: 0,
         [ConversationState.WAITING_HOUSE_NUMBER]: 0,
         [ConversationState.WAITING_MISSING_DATA]: 0,
+        [ConversationState.WAITING_CORRECTION_TYPE]: 0,
+        [ConversationState.WAITING_CORRECTION_VALUE]: 0,
       },
     };
 
@@ -250,5 +251,37 @@ export class ConversationStateService {
     }
 
     return stats;
+  }
+
+  /**
+   * Actualiza un campo específico del voucher en el contexto
+   */
+  updateVoucherField(
+    phoneNumber: string,
+    fieldName: string,
+    newValue: string,
+  ): void {
+    const context = this.getContext(phoneNumber);
+    if (context?.data?.voucherData) {
+      context.data.voucherData[fieldName] = newValue;
+      context.lastMessageAt = new Date();
+      this.logger.log(
+        `Campo ${fieldName} actualizado para ${phoneNumber}: ${newValue}`,
+      );
+    }
+  }
+
+  /**
+   * Obtiene el label en español del campo a corregir
+   */
+  getFieldLabel(field: string): string {
+    const labels: Record<string, string> = {
+      casa: 'Número de casa',
+      referencia: 'Referencia bancaria',
+      fecha_pago: 'Fecha de pago',
+      hora_transaccion: 'Hora de transacción',
+      monto: 'Monto',
+    };
+    return labels[field] || field;
   }
 }

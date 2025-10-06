@@ -573,6 +573,14 @@ export class VouchersController {
         await this.handleMissingDataResponse(phoneNumber, messageText);
         break;
 
+      case ConversationState.WAITING_CORRECTION_TYPE:
+        await this.handleCorrectionTypeSelection(phoneNumber, messageText);
+        break;
+
+      case ConversationState.WAITING_CORRECTION_VALUE:
+        await this.handleCorrectionValueResponse(phoneNumber, messageText);
+        break;
+
       default:
         console.log(`Estado no manejado: ${state}`);
         this.conversationState.clearContext(phoneNumber);
@@ -662,48 +670,58 @@ export class VouchersController {
       // Limpiar contexto
       this.conversationState.clearContext(phoneNumber);
     } else if (isNegation) {
-      // Usuario canceló
-      console.log(`❌ Usuario ${phoneNumber} canceló el registro`);
-
-      // TODO: Implementar flujo de corrección de datos
-      // En lugar de solo cancelar, permitir que el usuario:
-      // 1. Indique qué datos son incorrectos (monto, fecha, casa, referencia, etc.)
-      // 2. Proporcione los datos correctos mediante mensajes de WhatsApp
-      // 3. Actualice los datos extraídos con la información corregida
-      // 4. Vuelva a solicitar confirmación con los datos actualizados
-      //
-      // Flujo propuesto:
-      // - Estado: WAITING_CORRECTION_TYPE (qué dato corregir)
-      // - Estado: WAITING_CORRECTION_VALUE (nuevo valor del dato)
-      // - Volver a WAITING_CONFIRMATION con datos actualizados
-      //
-      // Actualmente: solo cancela y elimina el archivo
-
-      // Obtener datos guardados para eliminar el archivo
-      const savedData =
-        this.conversationState.getVoucherDataForConfirmation(phoneNumber);
-
-      if (savedData?.gcsFilename) {
-        try {
-          // Eliminar archivo de Cloud Storage
-          await this.cloudStorageService.deleteFile(savedData.gcsFilename);
-          console.log(
-            `🗑️  Archivo eliminado de GCS: ${savedData.gcsFilename}`,
-          );
-        } catch (error) {
-          console.error(
-            `⚠️  Error al eliminar archivo de GCS: ${error.message}`,
-          );
-          // No detenemos el flujo si falla la eliminación
-        }
-      }
-
-      await this.sendWhatsAppMessage(
-        phoneNumber,
-        ConfirmationMessages.cancelled,
+      // Usuario indicó que los datos NO son correctos - ofrecer corrección
+      console.log(
+        `❌ Usuario ${phoneNumber} indicó que los datos no son correctos`,
       );
 
-      this.conversationState.clearContext(phoneNumber);
+      // Cambiar estado a espera de tipo de corrección
+      const context = this.conversationState.getContext(phoneNumber);
+      if (context?.data) {
+        this.conversationState.setContext(
+          phoneNumber,
+          ConversationState.WAITING_CORRECTION_TYPE,
+          context.data,
+        );
+
+        // Enviar lista de opciones de campos a corregir
+        await this.whatsappMessaging.sendListMessage(
+          phoneNumber,
+          '¿Qué dato deseas corregir?',
+          'Seleccionar dato',
+          [
+            {
+              rows: [
+                {
+                  id: 'casa',
+                  title: 'Número de casa',
+                  description: 'Corregir el número de casa',
+                },
+                {
+                  id: 'referencia',
+                  title: 'Referencia',
+                  description: 'Corregir la referencia bancaria',
+                },
+                {
+                  id: 'fecha_pago',
+                  title: 'Fecha',
+                  description: 'Corregir la fecha de pago',
+                },
+                {
+                  id: 'hora_transaccion',
+                  title: 'Hora',
+                  description: 'Corregir la hora de transacción',
+                },
+                {
+                  id: 'cancelar_todo',
+                  title: '❌ Cancelar registro',
+                  description: 'No registrar este pago',
+                },
+              ],
+            },
+          ],
+        );
+      }
     } else {
       // Mensaje no reconocido, pedir confirmación nuevamente
       await this.sendWhatsAppMessage(phoneNumber, ConfirmationMessages.retry);
@@ -792,6 +810,147 @@ export class VouchersController {
     );
 
     this.conversationState.clearContext(phoneNumber);
+  }
+
+  /**
+   * Maneja la selección del campo a corregir por parte del usuario
+   */
+  private async handleCorrectionTypeSelection(
+    phoneNumber: string,
+    fieldId: string,
+  ): Promise<void> {
+    console.log(
+      `🔧 Usuario ${phoneNumber} seleccionó campo a corregir: ${fieldId}`,
+    );
+
+    // Caso especial: usuario quiere cancelar todo el registro
+    if (fieldId === 'cancelar_todo') {
+      const savedData =
+        this.conversationState.getVoucherDataForConfirmation(phoneNumber);
+
+      if (savedData?.gcsFilename) {
+        try {
+          await this.cloudStorageService.deleteFile(savedData.gcsFilename);
+          console.log(
+            `🗑️  Archivo eliminado de GCS: ${savedData.gcsFilename}`,
+          );
+        } catch (error) {
+          console.error(
+            `⚠️  Error al eliminar archivo de GCS: ${error.message}`,
+          );
+        }
+      }
+
+      await this.sendWhatsAppMessage(
+        phoneNumber,
+        ConfirmationMessages.cancelled,
+      );
+
+      this.conversationState.clearContext(phoneNumber);
+      return;
+    }
+
+    // Validar que el campo seleccionado sea válido
+    const validFields = ['casa', 'referencia', 'fecha_pago', 'hora_transaccion'];
+    if (!validFields.includes(fieldId)) {
+      await this.sendWhatsAppMessage(
+        phoneNumber,
+        'Opción no válida. Por favor selecciona una opción de la lista.',
+      );
+      return;
+    }
+
+    // Guardar el campo a corregir en el contexto
+    const context = this.conversationState.getContext(phoneNumber);
+    if (context?.data) {
+      context.data.fieldToCorrect = fieldId;
+      this.conversationState.setContext(
+        phoneNumber,
+        ConversationState.WAITING_CORRECTION_VALUE,
+        context.data,
+      );
+
+      // Pedir el nuevo valor con mensaje de responsabilidad
+      const fieldLabel = this.conversationState.getFieldLabel(fieldId);
+      await this.sendWhatsAppMessage(
+        phoneNumber,
+        `Por favor, envía el nuevo valor para: *${fieldLabel}*\n\n` +
+          `⚠️ *IMPORTANTE:* Es tu responsabilidad proporcionar los datos correctos para la verificación de tu pago. ` +
+          `Verifica cuidadosamente la información antes de enviarla.`,
+      );
+    }
+  }
+
+  /**
+   * Maneja la respuesta del usuario con el nuevo valor para el campo a corregir
+   */
+  private async handleCorrectionValueResponse(
+    phoneNumber: string,
+    newValue: string,
+  ): Promise<void> {
+    const context = this.conversationState.getContext(phoneNumber);
+
+    if (!context?.data?.fieldToCorrect) {
+      await this.sendWhatsAppMessage(
+        phoneNumber,
+        ErrorMessages.sessionExpired,
+      );
+      this.conversationState.clearContext(phoneNumber);
+      return;
+    }
+
+    const fieldToCorrect = context.data.fieldToCorrect;
+    const fieldLabel = this.conversationState.getFieldLabel(fieldToCorrect);
+
+    console.log(
+      `✏️ Usuario ${phoneNumber} actualizó ${fieldToCorrect}: ${newValue}`,
+    );
+
+    // Actualizar el campo en los datos del voucher
+    this.conversationState.updateVoucherField(
+      phoneNumber,
+      fieldToCorrect,
+      newValue,
+    );
+
+    // Limpiar el campo temporal
+    delete context.data.fieldToCorrect;
+
+    // Volver al estado de confirmación
+    this.conversationState.setContext(
+      phoneNumber,
+      ConversationState.WAITING_CONFIRMATION,
+      context.data,
+    );
+
+    // Obtener datos actualizados
+    const updatedData = context.data.voucherData;
+
+    if (!updatedData) {
+      await this.sendWhatsAppMessage(
+        phoneNumber,
+        ErrorMessages.sessionExpired,
+      );
+      this.conversationState.clearContext(phoneNumber);
+      return;
+    }
+
+    // Enviar confirmación con datos actualizados y botones
+    await this.whatsappMessaging.sendButtonMessage(
+      phoneNumber,
+      `✅ *${fieldLabel}* actualizado correctamente.\n\n` +
+        `Por favor, confirma que los siguientes datos son correctos:\n\n` +
+        `📍 Casa: *${updatedData.casa}*\n` +
+        `💰 Monto: *${updatedData.monto}*\n` +
+        `📅 Fecha: *${updatedData.fecha_pago}*\n` +
+        `🕒 Hora: *${updatedData.hora_transaccion}*\n` +
+        `🔢 Referencia: *${updatedData.referencia}*\n\n` +
+        `¿Los datos son correctos?`,
+      [
+        { id: 'confirm', title: '✅ Sí, es correcto' },
+        { id: 'cancel', title: '❌ No, corregir' },
+      ],
+    );
   }
 
   /**

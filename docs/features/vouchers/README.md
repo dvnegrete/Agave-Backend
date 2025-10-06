@@ -122,9 +122,11 @@ enum MessageIntent {
 ```typescript
 enum ConversationState {
   IDLE = 'idle',                          // Sin conversación activa
-  WAITING_CONFIRMATION = 'waiting_confirmation',  // Esperando "SI" del usuario
+  WAITING_CONFIRMATION = 'waiting_confirmation',  // Esperando "SI/NO" del usuario
   WAITING_HOUSE_NUMBER = 'waiting_house_number',  // Esperando número de casa
   WAITING_MISSING_DATA = 'waiting_missing_data',  // Esperando datos faltantes
+  WAITING_CORRECTION_TYPE = 'waiting_correction_type',  // Esperando selección de campo a corregir
+  WAITING_CORRECTION_VALUE = 'waiting_correction_value', // Esperando nuevo valor del campo
 }
 ```
 
@@ -390,7 +392,7 @@ Output:
 
 ### 2. Confirmation Flow
 
-**Flujo Completo:**
+**Flujo Completo con Corrección de Datos:**
 ```
 1. Usuario envía imagen
    ↓
@@ -398,22 +400,117 @@ Output:
    ↓
 3. Sistema muestra datos y pide confirmación con botones interactivos:
    - Botón 1: "✅ Sí, es correcto" (id: confirm)
-   - Botón 2: "❌ No, cancelar" (id: cancel)
+   - Botón 2: "❌ No, corregir" (id: cancel)
    ↓
-4. Usuario presiona botón "✅ Sí, es correcto" (o escribe "SI")
-   ↓
-5. Sistema genera código de confirmación (202410-A7K2M3P)
-   ↓
-6. INSERT en BD con código
-   ↓
-7. Mensaje de éxito con código de confirmación
+4a. Usuario presiona "✅ Sí, es correcto" (o escribe "SI")
+    ↓
+    Sistema genera código de confirmación (202410-A7K2M3P)
+    ↓
+    INSERT en BD con código
+    ↓
+    Mensaje de éxito con código de confirmación
+    ↓
+    FIN
 
-Alternativa: Usuario presiona "❌ No, cancelar" (o escribe "NO")
+4b. Usuario presiona "❌ No, corregir" (o escribe "NO")
+    ↓
+    Sistema muestra lista interactiva de campos a corregir:
+    - Número de casa
+    - Referencia
+    - Fecha
+    - Hora
+    - ❌ Cancelar registro
+    ↓
+5. Usuario selecciona campo a corregir (ej: "Número de casa")
    ↓
-- Sistema elimina archivo de Cloud Storage
-- Mensaje: "Entendido, he cancelado el registro..."
-- Context limpiado
+6. Sistema pide nuevo valor con mensaje de responsabilidad:
+   "⚠️ IMPORTANTE: Es tu responsabilidad proporcionar los datos correctos..."
+   ↓
+7. Usuario envía nuevo valor (ej: "15")
+   ↓
+8. Sistema actualiza el dato y muestra confirmación con TODOS los datos:
+   "✅ Número de casa actualizado correctamente.
+
+   Por favor, confirma que los siguientes datos son correctos:
+   📍 Casa: 15
+   💰 Monto: $1,500.00
+   📅 Fecha: 2024-10-06
+   🕒 Hora: 14:30:45
+   🔢 Referencia: ABC123
+
+   ¿Los datos son correctos?"
+   - Botón 1: "✅ Sí, es correcto"
+   - Botón 2: "❌ No, corregir"
+   ↓
+9. Volver al paso 4 (puede corregir "n" veces hasta confirmar)
+   ↓
+10. Cuando finalmente presiona "✅ Sí, es correcto"
+    ↓
+    INSERT en BD con código de confirmación
+    ↓
+    Mensaje de éxito
+    ↓
+    FIN
+
+Alternativa en paso 5: Usuario selecciona "❌ Cancelar registro"
+   ↓
+   Sistema elimina archivo de Cloud Storage
+   ↓
+   Mensaje: "Entendido, he cancelado el registro..."
+   ↓
+   Context limpiado
+   ↓
+   FIN
 ```
+
+**Diagrama Visual del Flujo de Corrección:**
+
+```mermaid
+graph TD
+    A[Usuario envía imagen] --> B[OCR extrae datos]
+    B --> C[Mostrar datos + Botones SI/NO]
+
+    C --> D{Usuario presiona botón}
+
+    D -->|✅ Sí, es correcto| E[Generar código confirmación]
+    E --> F[INSERT en BD]
+    F --> G[Mensaje de éxito]
+    G --> H[FIN]
+
+    D -->|❌ No, corregir| I[Mostrar lista de campos]
+    I --> J{Usuario selecciona campo}
+
+    J -->|Casa/Ref/Fecha/Hora| K[Pedir nuevo valor + mensaje responsabilidad]
+    K --> L[Usuario envía nuevo valor]
+    L --> M[Actualizar dato en contexto]
+    M --> N[Mostrar TODOS los datos + Botones SI/NO]
+    N --> D
+
+    J -->|❌ Cancelar registro| O[Eliminar archivo GCS]
+    O --> P[Mensaje cancelación]
+    P --> Q[Limpiar contexto]
+    Q --> H
+
+    style D fill:#FFE5B4
+    style J fill:#FFE5B4
+    style E fill:#90EE90
+    style O fill:#FFB6C1
+    style K fill:#87CEEB
+```
+
+**Estados de conversación en el flujo:**
+1. `WAITING_CONFIRMATION` → Esperando SI/NO
+2. `WAITING_CORRECTION_TYPE` → Esperando selección de campo (lista interactiva)
+3. `WAITING_CORRECTION_VALUE` → Esperando texto con nuevo valor
+4. Volver a `WAITING_CONFIRMATION` → Mostrar datos actualizados
+
+**Características clave:**
+- ✅ Usuario puede corregir datos **múltiples veces** hasta confirmar
+- ✅ Mensaje de **responsabilidad** al pedir corrección
+- ✅ Muestra **TODOS los datos** después de cada corrección
+- ✅ Solo hace **INSERT en BD** cuando usuario confirma con SI
+- ✅ Archivo se mantiene en GCS durante correcciones
+- ✅ Archivo se elimina solo si usuario **cancela todo el registro**
 
 ### 3. Message Classification Priority
 
