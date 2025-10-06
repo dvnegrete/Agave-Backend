@@ -45,7 +45,9 @@ src/features/vouchers/
 - `VoucherProcessorService`: Procesamiento unificado de vouchers (HTTP + WhatsApp)
 - `OcrService`: Extracción de texto con Google Cloud Vision
 - `ConversationStateService`: Manejo de estados de conversación
-- `WhatsAppMediaService`: Descarga de archivos desde WhatsApp
+- `WhatsAppApiService`: Servicio genérico para peticiones HTTP a WhatsApp Business API
+- `WhatsAppMessagingService`: Envío de mensajes (texto, botones, listas, imágenes, documentos)
+- `WhatsAppMediaService`: Descarga de archivos multimedia desde WhatsApp
 - `WhatsAppMessageClassifierService`: Clasificación de mensajes con IA
 
 #### 3. Repository
@@ -325,6 +327,34 @@ Content-Type: application/json
 }
 ```
 
+#### Interactive Message (Button Reply)
+```json
+{
+  "object": "whatsapp_business_account",
+  "entry": [{
+    "changes": [{
+      "value": {
+        "messages": [{
+          "from": "521234567890",
+          "type": "interactive",
+          "interactive": {
+            "type": "button_reply",
+            "button_reply": {
+              "id": "confirm",
+              "title": "✅ Sí, es correcto"
+            }
+          }
+        }]
+      }
+    }]
+  }]
+}
+```
+
+**Supported Button IDs:**
+- `confirm`: Usuario confirma datos como correctos
+- `cancel`: Usuario cancela el registro
+
 ## Business Rules
 
 ### 1. Voucher Data Extraction
@@ -366,32 +396,43 @@ Output:
    ↓
 2. OCR extrae datos
    ↓
-3. Sistema muestra datos y pide confirmación
+3. Sistema muestra datos y pide confirmación con botones interactivos:
+   - Botón 1: "✅ Sí, es correcto" (id: confirm)
+   - Botón 2: "❌ No, cancelar" (id: cancel)
    ↓
-4. Usuario responde "SI"
+4. Usuario presiona botón "✅ Sí, es correcto" (o escribe "SI")
    ↓
 5. Sistema genera código de confirmación (202410-A7K2M3P)
    ↓
 6. INSERT en BD con código
    ↓
 7. Mensaje de éxito con código de confirmación
+
+Alternativa: Usuario presiona "❌ No, cancelar" (o escribe "NO")
+   ↓
+- Sistema elimina archivo de Cloud Storage
+- Mensaje: "Entendido, he cancelado el registro..."
+- Context limpiado
 ```
 
 ### 3. Message Classification Priority
 
 **Orden de Verificación:**
 ```
-1. ¿Hay contexto activo?
-   → Sí: Manejar según estado (confirmación, casa, datos faltantes)
-   → No: Continuar
-
-2. ¿Es tipo imagen/documento?
+1. ¿Es tipo imagen/documento?
    → Sí: Procesar con OCR
    → No: Continuar
 
+2. ¿Es tipo interactive (botones/listas)?
+   → Sí: Extraer ID de respuesta (confirm/cancel)
+   → Verificar contexto activo
+   → Manejar según estado
+   → No: Continuar
+
 3. ¿Es tipo texto?
-   → Clasificar con IA
-   → Responder según intent
+   → Verificar si hay contexto activo
+   → Sí: Manejar según estado (confirmación, casa, datos faltantes)
+   → No: Clasificar con IA y responder según intent
 ```
 
 ## Database Schema
@@ -550,6 +591,68 @@ files: {
 - **Endpoints**:
   - Send messages: `/v23.0/{phone_number_id}/messages`
   - Download media: `/v23.0/{media_id}`
+- **Interactive Messages**:
+  - Reply Buttons (hasta 3 botones)
+  - List Messages (hasta 10 opciones por sección)
+  - Usados en confirmaciones SI/NO
+
+#### WhatsApp Services Architecture
+
+**WhatsAppApiService** (Base Layer):
+```typescript
+// Servicio genérico para peticiones HTTP a WhatsApp API
+async request<T>(endpoint: string, method: 'GET' | 'POST' | 'DELETE', body?: any)
+async sendMessage(payload: any)
+async getMediaInfo(mediaId: string)
+async downloadMedia(mediaUrl: string): Promise<Buffer>
+```
+
+**WhatsAppMessagingService** (Messaging Layer):
+```typescript
+// Servicios especializados para envío de mensajes
+async sendTextMessage(to: string, message: string)
+async sendButtonMessage(to: string, bodyText: string, buttons: ButtonOption[])
+async sendListMessage(to: string, bodyText: string, buttonText: string, sections: ListSection[])
+async sendImageMessage(to: string, imageUrl: string, caption?: string)
+async sendDocumentMessage(to: string, documentUrl: string, filename: string, caption?: string)
+```
+
+**WhatsAppMediaService** (Media Layer):
+```typescript
+// Servicios especializados para descarga de multimedia
+async getMediaInfo(mediaId: string): Promise<WhatsAppMediaInfo>
+async downloadMedia(mediaId: string): Promise<{ buffer: Buffer; mimeType: string; filename: string }>
+isSupportedMediaType(mimeType: string): boolean
+```
+
+**Uso en Controller**:
+```typescript
+// Texto simple
+await this.whatsappMessaging.sendTextMessage(phoneNumber, "Hola");
+
+// Botones interactivos
+await this.whatsappMessaging.sendButtonMessage(
+  phoneNumber,
+  "¿Son correctos los datos?",
+  [
+    { id: 'confirm', title: '✅ Sí, es correcto' },
+    { id: 'cancel', title: '❌ No, cancelar' }
+  ]
+);
+
+// Listas de opciones
+await this.whatsappMessaging.sendListMessage(
+  phoneNumber,
+  "¿Qué deseas corregir?",
+  "Seleccionar",
+  [{
+    rows: [
+      { id: 'monto', title: 'Monto', description: 'Corregir monto' },
+      { id: 'fecha', title: 'Fecha', description: 'Corregir fecha' }
+    ]
+  }]
+);
+```
 
 ### AI Services
 - **OpenAI**: GPT-3.5-turbo for data structuring

@@ -10,6 +10,10 @@ export enum ConversationState {
   WAITING_CONFIRMATION = 'waiting_confirmation', // Esperando "SI" para confirmar datos del voucher
   WAITING_HOUSE_NUMBER = 'waiting_house_number', // Esperando número de casa
   WAITING_MISSING_DATA = 'waiting_missing_data', // Esperando datos faltantes
+
+  // TODO: Implementar estados para corrección de datos cuando usuario dice "NO"
+  // WAITING_CORRECTION_TYPE = 'waiting_correction_type', // Esperando qué dato corregir (monto, fecha, casa, etc.)
+  // WAITING_CORRECTION_VALUE = 'waiting_correction_value', // Esperando el nuevo valor del dato a corregir
 }
 
 /**

@@ -1,4 +1,5 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { WhatsAppApiService } from './whatsapp-api.service';
 
 export interface WhatsAppMediaInfo {
   url: string;
@@ -10,18 +11,8 @@ export interface WhatsAppMediaInfo {
 @Injectable()
 export class WhatsAppMediaService {
   private readonly logger = new Logger(WhatsAppMediaService.name);
-  private readonly apiUrl = 'https://graph.facebook.com/v23.0';
-  private readonly token: string;
 
-  constructor() {
-    this.token = process.env.TOKEN_WA || '';
-
-    if (!this.token) {
-      this.logger.warn(
-        'TOKEN_WA no está configurado. El servicio de descarga de medios de WhatsApp no funcionará.',
-      );
-    }
-  }
+  constructor(private readonly whatsappApi: WhatsAppApiService) {}
 
   /**
    * Obtiene la información de un archivo multimedia de WhatsApp
@@ -30,32 +21,7 @@ export class WhatsAppMediaService {
    */
   async getMediaInfo(mediaId: string): Promise<WhatsAppMediaInfo> {
     try {
-      if (!this.token) {
-        throw new BadRequestException(
-          'TOKEN_WA no está configurado. No se puede obtener información del media.',
-        );
-      }
-
-      const url = `${this.apiUrl}/${mediaId}`;
-
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${this.token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        this.logger.error(
-          `Error al obtener información del media: ${JSON.stringify(error)}`,
-        );
-        throw new BadRequestException(
-          `Error al obtener información del media: ${error.error?.message || 'Error desconocido'}`,
-        );
-      }
-
-      const data = await response.json();
+      const data = await this.whatsappApi.getMediaInfo(mediaId);
 
       return {
         url: data.url,
@@ -91,25 +57,10 @@ export class WhatsAppMediaService {
         `Media info obtenida: ${mediaInfo.mimeType}, tamaño: ${mediaInfo.fileSize} bytes`,
       );
 
-      // 2. Descargar el archivo desde la URL
-      const response = await fetch(mediaInfo.url, {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${this.token}`,
-        },
-      });
+      // 2. Descargar el archivo usando WhatsAppApiService
+      const buffer = await this.whatsappApi.downloadMedia(mediaInfo.url);
 
-      if (!response.ok) {
-        throw new BadRequestException(
-          `Error al descargar el media: ${response.statusText}`,
-        );
-      }
-
-      // 3. Convertir a Buffer
-      const arrayBuffer = await response.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-
-      // 4. Generar nombre de archivo basado en mimeType
+      // 3. Generar nombre de archivo basado en mimeType
       const filename = this.generateFilename(mediaInfo.mimeType, mediaId);
 
       this.logger.log(

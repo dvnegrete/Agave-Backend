@@ -211,24 +211,253 @@ flowchart TD
 
 ## Services
 
-### WhatsAppMediaService
+### Service Architecture
 
-Downloads files from WhatsApp using media ID.
+La integración con WhatsApp está organizada en 3 capas de servicios:
 
-**Methods:**
+```
+┌─────────────────────────────────────────────┐
+│    Controllers (VouchersController)         │
+│  - Webhook endpoints                        │
+│  - Message routing                          │
+└────────────┬────────────────────────────────┘
+             │
+    ┌────────┴─────────┬─────────────────────┐
+    │                  │                     │
+┌───▼───────────┐ ┌───▼──────────────┐ ┌───▼──────────┐
+│ Messaging     │ │ Media            │ │ Classifier   │
+│ Service       │ │ Service          │ │ Service      │
+│ (Send)        │ │ (Download)       │ │ (AI)         │
+└───┬───────────┘ └───┬──────────────┘ └──────────────┘
+    │                 │
+    └────────┬────────┘
+             │
+      ┌──────▼──────┐
+      │   API       │
+      │  Service    │
+      │  (HTTP)     │
+      └─────────────┘
+```
 
-#### downloadMedia(mediaId)
+---
+
+### 1. WhatsAppApiService (Base Layer)
+
+**Ubicación**: `src/features/vouchers/services/whatsapp-api.service.ts`
+
+**Responsabilidad**: Servicio genérico para peticiones HTTP a WhatsApp Business API.
+
+**Métodos principales**:
+
 ```typescript
+// Petición HTTP genérica
+async request<T>(
+  endpoint: string,
+  method: 'GET' | 'POST' | 'DELETE',
+  body?: any,
+  customHeaders?: Record<string, string>
+): Promise<T>
+
+// Enviar mensaje (método conveniente)
+async sendMessage(payload: any): Promise<any>
+
+// Obtener información de media
+async getMediaInfo(mediaId: string): Promise<any>
+
+// Descargar archivo multimedia
+async downloadMedia(mediaUrl: string): Promise<Buffer>
+
+// Verificar configuración
+isConfigured(): boolean
+getPhoneNumberId(): string
+```
+
+**Características**:
+- Manejo centralizado de autenticación (TOKEN_WA, PHONE_NUMBER_ID_WA)
+- Construcción automática de headers y URLs
+- Logging detallado de requests/responses
+- Manejo de errores unificado
+
+**Ejemplo de uso**:
+```typescript
+const response = await whatsappApi.request('/messages', 'POST', {
+  messaging_product: 'whatsapp',
+  to: '521234567890',
+  type: 'text',
+  text: { body: 'Hola' }
+});
+```
+
+---
+
+### 2. WhatsAppMessagingService (Messaging Layer)
+
+**Ubicación**: `src/features/vouchers/services/whatsapp-messaging.service.ts`
+
+**Responsabilidad**: Envío de diferentes tipos de mensajes.
+
+**Métodos principales**:
+
+```typescript
+// Mensaje de texto simple
+async sendTextMessage(to: string, message: string): Promise<void>
+
+// Mensaje con botones interactivos (máximo 3)
+async sendButtonMessage(
+  to: string,
+  bodyText: string,
+  buttons: ButtonOption[]
+): Promise<void>
+
+// Mensaje con lista de opciones (máximo 10 por sección)
+async sendListMessage(
+  to: string,
+  bodyText: string,
+  buttonText: string,
+  sections: ListSection[]
+): Promise<void>
+
+// Mensaje con imagen
+async sendImageMessage(
+  to: string,
+  imageUrl: string,
+  caption?: string
+): Promise<void>
+
+// Mensaje con documento
+async sendDocumentMessage(
+  to: string,
+  documentUrl: string,
+  filename: string,
+  caption?: string
+): Promise<void>
+```
+
+**Interfaces**:
+
+```typescript
+interface ButtonOption {
+  id: string;      // ID único para identificar el botón
+  title: string;   // Texto visible (máximo 20 caracteres)
+}
+
+interface ListSection {
+  title?: string;
+  rows: Array<{
+    id: string;
+    title: string;        // Máximo 24 caracteres
+    description?: string; // Máximo 72 caracteres
+  }>;
+}
+```
+
+**Ejemplos de uso**:
+
+```typescript
+// Texto simple
+await whatsappMessaging.sendTextMessage(
+  '521234567890',
+  'Tu pago ha sido registrado'
+);
+
+// Botones interactivos
+await whatsappMessaging.sendButtonMessage(
+  '521234567890',
+  '¿Son correctos los datos?\n\nMonto: $1,500.15',
+  [
+    { id: 'confirm', title: '✅ Sí, es correcto' },
+    { id: 'cancel', title: '❌ No, cancelar' }
+  ]
+);
+
+// Lista de opciones
+await whatsappMessaging.sendListMessage(
+  '521234567890',
+  '¿Qué dato deseas corregir?',
+  'Seleccionar',
+  [{
+    rows: [
+      { id: 'monto', title: 'Monto', description: 'Corregir el monto' },
+      { id: 'fecha', title: 'Fecha', description: 'Corregir la fecha' }
+    ]
+  }]
+);
+```
+
+---
+
+### 3. WhatsAppMediaService (Media Layer)
+
+**Ubicación**: `src/features/vouchers/services/whatsapp-media.service.ts`
+
+**Responsabilidad**: Descarga y gestión de archivos multimedia.
+
+**Métodos principales**:
+
+```typescript
+// Obtener información de archivo
+async getMediaInfo(mediaId: string): Promise<WhatsAppMediaInfo>
+
+// Descargar archivo completo
 async downloadMedia(mediaId: string): Promise<{
   buffer: Buffer;
   mimeType: string;
   filename: string;
 }>
+
+// Validar tipo de archivo
+isSupportedMediaType(mimeType: string): boolean
 ```
 
-**Implementation:**
+**Interface**:
+
 ```typescript
-// Step 1: Get media URL
+interface WhatsAppMediaInfo {
+  url: string;       // URL temporal de descarga
+  mimeType: string;  // Tipo MIME
+  sha256: string;    // Hash del archivo
+  fileSize: number;  // Tamaño en bytes
+}
+```
+
+**Tipos soportados**:
+```typescript
+const SUPPORTED_MIME_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'image/bmp',
+  'image/tiff',
+  'application/pdf',
+];
+```
+
+**Ejemplo de uso**:
+
+```typescript
+// Descargar archivo
+const { buffer, mimeType, filename } = await whatsappMedia.downloadMedia(
+  message.image.id
+);
+
+// Validar tipo
+if (!whatsappMedia.isSupportedMediaType(mimeType)) {
+  await whatsappMessaging.sendTextMessage(
+    phoneNumber,
+    'Tipo de archivo no soportado'
+  );
+  return;
+}
+
+// Procesar buffer
+await ocrService.extractTextFromImage(buffer, filename);
+```
+
+**Flujo de descarga**:
+
+```typescript
+// Paso 1: Obtener URL del archivo
 GET https://graph.facebook.com/v23.0/{media_id}
 Headers: Authorization: Bearer {token}
 
@@ -236,29 +465,24 @@ Response:
 {
   "url": "https://lookaside.fbsbx.com/whatsapp_business/...",
   "mime_type": "image/jpeg",
-  "file_size": 123456
+  "file_size": 123456,
+  "sha256": "abc123..."
 }
 
-// Step 2: Download file
+// Paso 2: Descargar archivo
 GET {url}
 Headers: Authorization: Bearer {token}
 
-Response: Binary file data
+Response: Binary data (Buffer)
 ```
 
-#### isSupportedMediaType(mimeType)
-```typescript
-const SUPPORTED_MIME_TYPES = [
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'application/pdf',
-];
-```
+---
 
-### WhatsAppMessageClassifierService
+### 4. WhatsAppMessageClassifierService
 
-Classifies user messages using AI.
+**Ubicación**: `src/features/vouchers/services/whatsapp-message-classifier.service.ts`
+
+**Responsabilidad**: Clasificación de mensajes usando IA (OpenAI/Vertex AI).
 
 **Intents:**
 ```typescript
@@ -508,6 +732,299 @@ Ver: [Content Dictionary](../../modules/content/README.md)
 - Implementar rate limiting en tu backend
 - Usar queues (Bull/Redis) para controlar flujo
 - Actualizar tier de tu WhatsApp Business Account
+
+---
+
+## Complete Example: Processing Voucher with Interactive Messages
+
+Ejemplo completo del flujo de procesamiento de un voucher usando los servicios refactorizados:
+
+```typescript
+import { Controller, Post, Body } from '@nestjs/common';
+import { WhatsAppMessagingService } from '../services/whatsapp-messaging.service';
+import { WhatsAppMediaService } from '../services/whatsapp-media.service';
+import { OcrService } from '../services/ocr.service';
+import { VoucherRepository } from '@/shared/database/repositories/voucher.repository';
+
+@Controller('vouchers')
+export class VouchersController {
+  constructor(
+    private readonly whatsappMessaging: WhatsAppMessagingService,
+    private readonly whatsappMedia: WhatsAppMediaService,
+    private readonly ocrService: OcrService,
+    private readonly voucherRepository: VoucherRepository,
+  ) {}
+
+  @Post('webhook/whatsapp')
+  async receiveWhatsAppMessage(@Body() body: any) {
+    const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+    if (!message) return { success: true };
+
+    const phoneNumber = message.from;
+    const messageType = message.type;
+
+    // CASO 1: Usuario envía imagen con comprobante
+    if (messageType === 'image') {
+      try {
+        // 1. Descargar imagen
+        const { buffer, mimeType, filename } =
+          await this.whatsappMedia.downloadMedia(message.image.id);
+
+        // 2. Validar tipo de archivo
+        if (!this.whatsappMedia.isSupportedMediaType(mimeType)) {
+          await this.whatsappMessaging.sendTextMessage(
+            phoneNumber,
+            'Solo se permiten imágenes JPG, PNG, PDF'
+          );
+          return { success: true };
+        }
+
+        // 3. Procesar con OCR
+        const ocrResult = await this.ocrService.extractTextFromImage(
+          buffer,
+          filename
+        );
+
+        // 4. Enviar confirmación con botones interactivos
+        await this.whatsappMessaging.sendButtonMessage(
+          phoneNumber,
+          `¿Son correctos estos datos?\n\n` +
+          `Monto: ${ocrResult.monto}\n` +
+          `Fecha: ${ocrResult.fecha_pago}\n` +
+          `Casa: ${ocrResult.casa}\n` +
+          `Referencia: ${ocrResult.referencia}`,
+          [
+            { id: 'confirm', title: '✅ Sí, es correcto' },
+            { id: 'cancel', title: '❌ No, cancelar' }
+          ]
+        );
+
+        // 5. Guardar contexto para la siguiente respuesta
+        this.saveContext(phoneNumber, ocrResult);
+
+      } catch (error) {
+        await this.whatsappMessaging.sendTextMessage(
+          phoneNumber,
+          'Error al procesar el comprobante. Intenta nuevamente.'
+        );
+      }
+
+      return { success: true };
+    }
+
+    // CASO 2: Usuario presiona botón de confirmación
+    if (messageType === 'interactive') {
+      const buttonId = message.interactive.button_reply?.id;
+      const listId = message.interactive.list_reply?.id;
+      const response = buttonId || listId;
+
+      if (response === 'confirm') {
+        // 1. Recuperar datos guardados
+        const savedData = this.getContext(phoneNumber);
+
+        // 2. Insertar en base de datos
+        const voucher = await this.voucherRepository.create({
+          date: savedData.fecha_pago,
+          authorization_number: savedData.referencia,
+          amount: parseFloat(savedData.monto),
+          confirmation_code: this.generateConfirmationCode(),
+          confirmation_status: false,
+          url: savedData.gcsFilename,
+        });
+
+        // 3. Enviar confirmación final
+        await this.whatsappMessaging.sendTextMessage(
+          phoneNumber,
+          `✅ ¡Pago registrado exitosamente!\n\n` +
+          `🔐 Código de confirmación: ${voucher.confirmation_code}\n\n` +
+          `Guarda este código para futuras consultas.`
+        );
+
+        // 4. Limpiar contexto
+        this.clearContext(phoneNumber);
+
+      } else if (response === 'cancel') {
+        // Ofrecer opciones de corrección
+        await this.whatsappMessaging.sendListMessage(
+          phoneNumber,
+          '¿Qué dato deseas corregir?',
+          'Seleccionar dato',
+          [{
+            rows: [
+              {
+                id: 'monto',
+                title: 'Monto',
+                description: 'Corregir el monto del pago'
+              },
+              {
+                id: 'fecha',
+                title: 'Fecha',
+                description: 'Corregir la fecha de pago'
+              },
+              {
+                id: 'casa',
+                title: 'Número de casa',
+                description: 'Corregir número de casa'
+              },
+              {
+                id: 'cancelar_todo',
+                title: 'Cancelar registro',
+                description: 'No registrar este pago'
+              }
+            ]
+          }]
+        );
+
+      } else if (['monto', 'fecha', 'casa'].includes(response)) {
+        // Usuario seleccionó un dato a corregir
+        this.setContext(phoneNumber, { fieldToCorrect: response });
+
+        await this.whatsappMessaging.sendTextMessage(
+          phoneNumber,
+          `Por favor, envía el nuevo valor para: ${this.getFieldLabel(response)}`
+        );
+
+      } else if (response === 'cancelar_todo') {
+        // Eliminar archivo y limpiar
+        const savedData = this.getContext(phoneNumber);
+        if (savedData?.gcsFilename) {
+          await this.cloudStorageService.deleteFile(savedData.gcsFilename);
+        }
+
+        await this.whatsappMessaging.sendTextMessage(
+          phoneNumber,
+          'Entendido, he cancelado el registro.'
+        );
+
+        this.clearContext(phoneNumber);
+      }
+
+      return { success: true };
+    }
+
+    // CASO 3: Usuario envía texto (corrección de datos)
+    if (messageType === 'text') {
+      const context = this.getContext(phoneNumber);
+
+      if (context?.fieldToCorrect) {
+        // Actualizar el dato corregido
+        const fieldToCorrect = context.fieldToCorrect;
+        const newValue = message.text.body;
+
+        context.voucherData[fieldToCorrect] = newValue;
+        this.updateContext(phoneNumber, context);
+
+        // Volver a pedir confirmación con datos actualizados
+        await this.whatsappMessaging.sendButtonMessage(
+          phoneNumber,
+          `✅ Dato actualizado.\n\n` +
+          `¿Son correctos estos datos?\n\n` +
+          `Monto: ${context.voucherData.monto}\n` +
+          `Fecha: ${context.voucherData.fecha_pago}\n` +
+          `Casa: ${context.voucherData.casa}\n` +
+          `Referencia: ${context.voucherData.referencia}`,
+          [
+            { id: 'confirm', title: '✅ Sí, es correcto' },
+            { id: 'cancel', title: '❌ No, cancelar' }
+          ]
+        );
+
+        return { success: true };
+      }
+
+      // Si no hay contexto, clasificar mensaje con IA
+      const classification = await this.messageClassifier.classifyMessage(
+        message.text.body
+      );
+
+      await this.whatsappMessaging.sendTextMessage(
+        phoneNumber,
+        classification.response
+      );
+    }
+
+    return { success: true };
+  }
+
+  private generateConfirmationCode(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const random = Math.random().toString(36).substring(2, 9).toUpperCase();
+    return `${year}${month}-${random}`;
+  }
+
+  private getFieldLabel(field: string): string {
+    const labels = {
+      monto: 'Monto del pago',
+      fecha: 'Fecha de pago',
+      casa: 'Número de casa',
+      referencia: 'Referencia bancaria'
+    };
+    return labels[field] || field;
+  }
+
+  // Métodos de contexto (simplificados para el ejemplo)
+  private contextStore = new Map<string, any>();
+
+  private saveContext(phoneNumber: string, data: any) {
+    this.contextStore.set(phoneNumber, data);
+  }
+
+  private getContext(phoneNumber: string) {
+    return this.contextStore.get(phoneNumber);
+  }
+
+  private setContext(phoneNumber: string, data: any) {
+    const existing = this.getContext(phoneNumber) || {};
+    this.contextStore.set(phoneNumber, { ...existing, ...data });
+  }
+
+  private updateContext(phoneNumber: string, data: any) {
+    this.contextStore.set(phoneNumber, data);
+  }
+
+  private clearContext(phoneNumber: string) {
+    this.contextStore.delete(phoneNumber);
+  }
+}
+```
+
+**Flujo completo visualizado**:
+
+```
+1. Usuario envía imagen
+   ↓
+2. whatsappMedia.downloadMedia()
+   ↓
+3. ocrService.extractTextFromImage()
+   ↓
+4. whatsappMessaging.sendButtonMessage() → Botones: SI/NO
+   ↓
+5a. Usuario presiona "SI"
+    ↓
+    voucherRepository.create()
+    ↓
+    whatsappMessaging.sendTextMessage() → Confirmación con código
+    ↓
+    FIN
+
+5b. Usuario presiona "NO"
+    ↓
+    whatsappMessaging.sendListMessage() → Lista de datos a corregir
+    ↓
+    Usuario selecciona dato (ej: "monto")
+    ↓
+    whatsappMessaging.sendTextMessage() → "Envía el nuevo valor"
+    ↓
+    Usuario envía nuevo valor
+    ↓
+    Actualizar contexto
+    ↓
+    whatsappMessaging.sendButtonMessage() → Botones: SI/NO (volver a 5a)
+```
+
+---
 
 ## Testing
 

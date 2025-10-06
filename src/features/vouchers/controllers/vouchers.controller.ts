@@ -29,6 +29,7 @@ import { OcrServiceDto } from '../dto/ocr-service.dto';
 import { WhatsAppMessageClassifierService } from '../services/whatsapp-message-classifier.service';
 import { VoucherProcessorService } from '../services/voucher-processor.service';
 import { WhatsAppMediaService } from '../services/whatsapp-media.service';
+import { WhatsAppMessagingService } from '../services/whatsapp-messaging.service';
 import {
   ConversationStateService,
   ConversationState,
@@ -50,6 +51,7 @@ export class VouchersController {
     private readonly messageClassifier: WhatsAppMessageClassifierService,
     private readonly voucherProcessor: VoucherProcessorService,
     private readonly whatsappMedia: WhatsAppMediaService,
+    private readonly whatsappMessaging: WhatsAppMessagingService,
     private readonly conversationState: ConversationStateService,
     private readonly voucherRepository: VoucherRepository,
     private readonly cloudStorageService: CloudStorageService,
@@ -361,7 +363,42 @@ export class VouchersController {
           return { success: true };
         }
 
-        // CASO 3: Mensaje de texto
+        // CASO 3: Mensaje interactivo (botones o listas)
+        if (messageType === 'interactive' && messages.interactive) {
+          let userResponse: string | undefined;
+
+          if (messages.interactive.type === 'button_reply') {
+            userResponse = messages.interactive.button_reply.id; // ID del botón presionado
+            console.log(`Botón presionado: ${userResponse}`);
+          } else if (messages.interactive.type === 'list_reply') {
+            userResponse = messages.interactive.list_reply.id; // ID de la opción seleccionada
+            console.log(`Opción de lista seleccionada: ${userResponse}`);
+          }
+
+          // Validar que se haya recibido una respuesta
+          if (!userResponse) {
+            console.log('Mensaje interactivo sin respuesta identificable');
+            return { success: true };
+          }
+
+          // Procesar según el estado de la conversación
+          const context = this.conversationState.getContext(phoneNumber);
+
+          if (context) {
+            console.log(`Contexto activo detectado: ${context.state}`);
+
+            // Actualizar timestamp de último mensaje
+            this.conversationState.updateLastMessageTime(phoneNumber);
+
+            // Manejar según el estado del contexto
+            await this.handleContextualMessage(phoneNumber, userResponse, context.state);
+            return { success: true };
+          }
+
+          return { success: true };
+        }
+
+        // CASO 4: Mensaje de texto
         if (messageType === 'text' && messages.text) {
           const messageText = messages.text.body || '';
           console.log('Mensaje de texto recibido:', messageText);
@@ -396,7 +433,7 @@ export class VouchersController {
           return { success: true };
         }
 
-        // CASO 4: Otros tipos de mensaje no soportados
+        // CASO 5: Otros tipos de mensaje no soportados
         console.log(`Tipo de mensaje no soportado: ${messageType}`);
         await this.sendWhatsAppMessage(
           phoneNumber,
@@ -463,6 +500,16 @@ export class VouchersController {
         console.log(
           `Esperando confirmación de ${phoneNumber} para voucher con casa ${voucherData.casa}`,
         );
+
+        // 5a. Enviar mensaje de confirmación con botones interactivos
+        await this.sendWhatsAppButtonMessage(
+          phoneNumber,
+          result.whatsappMessage,
+          [
+            { id: 'confirm', title: '✅ Sí, es correcto' },
+            { id: 'cancel', title: '❌ No, cancelar' },
+          ],
+        );
       } else if (!voucherData.faltan_datos && voucherData.casa === null) {
         // CASO 2: Falta número de casa, guardar y esperar respuesta
         this.conversationState.setContext(
@@ -475,6 +522,9 @@ export class VouchersController {
           },
         );
         console.log(`Esperando número de casa de ${phoneNumber}`);
+
+        // 5b. Enviar mensaje de texto (pregunta por número de casa)
+        await this.sendWhatsAppMessage(phoneNumber, result.whatsappMessage);
       } else if (voucherData.faltan_datos) {
         // CASO 3: Faltan datos, guardar y esperar respuesta
         this.conversationState.setContext(
@@ -487,10 +537,10 @@ export class VouchersController {
           },
         );
         console.log(`Esperando datos faltantes de ${phoneNumber}`);
-      }
 
-      // 5. Enviar respuesta con el resultado del procesamiento
-      await this.sendWhatsAppMessage(phoneNumber, result.whatsappMessage);
+        // 5c. Enviar mensaje de texto (pregunta por datos faltantes)
+        await this.sendWhatsAppMessage(phoneNumber, result.whatsappMessage);
+      }
 
       console.log(`Comprobante procesado y respuesta enviada a ${phoneNumber}`);
     } catch (error) {
@@ -531,15 +581,21 @@ export class VouchersController {
   }
 
   /**
-   * Maneja la confirmación del usuario (SI/NO)
+   * Maneja la confirmación del usuario (SI/NO o botones interactivos)
    */
   private async handleConfirmation(
     phoneNumber: string,
     messageText: string,
   ): Promise<void> {
+    // Detectar confirmación: texto "SI" o botón ID "confirm"
     const isConfirmation =
+      messageText === 'confirm' ||
       this.conversationState.isConfirmationMessage(messageText);
-    const isNegation = this.conversationState.isNegationMessage(messageText);
+
+    // Detectar negación: texto "NO" o botón ID "cancel"
+    const isNegation =
+      messageText === 'cancel' ||
+      this.conversationState.isNegationMessage(messageText);
 
     if (isConfirmation) {
       // Usuario confirmó, proceder con el registro
@@ -608,6 +664,20 @@ export class VouchersController {
     } else if (isNegation) {
       // Usuario canceló
       console.log(`❌ Usuario ${phoneNumber} canceló el registro`);
+
+      // TODO: Implementar flujo de corrección de datos
+      // En lugar de solo cancelar, permitir que el usuario:
+      // 1. Indique qué datos son incorrectos (monto, fecha, casa, referencia, etc.)
+      // 2. Proporcione los datos correctos mediante mensajes de WhatsApp
+      // 3. Actualice los datos extraídos con la información corregida
+      // 4. Vuelva a solicitar confirmación con los datos actualizados
+      //
+      // Flujo propuesto:
+      // - Estado: WAITING_CORRECTION_TYPE (qué dato corregir)
+      // - Estado: WAITING_CORRECTION_VALUE (nuevo valor del dato)
+      // - Volver a WAITING_CONFIRMATION con datos actualizados
+      //
+      // Actualmente: solo cancela y elimina el archivo
 
       // Obtener datos guardados para eliminar el archivo
       const savedData =
@@ -679,7 +749,7 @@ export class VouchersController {
         // NO generamos código aquí - se generará después del INSERT
       );
 
-      // Pedir confirmación
+      // Pedir confirmación con botones interactivos
       const confirmationData = {
         casa: voucherData.casa,
         monto: voucherData.monto,
@@ -688,9 +758,13 @@ export class VouchersController {
         hora_transaccion: voucherData.hora_transaccion,
       };
 
-      await this.sendWhatsAppMessage(
+      await this.sendWhatsAppButtonMessage(
         phoneNumber,
         ConfirmationMessages.request(confirmationData),
+        [
+          { id: 'confirm', title: '✅ Sí, es correcto' },
+          { id: 'cancel', title: '❌ No, cancelar' },
+        ],
       );
     } else {
       await this.sendWhatsAppMessage(
@@ -729,48 +803,20 @@ export class VouchersController {
     to: string,
     message: string,
   ): Promise<void> {
-    try {
-      const token = process.env.TOKEN_WA;
-      const phoneNumberId = process.env.PHONE_NUMBER_ID_WA;
+    await this.whatsappMessaging.sendTextMessage(to, message);
+  }
 
-      if (!token || !phoneNumberId) {
-        console.error(
-          'WhatsApp no está configurado correctamente (falta TOKEN_WA o PHONE_NUMBER_ID_WA)',
-        );
-        return;
-      }
-
-      const url = `https://graph.facebook.com/v23.0/${phoneNumberId}/messages`;
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          messaging_product: 'whatsapp',
-          recipient_type: 'individual',
-          to: to,
-          type: 'text',
-          text: {
-            preview_url: false,
-            body: message,
-          },
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        console.error(
-          `Error al enviar mensaje de WhatsApp: ${JSON.stringify(data)}`,
-        );
-      } else {
-        console.log(`Mensaje enviado exitosamente a ${to}`);
-      }
-    } catch (error) {
-      console.error(`Error al enviar mensaje de WhatsApp: ${error.message}`);
-    }
+  /**
+   * Envía un mensaje con botones interactivos (SI/NO) a través de WhatsApp Business API
+   * @param to Número de teléfono del destinatario
+   * @param bodyText Texto del mensaje
+   * @param buttons Arreglo de botones con id y título (máximo 3)
+   */
+  private async sendWhatsAppButtonMessage(
+    to: string,
+    bodyText: string,
+    buttons: Array<{ id: string; title: string }>,
+  ): Promise<void> {
+    await this.whatsappMessaging.sendButtonMessage(to, bodyText, buttons);
   }
 }

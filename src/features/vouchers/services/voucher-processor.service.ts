@@ -98,13 +98,6 @@ export class VoucherProcessorService {
       this.logger.log(`[${source}] Procesamiento completado exitosamente`);
       this.logger.log(`[${source}] Mensaje generado: ${whatsappMessage}`);
 
-      // TODO: Aquí se insertará en la BD cuando esté listo
-      // El código de confirmación se generará DESPUÉS del INSERT en la BD
-      this.logger.log(`[${source}] ⚠️  Pendiente: Inserción en BD (TypeORM)`);
-      this.logger.log(
-        `[${source}] ⚠️  El confirmation_code se generará al momento del INSERT`,
-      );
-
       return {
         success: true,
         structuredData: dataWithHouse,
