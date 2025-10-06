@@ -21,7 +21,10 @@ import { VouchersService } from '../services/vouchers.service';
 import { OcrService } from '../services/ocr.service';
 import { OcrServiceDto } from '../dto/ocr-service.dto';
 import { WhatsAppMessageClassifierService } from '../services/whatsapp-message-classifier.service';
-import { VoucherProcessorService } from '../services/voucher-processor.service';
+import {
+  VoucherProcessorService,
+  StructuredDataWithCasa,
+} from '../services/voucher-processor.service';
 import { WhatsAppMediaService } from '../services/whatsapp-media.service';
 import { WhatsAppMessagingService } from '../services/whatsapp-messaging.service';
 import {
@@ -457,7 +460,9 @@ export class VouchersController {
         // 5b. Enviar mensaje de texto (pregunta por número de casa)
         await this.sendWhatsAppMessage(phoneNumber, result.whatsappMessage);
       } else if (voucherData.faltan_datos) {
-        // CASO 3: Faltan datos, guardar y esperar respuesta
+        // CASO 3: Faltan datos, identificar campos faltantes
+        const missingFields = this.conversationState.identifyMissingFields(voucherData);
+
         this.conversationState.setContext(
           phoneNumber,
           ConversationState.WAITING_MISSING_DATA,
@@ -465,12 +470,19 @@ export class VouchersController {
             voucherData,
             gcsFilename: result.gcsFilename,
             originalFilename: result.originalFilename,
+            missingFields,
           },
         );
-        console.log(`Esperando datos faltantes de ${phoneNumber}`);
+        console.log(`Esperando datos faltantes de ${phoneNumber}. Campos: ${missingFields.join(', ')}`);
 
-        // 5c. Enviar mensaje de texto (pregunta por datos faltantes)
-        await this.sendWhatsAppMessage(phoneNumber, result.whatsappMessage);
+        // 5c. Preguntar por el primer campo faltante
+        const firstMissingField = missingFields[0];
+        const fieldLabel = this.conversationState.getFieldLabel(firstMissingField);
+
+        await this.sendWhatsAppMessage(
+          phoneNumber,
+          `No pude extraer todos los datos del comprobante.\n\nPor favor proporciona el siguiente dato:\n\n*${fieldLabel}*`,
+        );
       }
 
       console.log(`Comprobante procesado y respuesta enviada a ${phoneNumber}`);
@@ -730,17 +742,166 @@ export class VouchersController {
     phoneNumber: string,
     messageText: string,
   ): Promise<void> {
-    // TODO: Implementar lógica para procesar datos faltantes proporcionados por el usuario
     console.log(
       `📝 Usuario ${phoneNumber} proporcionó datos faltantes: ${messageText}`,
     );
 
-    await this.sendWhatsAppMessage(
-      phoneNumber,
-      ContextualMessages.missingDataReceived,
+    const context = this.conversationState.getContext(phoneNumber);
+
+    if (!context?.data?.voucherData || !context.data.missingFields) {
+      await this.sendWhatsAppMessage(phoneNumber, ErrorMessages.sessionExpired);
+      this.conversationState.clearContext(phoneNumber);
+      return;
+    }
+
+    // Obtener el campo actual que se está solicitando
+    const currentField = this.conversationState.getNextMissingField(phoneNumber);
+
+    if (!currentField) {
+      await this.sendWhatsAppMessage(phoneNumber, ErrorMessages.systemError);
+      this.conversationState.clearContext(phoneNumber);
+      return;
+    }
+
+    // Validar y actualizar el campo según el tipo
+    const validationResult = this.validateAndSetField(
+      context.data.voucherData,
+      currentField,
+      messageText.trim(),
     );
 
-    this.conversationState.clearContext(phoneNumber);
+    if (!validationResult.isValid) {
+      const fieldLabel = this.conversationState.getFieldLabel(currentField);
+      await this.sendWhatsAppMessage(
+        phoneNumber,
+        `❌ ${validationResult.error}\n\nPor favor, proporciona nuevamente el *${fieldLabel}*:`,
+      );
+      return;
+    }
+
+    // Actualizar el campo en el contexto
+    this.conversationState.updateVoucherField(
+      phoneNumber,
+      currentField,
+      validationResult.value!,
+    );
+
+    // Remover el campo de la lista de campos faltantes
+    this.conversationState.removeFromMissingFields(phoneNumber, currentField);
+
+    // Verificar si quedan más campos por completar
+    if (!this.conversationState.areAllFieldsComplete(phoneNumber)) {
+      // Preguntar por el siguiente campo faltante
+      const nextField = this.conversationState.getNextMissingField(phoneNumber);
+      if (nextField) {
+        const fieldLabel = this.conversationState.getFieldLabel(nextField);
+        await this.sendWhatsAppMessage(
+          phoneNumber,
+          `✅ Dato recibido.\n\nAhora, por favor proporciona el siguiente dato:\n\n*${fieldLabel}*`,
+        );
+      }
+    } else {
+      // Todos los campos están completos, solicitar confirmación
+      console.log(`✅ Todos los campos completos para ${phoneNumber}`);
+
+      const voucherData = context.data.voucherData;
+
+      // Cambiar estado a esperando confirmación
+      this.conversationState.setContext(
+        phoneNumber,
+        ConversationState.WAITING_CONFIRMATION,
+        {
+          voucherData,
+          gcsFilename: context.data.gcsFilename,
+          originalFilename: context.data.originalFilename,
+        },
+      );
+
+      // Enviar mensaje con todos los datos para confirmación
+      await this.whatsappMessaging.sendButtonMessage(
+        phoneNumber,
+        `✅ Datos completos. Por favor confirma que los siguientes datos son correctos:\n\n` +
+        `📍 Casa: *${voucherData.casa}*\n` +
+        `💰 Monto: *${voucherData.monto}*\n` +
+        `📅 Fecha: *${voucherData.fecha_pago}*\n` +
+        `🕒 Hora: *${voucherData.hora_transaccion}*\n` +
+        `🔢 Referencia: *${voucherData.referencia}*\n\n` +
+        `¿Los datos son correctos?`,
+        [
+          { id: 'confirm', title: '✅ Sí, es correcto' },
+          { id: 'cancel', title: '❌ No, corregir' },
+        ],
+      );
+    }
+  }
+
+  /**
+   * Valida y establece el valor de un campo específico
+   */
+  private validateAndSetField(
+    voucherData: StructuredDataWithCasa,
+    fieldName: string,
+    value: string,
+  ): { isValid: boolean; value?: string; error?: string } {
+    switch (fieldName) {
+      case 'monto':
+        // Validar formato de monto (número con o sin decimales)
+        const montoRegex = /^\d+(\.\d{1,2})?$/;
+        if (!montoRegex.test(value)) {
+          return {
+            isValid: false,
+            error: 'El monto debe ser un número válido (ejemplo: 1500 o 1500.50)',
+          };
+        }
+        return { isValid: true, value };
+
+      case 'fecha_pago':
+        // Validar formato de fecha (flexible: DD/MM/YYYY, DD-MM-YYYY, YYYY-MM-DD)
+        const fechaRegex = /^(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}|\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})$/;
+        if (!fechaRegex.test(value)) {
+          return {
+            isValid: false,
+            error: 'La fecha debe estar en formato DD/MM/YYYY o YYYY-MM-DD',
+          };
+        }
+        return { isValid: true, value };
+
+      case 'referencia':
+        // Validar que tenga al menos 3 caracteres
+        if (value.length < 3) {
+          return {
+            isValid: false,
+            error: 'La referencia debe tener al menos 3 caracteres',
+          };
+        }
+        return { isValid: true, value };
+
+      case 'hora_transaccion':
+        // Validar formato de hora (HH:MM o HH:MM:SS)
+        const horaRegex = /^([01]?\d|2[0-3]):([0-5]\d)(:[0-5]\d)?$/;
+        if (!horaRegex.test(value)) {
+          return {
+            isValid: false,
+            error: 'La hora debe estar en formato HH:MM (ejemplo: 14:30)',
+          };
+        }
+        return { isValid: true, value };
+
+      case 'casa':
+        // Validar número de casa (1-66)
+        const casaNumber = parseInt(value, 10);
+        if (isNaN(casaNumber) || casaNumber < 1 || casaNumber > 66) {
+          return {
+            isValid: false,
+            error: 'El número de casa debe ser un valor entre 1 y 66',
+          };
+        }
+        voucherData.casa = casaNumber;
+        return { isValid: true, value: casaNumber.toString() };
+
+      default:
+        return { isValid: true, value };
+    }
   }
 
   /**

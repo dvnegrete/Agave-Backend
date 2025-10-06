@@ -284,4 +284,65 @@ export class ConversationStateService {
     };
     return labels[field] || field;
   }
+
+  /**
+   * Identifica qué campos están faltantes en los datos del voucher
+   * @returns Array de campos faltantes
+   */
+  identifyMissingFields(voucherData: StructuredDataWithCasa): string[] {
+    const missingFields: string[] = [];
+
+    if (!voucherData.monto || voucherData.monto.trim() === '') {
+      missingFields.push('monto');
+    }
+    if (!voucherData.fecha_pago || voucherData.fecha_pago.trim() === '') {
+      missingFields.push('fecha_pago');
+    }
+    if (!voucherData.referencia || voucherData.referencia.trim() === '') {
+      missingFields.push('referencia');
+    }
+    if (!voucherData.hora_transaccion || voucherData.hora_transaccion.trim() === '') {
+      missingFields.push('hora_transaccion');
+    }
+    if (!voucherData.casa) {
+      missingFields.push('casa');
+    }
+
+    return missingFields;
+  }
+
+  /**
+   * Obtiene el siguiente campo faltante a solicitar
+   */
+  getNextMissingField(phoneNumber: string): string | null {
+    const context = this.getContext(phoneNumber);
+    if (!context?.data?.missingFields || context.data.missingFields.length === 0) {
+      return null;
+    }
+    return context.data.missingFields[0];
+  }
+
+  /**
+   * Remueve un campo de la lista de campos faltantes
+   */
+  removeFromMissingFields(phoneNumber: string, field: string): void {
+    const context = this.getContext(phoneNumber);
+    if (context?.data?.missingFields) {
+      context.data.missingFields = context.data.missingFields.filter(f => f !== field);
+      this.logger.log(
+        `Campo ${field} removido de campos faltantes para ${phoneNumber}. Quedan: ${context.data.missingFields.length}`,
+      );
+    }
+  }
+
+  /**
+   * Verifica si todos los campos requeridos están completos
+   */
+  areAllFieldsComplete(phoneNumber: string): boolean {
+    const context = this.getContext(phoneNumber);
+    if (!context?.data?.missingFields) {
+      return true;
+    }
+    return context.data.missingFields.length === 0;
+  }
 }
