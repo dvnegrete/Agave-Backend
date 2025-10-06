@@ -29,17 +29,20 @@ export class VoucherRepository {
    * Crea un nuevo voucher en la base de datos
    */
   async create(data: CreateVoucherDto): Promise<Voucher> {
-    // Convertir string ISO date a Date si es necesario
+    // Convertir string a Date si es necesario
+    // Si ya es Date object (con hora incluida), se usa directamente
     let parsedDate: Date;
     if (typeof data.date === 'string') {
-      // Si es formato ISO (YYYY-MM-DD), crear Date en timezone local
+      // Si es formato ISO date (YYYY-MM-DD), crear Date a las 00:00 timezone local
       if (/^\d{4}-\d{2}-\d{2}$/.test(data.date)) {
         const [year, month, day] = data.date.split('-').map(Number);
         parsedDate = new Date(year, month - 1, day);
       } else {
+        // Otros formatos de string (ISO completo, etc.)
         parsedDate = new Date(data.date);
       }
     } else {
+      // Es un Date object - se usa directamente preservando fecha y hora
       parsedDate = data.date;
     }
 

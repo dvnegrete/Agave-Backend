@@ -571,10 +571,16 @@ export class VouchersController {
       const confirmationCode = this.voucherProcessor.generateConfirmationCode();
       console.log(`🔐 Código de confirmación generado: ${confirmationCode}`);
 
-      // PASO 2: Insertar voucher en la base de datos
+      // PASO 2: Combinar fecha y hora para el campo timestamp
+      const dateTime = this.combineDateAndTime(
+        savedData.voucherData.fecha_pago,
+        savedData.voucherData.hora_transaccion,
+      );
+
+      // PASO 3: Insertar voucher en la base de datos
       try {
         const voucher = await this.voucherRepository.create({
-          date: savedData.voucherData.fecha_pago,
+          date: dateTime, // Ahora incluye fecha y hora
           authorization_number: savedData.voucherData.referencia,
           confirmation_code: confirmationCode,
           amount: parseFloat(savedData.voucherData.monto),
@@ -583,7 +589,7 @@ export class VouchersController {
         });
 
         console.log(
-          `✅ Voucher insertado en BD con ID: ${voucher.id}, Código: ${voucher.confirmation_code}`,
+          `✅ Voucher insertado en BD con ID: ${voucher.id}, Código: ${voucher.confirmation_code}, Fecha/Hora: ${voucher.date.toISOString()}`,
         );
       } catch (error) {
         console.error('❌ Error al insertar voucher en BD:', error);
@@ -833,6 +839,54 @@ export class VouchersController {
         ],
       );
     }
+  }
+
+  /**
+   * Combina fecha y hora en un objeto Date para guardar en BD
+   * @param fecha_pago - Fecha en formato DD/MM/YYYY o YYYY-MM-DD
+   * @param hora_transaccion - Hora en formato HH:MM o HH:MM:SS
+   * @returns Date object con fecha y hora combinadas
+   */
+  private combineDateAndTime(fecha_pago: string, hora_transaccion: string): Date {
+    // Parsear la fecha (soporta DD/MM/YYYY, DD-MM-YYYY o YYYY-MM-DD)
+    let year: number, month: number, day: number;
+
+    if (fecha_pago.includes('/')) {
+      const parts = fecha_pago.split('/');
+      if (parts[0].length === 4) {
+        // Formato YYYY/MM/DD
+        [year, month, day] = parts.map(Number);
+      } else {
+        // Formato DD/MM/YYYY
+        [day, month, year] = parts.map(Number);
+      }
+    } else if (fecha_pago.includes('-')) {
+      const parts = fecha_pago.split('-');
+      if (parts[0].length === 4) {
+        // Formato YYYY-MM-DD
+        [year, month, day] = parts.map(Number);
+      } else {
+        // Formato DD-MM-YYYY
+        [day, month, year] = parts.map(Number);
+      }
+    } else {
+      throw new Error('Formato de fecha no válido');
+    }
+
+    // Parsear la hora (soporta HH:MM o HH:MM:SS)
+    const timeParts = hora_transaccion.split(':').map(Number);
+    const hours = timeParts[0] || 0;
+    const minutes = timeParts[1] || 0;
+    const seconds = timeParts[2] || 0;
+
+    // Crear Date object (month es 0-indexed en JavaScript)
+    const dateTime = new Date(year, month - 1, day, hours, minutes, seconds);
+
+    console.log(
+      `📅 Fecha combinada: ${fecha_pago} ${hora_transaccion} → ${dateTime.toISOString()}`,
+    );
+
+    return dateTime;
   }
 
   /**
