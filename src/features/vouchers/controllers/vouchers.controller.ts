@@ -18,12 +18,6 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { VouchersService } from '../services/vouchers.service';
-import {
-  CreateTransactionDto,
-  UpdateTransactionDto,
-} from '../dto/transaction.dto';
-import { ProcessFileDto } from '../dto/process-file.dto';
-import { ProcessedTransaction } from '../interfaces/transaction.interface';
 import { OcrService } from '../services/ocr.service';
 import { OcrServiceDto } from '../dto/ocr-service.dto';
 import { WhatsAppMessageClassifierService } from '../services/whatsapp-message-classifier.service';
@@ -56,34 +50,6 @@ export class VouchersController {
     private readonly voucherRepository: VoucherRepository,
     private readonly cloudStorageService: CloudStorageService,
   ) {}
-
-  @Post('upload')
-  @UseInterceptors(FileInterceptor('file'))
-  async uploadFile(
-    @UploadedFile(
-      new ParseFilePipe({
-        validators: [
-          new MaxFileSizeValidator({ maxSize: 10 * 1024 * 1024 }), // 10MB
-          new FileTypeValidator({ fileType: '.(csv|txt|json|xml)' }),
-        ],
-      }),
-    )
-    file: Express.Multer.File,
-    @Body() processFileDto: ProcessFileDto,
-  ) {
-    try {
-      const result = await this.vouchersService.processFile(
-        file,
-        processFileDto,
-      );
-      return {
-        message: 'Archivo procesado exitosamente',
-        ...result,
-      };
-    } catch (error) {
-      throw new BadRequestException(error.message);
-    }
-  }
 
   @Post('ocr-service')
   @UseInterceptors(FileInterceptor('file'))
@@ -211,15 +177,6 @@ export class VouchersController {
   }
 
   /**
-   * TODO: Verificar si es funcional en producción, sino es así, eliminar este endpoint.
-   * @returns Resumen de transacciones: total, por estado, por categoría, etc.
-   */
-  @Get('summary')
-  async getTransactionSummary() {
-    return await this.vouchersService.getTransactionSummary();
-  }
-
-  /**
    * Obtiene un voucher por ID y genera URL firmada para visualizar el archivo
    * @param id - ID del voucher en la base de datos
    * @returns Datos del voucher con URL de visualización temporal
@@ -256,32 +213,6 @@ export class VouchersController {
       url: voucher.url,
       viewUrl, // URL firmada para visualización temporal
     };
-  }
-
-  @Post()
-  async createTransaction(
-    @Body() createTransactionDto: CreateTransactionDto,
-  ): Promise<ProcessedTransaction> {
-    return await this.vouchersService.createTransaction(createTransactionDto);
-  }
-
-  @Put(':id')
-  async updateTransaction(
-    @Param('id') id: string,
-    @Body() updateTransactionDto: UpdateTransactionDto,
-  ): Promise<ProcessedTransaction> {
-    return await this.vouchersService.updateTransaction(
-      id,
-      updateTransactionDto,
-    );
-  }
-
-  @Delete(':id')
-  async deleteTransaction(
-    @Param('id') id: string,
-  ): Promise<{ message: string }> {
-    await this.vouchersService.deleteTransaction(id);
-    return { message: 'Transacción eliminada exitosamente' };
   }
 
   @Get('webhook/whatsapp')
