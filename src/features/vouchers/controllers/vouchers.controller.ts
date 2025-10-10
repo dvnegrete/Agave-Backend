@@ -601,7 +601,7 @@ export class VouchersController {
       try {
         const voucher = await this.voucherRepository.create({
           date: dateTime, // Ahora incluye fecha y hora
-          authorization_number: savedData.voucherData.referencia,
+          authorization_number: savedData.voucherData.referencia || 'N/A', // Referencia opcional
           confirmation_code: confirmationCode,
           amount: parseFloat(savedData.voucherData.monto),
           confirmation_status: false, // Pendiente verificación en banco
@@ -847,11 +847,51 @@ export class VouchersController {
       return;
     }
 
+    // Si el campo es fecha_pago y NO se ha enviado la lista aún, enviar lista interactiva
+    if (currentField === 'fecha_pago' && !context.data.dateListSent) {
+      // Marcar que ya se envió la lista para evitar enviarla de nuevo
+      context.data.dateListSent = true;
+
+      // Generar lista de fechas recientes
+      const dateOptions = this.generateRecentDates();
+
+      await this.whatsappMessaging.sendListMessage(
+        phoneNumber,
+        '📅 ¿Cuándo realizaste el pago?',
+        'Seleccionar fecha',
+        [
+          {
+            title: 'Fechas Recientes',
+            rows: dateOptions,
+          },
+        ],
+      );
+      return; // Esperar respuesta del usuario
+    }
+
+    // Si el campo es fecha_pago, procesar IDs de fecha (hoy, ayer, fecha_X, otra)
+    let valueToValidate = messageText.trim();
+    if (currentField === 'fecha_pago') {
+      const convertedDate = this.convertDateId(valueToValidate);
+      if (convertedDate) {
+        valueToValidate = convertedDate;
+        console.log(`📅 ID de fecha convertido: ${messageText} → ${convertedDate}`);
+      } else if (valueToValidate === 'otra') {
+        // Usuario seleccionó "Otra fecha", pedir que la escriba manualmente
+        delete context.data.dateListSent; // Resetear para que pueda volver a enviar la lista si es necesario
+        await this.sendWhatsAppMessage(
+          phoneNumber,
+          '📅 Por favor escribe la fecha manualmente.\n\nFormato: DD/MM/AAAA\nEjemplo: 10/10/2025',
+        );
+        return;
+      }
+    }
+
     // Validar y actualizar el campo según el tipo
     const validationResult = this.validateAndSetField(
       context.data.voucherData,
       currentField,
-      messageText.trim(),
+      valueToValidate,
     );
 
     if (!validationResult.isValid) {
@@ -909,7 +949,7 @@ export class VouchersController {
         `💰 Monto: *${voucherData.monto}*\n` +
         `📅 Fecha: *${voucherData.fecha_pago}*\n` +
         `🕒 Hora: *${voucherData.hora_transaccion}*\n` +
-        `🔢 Referencia: *${voucherData.referencia}*\n\n` +
+        `🔢 Referencia: *${voucherData.referencia || 'No disponible'}*\n\n` +
         `¿Los datos son correctos?`,
         [
           { id: 'confirm', title: '✅ Sí, es correcto' },
@@ -1168,13 +1208,90 @@ export class VouchersController {
         `💰 Monto: *${updatedData.monto}*\n` +
         `📅 Fecha: *${updatedData.fecha_pago}*\n` +
         `🕒 Hora: *${updatedData.hora_transaccion}*\n` +
-        `🔢 Referencia: *${updatedData.referencia}*\n\n` +
+        `🔢 Referencia: *${updatedData.referencia || 'No disponible'}*\n\n` +
         `¿Los datos son correctos?`,
       [
         { id: 'confirm', title: '✅ Sí, es correcto' },
         { id: 'cancel', title: '❌ No, editar datos' },
       ],
     );
+  }
+
+  /**
+   * Genera una lista de fechas recientes para selección rápida
+   * @returns Array de opciones de fecha para WhatsApp List Message
+   */
+  private generateRecentDates(): Array<{ id: string; title: string; description: string }> {
+    const today = new Date();
+    const options: Array<{ id: string; title: string; description: string }> = [];
+
+    const monthNames = [
+      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    ];
+
+    // Hoy
+    options.push({
+      id: 'hoy',
+      title: `Hoy ${today.getDate()}`,
+      description: `${today.getDate()} de ${monthNames[today.getMonth()]} ${today.getFullYear()}`,
+    });
+
+    // Últimos 7 días
+    for (let i = 1; i <= 7; i++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() - i);
+
+      const dayNumber = date.getDate();
+      const monthName = monthNames[date.getMonth()];
+      const year = date.getFullYear();
+
+      const title = i === 1 ? `Ayer ${dayNumber}` : `${dayNumber} de ${monthName.slice(0, 3)}`;
+
+      options.push({
+        id: `fecha_${i}`, // fecha_1, fecha_2, etc.
+        title,
+        description: `${dayNumber} de ${monthName} ${year}`,
+      });
+    }
+
+    // Opción para escribir manualmente
+    options.push({
+      id: 'otra',
+      title: 'Otra fecha',
+      description: 'Escribir manualmente',
+    });
+
+    return options;
+  }
+
+  /**
+   * Convierte un ID de fecha (hoy, ayer, fecha_X) a formato DD/MM/YYYY
+   * @param dateId - ID de fecha seleccionado por el usuario
+   * @returns Fecha en formato DD/MM/YYYY o null si no es un ID válido
+   */
+  private convertDateId(dateId: string): string | null {
+    const today = new Date();
+    let targetDate: Date | null = null;
+
+    if (dateId === 'hoy') {
+      targetDate = today;
+    } else if (dateId.startsWith('fecha_')) {
+      const daysAgo = parseInt(dateId.replace('fecha_', ''), 10);
+      if (!isNaN(daysAgo) && daysAgo >= 1 && daysAgo <= 7) {
+        targetDate = new Date(today);
+        targetDate.setDate(today.getDate() - daysAgo);
+      }
+    }
+
+    if (targetDate) {
+      const day = String(targetDate.getDate()).padStart(2, '0');
+      const month = String(targetDate.getMonth() + 1).padStart(2, '0');
+      const year = targetDate.getFullYear();
+      return `${day}/${month}/${year}`;
+    }
+
+    return null;
   }
 
   /**

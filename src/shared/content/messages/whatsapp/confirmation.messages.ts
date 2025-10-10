@@ -7,6 +7,7 @@ import { ConfirmationData } from '../types';
 export const ConfirmationMessages = {
   /**
    * Solicita confirmación del usuario sobre los datos del voucher
+   * NOTA: El campo 'referencia' es opcional
    */
   request: (
     data: ConfirmationData,
@@ -14,7 +15,7 @@ export const ConfirmationMessages = {
       Monto de pago: ${data.monto}
       Fecha de Pago: ${data.fecha_pago}
       Numero de Casa: ${data.casa}
-      Referencia: ${data.referencia}
+      Referencia: ${data.referencia || 'No disponible'}
       Hora de Transacción: ${data.hora_transaccion}
 
       Si los datos son correctos, escribe SI`,

@@ -287,6 +287,8 @@ export class ConversationStateService {
 
   /**
    * Identifica qué campos están faltantes en los datos del voucher
+   * NOTA: El campo 'referencia' NO es obligatorio y no se solicita al usuario
+   * Campos obligatorios: monto, fecha_pago, hora_transaccion, casa
    * @returns Array de campos faltantes
    */
   identifyMissingFields(voucherData: StructuredDataWithCasa): string[] {
@@ -298,9 +300,10 @@ export class ConversationStateService {
     if (!voucherData.fecha_pago || voucherData.fecha_pago.trim() === '') {
       missingFields.push('fecha_pago');
     }
-    if (!voucherData.referencia || voucherData.referencia.trim() === '') {
-      missingFields.push('referencia');
-    }
+    // NOTA: 'referencia' NO es obligatoria - se omite de la validación
+    // if (!voucherData.referencia || voucherData.referencia.trim() === '') {
+    //   missingFields.push('referencia');
+    // }
     if (!voucherData.hora_transaccion || voucherData.hora_transaccion.trim() === '') {
       missingFields.push('hora_transaccion');
     }
