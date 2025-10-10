@@ -441,7 +441,7 @@ export class VouchersController {
           result.whatsappMessage,
           [
             { id: 'confirm', title: '✅ Sí, es correcto' },
-            { id: 'cancel', title: '❌ No, cancelar' },
+            { id: 'cancel', title: '❌ No, editar datos' },
           ],
         );
       } else if (!voucherData.faltan_datos && voucherData.casa === null) {
@@ -706,14 +706,46 @@ export class VouchersController {
         `🏠 Usuario ${phoneNumber} proporcionó número de casa: ${houseNumber}`,
       );
 
+      // VERIFICAR si faltan otros datos después de agregar el número de casa
+      const missingFields = this.conversationState.identifyMissingFields(voucherData);
+
+      if (missingFields.length > 0) {
+        // AÚN FALTAN DATOS - entrar en flujo de datos faltantes
+        console.log(
+          `⚠️ Después de agregar casa, aún faltan campos: ${missingFields.join(', ')}`,
+        );
+
+        this.conversationState.setContext(
+          phoneNumber,
+          ConversationState.WAITING_MISSING_DATA,
+          {
+            voucherData,
+            gcsFilename: context.data?.gcsFilename,
+            originalFilename: context.data?.originalFilename,
+            missingFields,
+          },
+        );
+
+        // Preguntar por el primer campo faltante
+        const firstMissingField = missingFields[0];
+        const fieldLabel = this.conversationState.getFieldLabel(firstMissingField);
+
+        await this.sendWhatsAppMessage(
+          phoneNumber,
+          `✅ Número de casa recibido.\n\nAún faltan algunos datos. Por favor proporciona:\n\n*${fieldLabel}*`,
+        );
+        return;
+      }
+
+      // TODOS LOS DATOS COMPLETOS - proceder con confirmación
+      console.log(`✅ Todos los datos completos para ${phoneNumber}`);
+
       // Guardar para confirmación (SIN código de confirmación aún)
-      // El código se generará después del INSERT en BD
       this.conversationState.saveVoucherForConfirmation(
         phoneNumber,
         voucherData,
         context.data?.gcsFilename,
         context.data?.originalFilename,
-        // NO generamos código aquí - se generará después del INSERT
       );
 
       // Pedir confirmación con botones interactivos
@@ -730,7 +762,7 @@ export class VouchersController {
         ConfirmationMessages.request(confirmationData),
         [
           { id: 'confirm', title: '✅ Sí, es correcto' },
-          { id: 'cancel', title: '❌ No, cancelar' },
+          { id: 'cancel', title: '❌ No, editar datos' },
         ],
       );
     } else {
@@ -835,7 +867,7 @@ export class VouchersController {
         `¿Los datos son correctos?`,
         [
           { id: 'confirm', title: '✅ Sí, es correcto' },
-          { id: 'cancel', title: '❌ No, corregir' },
+          { id: 'cancel', title: '❌ No, editar datos' },
         ],
       );
     }
@@ -1094,7 +1126,7 @@ export class VouchersController {
         `¿Los datos son correctos?`,
       [
         { id: 'confirm', title: '✅ Sí, es correcto' },
-        { id: 'cancel', title: '❌ No, corregir' },
+        { id: 'cancel', title: '❌ No, editar datos' },
       ],
     );
   }
