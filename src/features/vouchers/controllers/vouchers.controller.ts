@@ -446,6 +446,14 @@ export class VouchersController {
         );
       } else if (!voucherData.faltan_datos && voucherData.casa === null) {
         // CASO 2: Falta número de casa, guardar y esperar respuesta
+        console.log(`📊 Datos extraídos por OCR para ${phoneNumber} (falta casa):`, {
+          monto: voucherData.monto || '(vacío)',
+          fecha_pago: voucherData.fecha_pago || '(vacío)',
+          referencia: voucherData.referencia || '(vacío)',
+          hora_transaccion: voucherData.hora_transaccion || '(vacío)',
+          casa: voucherData.casa || '(vacío)',
+        });
+
         this.conversationState.setContext(
           phoneNumber,
           ConversationState.WAITING_HOUSE_NUMBER,
@@ -718,6 +726,14 @@ export class VouchersController {
         `🏠 Usuario ${phoneNumber} proporcionó número de casa: ${houseNumber}`,
       );
 
+      console.log(`📊 Datos del voucher DESPUÉS de agregar número de casa:`, {
+        monto: voucherData.monto || '(vacío)',
+        fecha_pago: voucherData.fecha_pago || '(vacío)',
+        referencia: voucherData.referencia || '(vacío)',
+        hora_transaccion: voucherData.hora_transaccion || '(vacío)',
+        casa: voucherData.casa || '(vacío)',
+      });
+
       // VERIFICAR si faltan otros datos después de agregar el número de casa
       const missingFields = this.conversationState.identifyMissingFields(voucherData);
 
@@ -752,6 +768,14 @@ export class VouchersController {
       // TODOS LOS DATOS COMPLETOS - proceder con confirmación
       console.log(`✅ Todos los datos completos para ${phoneNumber}`);
 
+      console.log(`📊 Datos del voucher ANTES de crear confirmationData:`, {
+        monto: voucherData.monto || '(vacío)',
+        fecha_pago: voucherData.fecha_pago || '(vacío)',
+        referencia: voucherData.referencia || '(vacío)',
+        hora_transaccion: voucherData.hora_transaccion || '(vacío)',
+        casa: voucherData.casa || '(vacío)',
+      });
+
       // Guardar para confirmación (SIN código de confirmación aún)
       this.conversationState.saveVoucherForConfirmation(
         phoneNumber,
@@ -768,6 +792,8 @@ export class VouchersController {
         referencia: voucherData.referencia,
         hora_transaccion: voucherData.hora_transaccion,
       };
+
+      console.log(`📊 confirmationData creado:`, confirmationData);
 
       await this.sendWhatsAppButtonMessage(
         phoneNumber,
