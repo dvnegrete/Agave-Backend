@@ -461,13 +461,25 @@ export class VouchersController {
         await this.sendWhatsAppMessage(phoneNumber, result.whatsappMessage);
       } else if (voucherData.faltan_datos) {
         // CASO 3: Faltan datos, identificar campos faltantes
+        // IMPORTANTE: voucherData ya contiene los campos que el OCR SÍ pudo extraer
+        // Solo necesitamos identificar cuáles están vacíos o null
         const missingFields = this.conversationState.identifyMissingFields(voucherData);
+
+        console.log(`📊 Datos extraídos por OCR para ${phoneNumber}:`, {
+          monto: voucherData.monto || '(vacío)',
+          fecha_pago: voucherData.fecha_pago || '(vacío)',
+          referencia: voucherData.referencia || '(vacío)',
+          hora_transaccion: voucherData.hora_transaccion || '(vacío)',
+          casa: voucherData.casa || '(vacío)',
+        });
+
+        console.log(`❌ Campos faltantes identificados: ${missingFields.join(', ')}`);
 
         this.conversationState.setContext(
           phoneNumber,
           ConversationState.WAITING_MISSING_DATA,
           {
-            voucherData,
+            voucherData, // ← YA contiene los datos extraídos por OCR
             gcsFilename: result.gcsFilename,
             originalFilename: result.originalFilename,
             missingFields,
@@ -791,6 +803,14 @@ export class VouchersController {
       this.conversationState.clearContext(phoneNumber);
       return;
     }
+
+    console.log(`📊 Datos actuales en contexto para ${phoneNumber} ANTES de actualizar:`, {
+      monto: context.data.voucherData.monto || '(vacío)',
+      fecha_pago: context.data.voucherData.fecha_pago || '(vacío)',
+      referencia: context.data.voucherData.referencia || '(vacío)',
+      hora_transaccion: context.data.voucherData.hora_transaccion || '(vacío)',
+      casa: context.data.voucherData.casa || '(vacío)',
+    });
 
     // Obtener el campo actual que se está solicitando
     const currentField = this.conversationState.getNextMissingField(phoneNumber);
