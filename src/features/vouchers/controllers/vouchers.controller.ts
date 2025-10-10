@@ -1134,14 +1134,30 @@ export class VouchersController {
         context.data,
       );
 
-      // Pedir el nuevo valor con mensaje de responsabilidad
-      const fieldLabel = this.conversationState.getFieldLabel(fieldId);
-      await this.sendWhatsAppMessage(
-        phoneNumber,
-        `Por favor, envía el nuevo valor para: *${fieldLabel}*\n\n` +
-          `⚠️ *IMPORTANTE:* Es tu responsabilidad proporcionar los datos correctos para la verificación de tu pago. ` +
-          `Verifica cuidadosamente la información antes de enviarla.`,
-      );
+      // Si el campo a corregir es fecha_pago, enviar lista interactiva
+      if (fieldId === 'fecha_pago') {
+        const dateOptions = this.generateRecentDates();
+        await this.whatsappMessaging.sendListMessage(
+          phoneNumber,
+          '📅 Selecciona la fecha correcta del pago:',
+          'Seleccionar fecha',
+          [
+            {
+              title: 'Fechas Recientes',
+              rows: dateOptions,
+            },
+          ],
+        );
+      } else {
+        // Para otros campos, pedir el nuevo valor con mensaje de texto
+        const fieldLabel = this.conversationState.getFieldLabel(fieldId);
+        await this.sendWhatsAppMessage(
+          phoneNumber,
+          `Por favor, envía el nuevo valor para: *${fieldLabel}*\n\n` +
+            `⚠️ *IMPORTANTE:* Es tu responsabilidad proporcionar los datos correctos para la verificación de tu pago. ` +
+            `Verifica cuidadosamente la información antes de enviarla.`,
+        );
+      }
     }
   }
 
@@ -1170,11 +1186,28 @@ export class VouchersController {
       `✏️ Usuario ${phoneNumber} actualizó ${fieldToCorrect}: ${newValue}`,
     );
 
+    // Si el campo es fecha_pago, procesar IDs de fecha (hoy, ayer, fecha_X, otra)
+    let valueToUpdate = newValue.trim();
+    if (fieldToCorrect === 'fecha_pago') {
+      const convertedDate = this.convertDateId(valueToUpdate);
+      if (convertedDate) {
+        valueToUpdate = convertedDate;
+        console.log(`📅 ID de fecha convertido en corrección: ${newValue} → ${convertedDate}`);
+      } else if (valueToUpdate === 'otra') {
+        // Usuario seleccionó "Otra fecha", pedir que la escriba manualmente
+        await this.sendWhatsAppMessage(
+          phoneNumber,
+          '📅 Por favor escribe la fecha manualmente.\n\nFormato: DD/MM/AAAA\nEjemplo: 10/10/2025',
+        );
+        return; // Esperar la entrada manual del usuario
+      }
+    }
+
     // Actualizar el campo en los datos del voucher
     this.conversationState.updateVoucherField(
       phoneNumber,
       fieldToCorrect,
-      newValue,
+      valueToUpdate,
     );
 
     // Limpiar el campo temporal
