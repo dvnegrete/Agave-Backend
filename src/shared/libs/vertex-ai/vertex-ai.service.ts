@@ -50,7 +50,16 @@ export class VertexAIService {
         throw new Error('La respuesta de Vertex AI no contiene contenido.');
       }
 
-      return JSON.parse(jsonString);
+      let parsedData = JSON.parse(jsonString);
+
+      // IMPORTANTE: Vertex AI a veces retorna un array con un objeto dentro [{}]
+      // en lugar de un objeto directo {}. Detectar y corregir esto.
+      if (Array.isArray(parsedData) && parsedData.length > 0) {
+        this.logger.log('Vertex AI retornó un array, extrayendo primer elemento');
+        parsedData = parsedData[0];
+      }
+
+      return parsedData;
     } catch (error) {
       this.logger.error('Error al procesar el texto con Vertex AI:', error);
       throw new Error(
