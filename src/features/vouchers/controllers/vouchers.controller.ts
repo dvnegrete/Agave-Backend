@@ -587,48 +587,75 @@ export class VouchersController {
         savedData.voucherData,
       );
 
-      // PASO 1: Generar código de confirmación único
-      const confirmationCode = this.voucherProcessor.generateConfirmationCode();
-      console.log(`🔐 Código de confirmación generado: ${confirmationCode}`);
-
-      // PASO 2: Combinar fecha y hora para el campo timestamp
+      // PASO 1: Combinar fecha y hora para el campo timestamp
       const dateTime = this.combineDateAndTime(
         savedData.voucherData.fecha_pago,
         savedData.voucherData.hora_transaccion,
       );
 
-      // PASO 3: Insertar voucher en la base de datos
-      try {
-        const voucher = await this.voucherRepository.create({
-          date: dateTime, // Ahora incluye fecha y hora
-          authorization_number: savedData.voucherData.referencia || 'N/A', // Referencia opcional
-          confirmation_code: confirmationCode,
-          amount: parseFloat(savedData.voucherData.monto),
-          confirmation_status: false, // Pendiente verificación en banco
-          url: savedData.gcsFilename,
-        });
+      // PASO 2: Generar código de confirmación único con reintentos en caso de colisión
+      let confirmationCode: string;
+      let voucher: any;
+      const MAX_RETRIES = 5;
+      let attempt = 0;
+      let success = false;
 
-        console.log(
-          `✅ Voucher insertado en BD con ID: ${voucher.id}, Código: ${voucher.confirmation_code}, Fecha/Hora: ${voucher.date.toISOString()}`,
-        );
-      } catch (error) {
-        console.error('❌ Error al insertar voucher en BD:', error);
-        await this.sendWhatsAppMessage(
-          phoneNumber,
-          'Hubo un error al registrar tu pago. Por favor intenta nuevamente más tarde.',
-        );
-        this.conversationState.clearContext(phoneNumber);
-        return;
+      while (attempt < MAX_RETRIES && !success) {
+        attempt++;
+        confirmationCode = this.voucherProcessor.generateConfirmationCode();
+        console.log(`🔐 Intento ${attempt}/${MAX_RETRIES}: Código generado: ${confirmationCode}`);
+
+        try {
+          // PASO 3: Insertar voucher en la base de datos
+          voucher = await this.voucherRepository.create({
+            date: dateTime, // Ahora incluye fecha y hora
+            authorization_number: savedData.voucherData.referencia || 'N/A', // Referencia opcional
+            confirmation_code: confirmationCode,
+            amount: parseFloat(savedData.voucherData.monto),
+            confirmation_status: false, // Pendiente verificación en banco
+            url: savedData.gcsFilename,
+          });
+
+          console.log(
+            `✅ Voucher insertado en BD con ID: ${voucher.id}, Código: ${voucher.confirmation_code}, Fecha/Hora: ${voucher.date.toISOString()}`,
+          );
+          success = true;
+        } catch (error) {
+          // Verificar si es un error de clave duplicada (código de confirmación)
+          if (error.code === '23505' || error.message?.includes('duplicate key') || error.message?.includes('unique constraint')) {
+            console.warn(`⚠️ Colisión detectada en intento ${attempt}: Código ${confirmationCode} ya existe. Regenerando...`);
+
+            if (attempt >= MAX_RETRIES) {
+              console.error(`❌ No se pudo generar un código único después de ${MAX_RETRIES} intentos`);
+              await this.sendWhatsAppMessage(
+                phoneNumber,
+                'Hubo un error al registrar tu pago. Por favor intenta nuevamente más tarde.',
+              );
+              this.conversationState.clearContext(phoneNumber);
+              return;
+            }
+            // Continuar al siguiente intento
+          } else {
+            // Error diferente, no reintentar
+            console.error('❌ Error al insertar voucher en BD:', error);
+            await this.sendWhatsAppMessage(
+              phoneNumber,
+              'Hubo un error al registrar tu pago. Por favor intenta nuevamente más tarde.',
+            );
+            this.conversationState.clearContext(phoneNumber);
+            return;
+          }
+        }
       }
 
-      // PASO 3: Enviar mensaje de éxito con el código de confirmación
+      // PASO 4: Enviar mensaje de éxito con el código de confirmación
       const confirmationData = {
         casa: savedData.voucherData.casa!,
         monto: savedData.voucherData.monto,
         fecha_pago: savedData.voucherData.fecha_pago,
         referencia: savedData.voucherData.referencia,
         hora_transaccion: savedData.voucherData.hora_transaccion,
-        confirmation_code: confirmationCode, // ⬅️ Ahora sí incluimos el código
+        confirmation_code: confirmationCode!, // ⬅️ Ahora sí incluimos el código
       };
 
       await this.sendWhatsAppMessage(
@@ -1270,23 +1297,23 @@ export class VouchersController {
       description: `${today.getDate()} de ${monthNames[today.getMonth()]} ${today.getFullYear()}`,
     });
 
-    // Últimos 7 días
-    for (let i = 1; i <= 7; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() - i);
+    // Ayer
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    options.push({
+      id: 'fecha_1',
+      title: `Ayer ${yesterday.getDate()}`,
+      description: `${yesterday.getDate()} de ${monthNames[yesterday.getMonth()]} ${yesterday.getFullYear()}`,
+    });
 
-      const dayNumber = date.getDate();
-      const monthName = monthNames[date.getMonth()];
-      const year = date.getFullYear();
-
-      const title = i === 1 ? `Ayer ${dayNumber}` : `${dayNumber} de ${monthName.slice(0, 3)}`;
-
-      options.push({
-        id: `fecha_${i}`, // fecha_1, fecha_2, etc.
-        title,
-        description: `${dayNumber} de ${monthName} ${year}`,
-      });
-    }
+    // Antier
+    const dayBeforeYesterday = new Date(today);
+    dayBeforeYesterday.setDate(today.getDate() - 2);
+    options.push({
+      id: 'fecha_2',
+      title: `Antier ${dayBeforeYesterday.getDate()}`,
+      description: `${dayBeforeYesterday.getDate()} de ${monthNames[dayBeforeYesterday.getMonth()]} ${dayBeforeYesterday.getFullYear()}`,
+    });
 
     // Opción para escribir manualmente
     options.push({
@@ -1299,7 +1326,7 @@ export class VouchersController {
   }
 
   /**
-   * Convierte un ID de fecha (hoy, ayer, fecha_X) a formato DD/MM/YYYY
+   * Convierte un ID de fecha (hoy, fecha_1, fecha_2) a formato DD/MM/YYYY
    * @param dateId - ID de fecha seleccionado por el usuario
    * @returns Fecha en formato DD/MM/YYYY o null si no es un ID válido
    */
@@ -1311,7 +1338,8 @@ export class VouchersController {
       targetDate = today;
     } else if (dateId.startsWith('fecha_')) {
       const daysAgo = parseInt(dateId.replace('fecha_', ''), 10);
-      if (!isNaN(daysAgo) && daysAgo >= 1 && daysAgo <= 7) {
+      // Solo acepta fecha_1 (ayer) y fecha_2 (antier)
+      if (!isNaN(daysAgo) && daysAgo >= 1 && daysAgo <= 2) {
         targetDate = new Date(today);
         targetDate.setDate(today.getDate() - daysAgo);
       }

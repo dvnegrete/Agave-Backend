@@ -33,14 +33,14 @@ export class VoucherProcessorService {
 
   /**
    * Genera un código de confirmación único
-   * Formato: YYYYMM-XXXXXXX (año + mes + 7 caracteres aleatorios)
-   * Ejemplo: 202410-A7K2M3P
+   * Formato: YYYYMM-XXXXX (año + mes + 5 caracteres alfanuméricos)
+   * Ejemplo: 202410-A7K2M
    */
   generateConfirmationCode(): string {
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
-    const random = Math.random().toString(36).substring(2, 9).toUpperCase();
+    const random = Math.random().toString(36).substring(2, 7).toUpperCase();
     return `${year}${month}-${random}`;
   }
 
