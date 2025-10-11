@@ -64,13 +64,9 @@ export class VoucherProcessorService {
   ): Promise<VoucherProcessingResult> {
     try {
       const source = phoneNumber ? 'WhatsApp' : 'HTTP Upload';
-      this.logger.log(
-        `[${source}] Iniciando procesamiento de voucher: ${filename}${phoneNumber ? ` (de ${phoneNumber})` : ''}`,
-      );
 
       // 1. Validar formato de archivo
       await this.ocrService.validateImageFormat(fileBuffer, filename);
-      this.logger.log(`[${source}] Formato de archivo validado: ${filename}`);
 
       // 2. Extraer texto usando OCR
       const resultOCR = await this.ocrService.extractTextFromImage(
@@ -78,25 +74,14 @@ export class VoucherProcessorService {
         filename,
         language,
       );
-      this.logger.log(
-        `[${source}] OCR completado. GCS filename: ${resultOCR.gcsFilename}`,
-      );
-      this.logger.log(
-        `[${source}] Datos extraídos: ${JSON.stringify(resultOCR.structuredData, null, 2)}`,
-      );
 
       // 3. Extraer número de casa desde los centavos
       const dataWithHouse = this.extractCentavos(resultOCR.structuredData);
-      this.logger.log(
-        `[${source}] Número de casa extraído: ${dataWithHouse.casa || 'No identificado'}`,
-      );
 
       // 4. Generar mensaje de respuesta según los casos (SIN código de confirmación todavía)
       const whatsappMessage = this.generateWhatsAppMessage(dataWithHouse);
 
-      // 5. Log del resultado final
-      this.logger.log(`[${source}] Procesamiento completado exitosamente`);
-      this.logger.log(`[${source}] Mensaje generado: ${whatsappMessage}`);
+      this.logger.log(`[${source}] Voucher procesado: ${filename}`);
 
       return {
         success: true,

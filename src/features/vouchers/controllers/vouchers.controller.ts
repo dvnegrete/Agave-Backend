@@ -582,11 +582,6 @@ export class VouchersController {
         return;
       }
 
-      console.log(
-        `✅ Usuario ${phoneNumber} confirmó el pago. Datos:`,
-        savedData.voucherData,
-      );
-
       // PASO 1: Combinar fecha y hora para el campo timestamp
       const dateTime = this.combineDateAndTime(
         savedData.voucherData.fecha_pago,
@@ -603,7 +598,6 @@ export class VouchersController {
       while (attempt < MAX_RETRIES && !success) {
         attempt++;
         confirmationCode = this.voucherProcessor.generateConfirmationCode();
-        console.log(`🔐 Intento ${attempt}/${MAX_RETRIES}: Código generado: ${confirmationCode}`);
 
         try {
           // PASO 3: Insertar voucher en la base de datos
@@ -616,9 +610,7 @@ export class VouchersController {
             url: savedData.gcsFilename,
           });
 
-          console.log(
-            `✅ Voucher insertado en BD con ID: ${voucher.id}, Código: ${voucher.confirmation_code}, Fecha/Hora: ${voucher.date.toISOString()}`,
-          );
+          console.log(`✅ Voucher registrado: ID ${voucher.id}, Código ${voucher.confirmation_code}`);
           success = true;
         } catch (error) {
           // Verificar si es un error de clave duplicada (código de confirmación)
@@ -667,10 +659,6 @@ export class VouchersController {
       this.conversationState.clearContext(phoneNumber);
     } else if (isNegation) {
       // Usuario indicó que los datos NO son correctos - ofrecer corrección
-      console.log(
-        `❌ Usuario ${phoneNumber} indicó que los datos no son correctos`,
-      );
-
       // Cambiar estado a espera de tipo de corrección
       const context = this.conversationState.getContext(phoneNumber);
       if (context?.data) {
@@ -749,27 +737,11 @@ export class VouchersController {
       // Actualizar los datos con el número de casa
       voucherData.casa = houseNumber;
 
-      console.log(
-        `🏠 Usuario ${phoneNumber} proporcionó número de casa: ${houseNumber}`,
-      );
-
-      console.log(`📊 Datos del voucher DESPUÉS de agregar número de casa:`, {
-        monto: voucherData.monto || '(vacío)',
-        fecha_pago: voucherData.fecha_pago || '(vacío)',
-        referencia: voucherData.referencia || '(vacío)',
-        hora_transaccion: voucherData.hora_transaccion || '(vacío)',
-        casa: voucherData.casa || '(vacío)',
-      });
-
       // VERIFICAR si faltan otros datos después de agregar el número de casa
       const missingFields = this.conversationState.identifyMissingFields(voucherData);
 
       if (missingFields.length > 0) {
         // AÚN FALTAN DATOS - entrar en flujo de datos faltantes
-        console.log(
-          `⚠️ Después de agregar casa, aún faltan campos: ${missingFields.join(', ')}`,
-        );
-
         this.conversationState.setContext(
           phoneNumber,
           ConversationState.WAITING_MISSING_DATA,
@@ -793,16 +765,6 @@ export class VouchersController {
       }
 
       // TODOS LOS DATOS COMPLETOS - proceder con confirmación
-      console.log(`✅ Todos los datos completos para ${phoneNumber}`);
-
-      console.log(`📊 Datos del voucher ANTES de crear confirmationData:`, {
-        monto: voucherData.monto || '(vacío)',
-        fecha_pago: voucherData.fecha_pago || '(vacío)',
-        referencia: voucherData.referencia || '(vacío)',
-        hora_transaccion: voucherData.hora_transaccion || '(vacío)',
-        casa: voucherData.casa || '(vacío)',
-      });
-
       // Guardar para confirmación (SIN código de confirmación aún)
       this.conversationState.saveVoucherForConfirmation(
         phoneNumber,
@@ -812,19 +774,15 @@ export class VouchersController {
       );
 
       // Pedir confirmación con botones interactivos
-      const confirmationData = {
-        casa: voucherData.casa,
-        monto: voucherData.monto,
-        fecha_pago: voucherData.fecha_pago,
-        referencia: voucherData.referencia,
-        hora_transaccion: voucherData.hora_transaccion,
-      };
-
-      console.log(`📊 confirmationData creado:`, confirmationData);
-
       await this.sendWhatsAppButtonMessage(
         phoneNumber,
-        ConfirmationMessages.request(confirmationData),
+        ConfirmationMessages.request({
+          casa: voucherData.casa,
+          monto: voucherData.monto,
+          fecha_pago: voucherData.fecha_pago,
+          referencia: voucherData.referencia,
+          hora_transaccion: voucherData.hora_transaccion,
+        }),
         [
           { id: 'confirm', title: '✅ Sí, es correcto' },
           { id: 'cancel', title: '❌ No, editar datos' },
@@ -845,10 +803,6 @@ export class VouchersController {
     phoneNumber: string,
     messageText: string,
   ): Promise<void> {
-    console.log(
-      `📝 Usuario ${phoneNumber} proporcionó datos faltantes: ${messageText}`,
-    );
-
     const context = this.conversationState.getContext(phoneNumber);
 
     if (!context?.data?.voucherData || !context.data.missingFields) {
@@ -856,14 +810,6 @@ export class VouchersController {
       this.conversationState.clearContext(phoneNumber);
       return;
     }
-
-    console.log(`📊 Datos actuales en contexto para ${phoneNumber} ANTES de actualizar:`, {
-      monto: context.data.voucherData.monto || '(vacío)',
-      fecha_pago: context.data.voucherData.fecha_pago || '(vacío)',
-      referencia: context.data.voucherData.referencia || '(vacío)',
-      hora_transaccion: context.data.voucherData.hora_transaccion || '(vacío)',
-      casa: context.data.voucherData.casa || '(vacío)',
-    });
 
     // Obtener el campo actual que se está solicitando
     const currentField = this.conversationState.getNextMissingField(phoneNumber);
@@ -902,7 +848,6 @@ export class VouchersController {
       const convertedDate = this.convertDateId(valueToValidate);
       if (convertedDate) {
         valueToValidate = convertedDate;
-        console.log(`📅 ID de fecha convertido: ${messageText} → ${convertedDate}`);
       } else if (valueToValidate === 'otra') {
         // Usuario seleccionó "Otra fecha", pedir que la escriba manualmente
         delete context.data.dateListSent; // Resetear para que pueda volver a enviar la lista si es necesario
@@ -953,8 +898,6 @@ export class VouchersController {
       }
     } else {
       // Todos los campos están completos, solicitar confirmación
-      console.log(`✅ Todos los campos completos para ${phoneNumber}`);
-
       const voucherData = context.data.voucherData;
 
       // Cambiar estado a esperando confirmación
@@ -1025,13 +968,7 @@ export class VouchersController {
     const seconds = timeParts[2] || 0;
 
     // Crear Date object (month es 0-indexed en JavaScript)
-    const dateTime = new Date(year, month - 1, day, hours, minutes, seconds);
-
-    console.log(
-      `📅 Fecha combinada: ${fecha_pago} ${hora_transaccion} → ${dateTime.toISOString()}`,
-    );
-
-    return dateTime;
+    return new Date(year, month - 1, day, hours, minutes, seconds);
   }
 
   /**
@@ -1110,10 +1047,6 @@ export class VouchersController {
     phoneNumber: string,
     fieldId: string,
   ): Promise<void> {
-    console.log(
-      `🔧 Usuario ${phoneNumber} seleccionó campo a corregir: ${fieldId}`,
-    );
-
     // Caso especial: usuario quiere cancelar todo el registro
     if (fieldId === 'cancelar_todo') {
       const savedData =
@@ -1209,17 +1142,12 @@ export class VouchersController {
     const fieldToCorrect = context.data.fieldToCorrect;
     const fieldLabel = this.conversationState.getFieldLabel(fieldToCorrect);
 
-    console.log(
-      `✏️ Usuario ${phoneNumber} actualizó ${fieldToCorrect}: ${newValue}`,
-    );
-
     // Si el campo es fecha_pago, procesar IDs de fecha (hoy, ayer, fecha_X, otra)
     let valueToUpdate = newValue.trim();
     if (fieldToCorrect === 'fecha_pago') {
       const convertedDate = this.convertDateId(valueToUpdate);
       if (convertedDate) {
         valueToUpdate = convertedDate;
-        console.log(`📅 ID de fecha convertido en corrección: ${newValue} → ${convertedDate}`);
       } else if (valueToUpdate === 'otra') {
         // Usuario seleccionó "Otra fecha", pedir que la escriba manualmente
         await this.sendWhatsAppMessage(
