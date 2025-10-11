@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { StructuredDataWithCasa } from './voucher-processor.service';
+import { StructuredDataWithCasa } from '../ocr/voucher-processor.service';
 import { BusinessValues } from '@/shared/content';
 
 /**
