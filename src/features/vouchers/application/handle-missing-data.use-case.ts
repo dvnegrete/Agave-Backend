@@ -1,0 +1,245 @@
+import { Injectable } from '@nestjs/common';
+import { ConversationStateService, ConversationState } from '../services/conversation-state.service';
+import { WhatsAppMessagingService } from '../services/whatsapp-messaging.service';
+import { VoucherValidator } from '../domain/voucher-validator';
+import { validateAndSetVoucherField } from '../shared/helpers/field-validator.helper';
+import { generateRecentDates, convertDateIdToString } from '../shared/helpers/date-converter.helper';
+import { ErrorMessages } from '@/shared/content';
+
+export interface HandleMissingDataInput {
+  phoneNumber: string;
+  messageText: string;
+}
+
+export interface HandleMissingDataOutput {
+  success: boolean;
+  message?: string;
+}
+
+/**
+ * Use Case: Manejar respuestas del usuario para datos faltantes
+ *
+ * Responsabilidades:
+ * - Obtener el campo actual que se está solicitando
+ * - Manejar selección de fecha (si es fecha_pago) - mostrar lista o convertir IDs
+ * - Validar el valor proporcionado
+ * - Actualizar datos del voucher en el contexto
+ * - Determinar si hay más campos faltantes o mostrar confirmación final
+ */
+@Injectable()
+export class HandleMissingDataUseCase {
+  constructor(
+    private readonly conversationState: ConversationStateService,
+    private readonly whatsappMessaging: WhatsAppMessagingService,
+  ) {}
+
+  async execute(
+    input: HandleMissingDataInput,
+  ): Promise<HandleMissingDataOutput> {
+    const { phoneNumber, messageText } = input;
+
+    // 1. Obtener contexto actual
+    const context = this.conversationState.getContext(phoneNumber);
+    if (!context?.data) {
+      await this.sendWhatsAppMessage(
+        phoneNumber,
+        'No tengo datos guardados. Por favor envía nuevamente el comprobante.',
+      );
+      this.conversationState.clearContext(phoneNumber);
+      return { success: false, message: 'No context data found' };
+    }
+
+    const { voucherData, missingFields, gcsFilename, originalFilename } = context.data;
+
+    if (!missingFields || missingFields.length === 0) {
+      return await this.handleNoMoreMissingFields(phoneNumber);
+    }
+
+    // 2. Obtener el campo actual que se está solicitando
+    const currentField = missingFields[0];
+
+    // 3. Si el usuario seleccionó "otra" fecha, pedir entrada manual
+    if (currentField === 'fecha_pago' && messageText === 'otra') {
+      await this.sendWhatsAppMessage(
+        phoneNumber,
+        'Por favor escribe la fecha de pago en formato DD/MM/YYYY (ejemplo: 15/01/2025)',
+      );
+      return { success: true };
+    }
+
+    // 4. Convertir IDs de fecha si aplica
+    let valueToValidate = messageText;
+    if (currentField === 'fecha_pago') {
+      const convertedDate = convertDateIdToString(messageText);
+      if (convertedDate) {
+        valueToValidate = convertedDate;
+      }
+    }
+
+    // 5. Validar y actualizar el valor
+    if (!voucherData) {
+      await this.sendWhatsAppMessage(
+        phoneNumber,
+        ErrorMessages.sessionExpired,
+      );
+      this.conversationState.clearContext(phoneNumber);
+      return { success: false, message: 'No voucher data' };
+    }
+
+    const validationResult = validateAndSetVoucherField(
+      voucherData,
+      currentField,
+      valueToValidate,
+    );
+
+    if (!validationResult.isValid) {
+      await this.sendWhatsAppMessage(phoneNumber, validationResult.error || 'Valor inválido');
+      return { success: true }; // Continue conversation
+    }
+
+    // 6. Remover el campo de la lista de faltantes
+    const updatedMissingFields = missingFields.slice(1);
+
+    // 7. Verificar si hay más campos faltantes
+    if (updatedMissingFields.length > 0) {
+      // Actualizar contexto con nuevo campo faltante
+      this.conversationState.setContext(
+        phoneNumber,
+        ConversationState.WAITING_MISSING_DATA,
+        {
+          voucherData,
+          gcsFilename,
+          originalFilename,
+          missingFields: updatedMissingFields,
+        },
+      );
+
+      // Preguntar por el siguiente campo
+      const nextField = updatedMissingFields[0];
+
+      if (nextField === 'fecha_pago') {
+        // Mostrar lista de fechas
+        await this.whatsappMessaging.sendListMessage(
+          phoneNumber,
+          'Selecciona la fecha de pago',
+          'Seleccionar fecha',
+          [{ rows: generateRecentDates() }],
+        );
+      } else {
+        // Preguntar por el siguiente campo
+        const fieldLabel = VoucherValidator.getFieldLabel(nextField);
+        await this.sendWhatsAppMessage(
+          phoneNumber,
+          `Por favor proporciona el siguiente dato:\n\n*${fieldLabel}*`,
+        );
+      }
+
+      return { success: true };
+    } else {
+      // 8. Todos los datos están completos → Mostrar confirmación
+      // Verificar que tenemos los datos del archivo
+      if (!gcsFilename || !originalFilename) {
+        await this.sendWhatsAppMessage(
+          phoneNumber,
+          'Error: No se encontraron los datos del archivo.',
+        );
+        this.conversationState.clearContext(phoneNumber);
+        return { success: false, message: 'Missing file data' };
+      }
+
+      return await this.showFinalConfirmation(
+        phoneNumber,
+        voucherData,
+        gcsFilename,
+        originalFilename,
+      );
+    }
+  }
+
+  /**
+   * Maneja el caso cuando no hay más campos faltantes
+   */
+  private async handleNoMoreMissingFields(
+    phoneNumber: string,
+  ): Promise<HandleMissingDataOutput> {
+    await this.sendWhatsAppMessage(
+      phoneNumber,
+      'Ya tengo todos los datos. Procesando...',
+    );
+    this.conversationState.clearContext(phoneNumber);
+    return { success: true };
+  }
+
+  /**
+   * Muestra la confirmación final con todos los datos completos
+   */
+  private async showFinalConfirmation(
+    phoneNumber: string,
+    voucherData: any,
+    gcsFilename: string,
+    originalFilename: string,
+  ): Promise<HandleMissingDataOutput> {
+    // Verificar que tenemos todos los datos necesarios
+    if (!gcsFilename || !originalFilename) {
+      await this.sendWhatsAppMessage(
+        phoneNumber,
+        'Error: No se encontraron los datos del archivo.',
+      );
+      this.conversationState.clearContext(phoneNumber);
+      return { success: false, message: 'Missing file data' };
+    }
+
+    // Guardar para confirmación
+    this.conversationState.saveVoucherForConfirmation(
+      phoneNumber,
+      voucherData,
+      gcsFilename,
+      originalFilename,
+    );
+
+    // Construir mensaje de confirmación
+    const confirmationMessage = this.buildConfirmationMessage(voucherData);
+
+    // Enviar botones de confirmación
+    await this.whatsappMessaging.sendButtonMessage(
+      phoneNumber,
+      confirmationMessage,
+      [
+        { id: 'confirm', title: '✅ Sí, es correcto' },
+        { id: 'cancel', title: '❌ No, editar datos' },
+      ],
+    );
+
+    return { success: true };
+  }
+
+  /**
+   * Construye el mensaje de confirmación con los datos del voucher
+   */
+  private buildConfirmationMessage(voucherData: any): string {
+    const parts = [
+      '📋 *Datos del comprobante:*\n',
+      `🏠 Casa: *${voucherData.casa}*`,
+      `💰 Monto: *$${voucherData.monto}*`,
+      `📅 Fecha: *${voucherData.fecha_pago}*`,
+    ];
+
+    if (voucherData.referencia) {
+      parts.push(`🔢 Referencia: *${voucherData.referencia}*`);
+    }
+
+    parts.push(
+      `⏰ Hora: *${voucherData.hora_transaccion}*`,
+      '\n¿Los datos son correctos?',
+    );
+
+    return parts.join('\n');
+  }
+
+  private async sendWhatsAppMessage(
+    to: string,
+    message: string,
+  ): Promise<void> {
+    await this.whatsappMessaging.sendTextMessage(to, message);
+  }
+}
