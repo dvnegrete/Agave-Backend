@@ -1,6 +1,9 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
-import { OcrResponseDto } from '../dto/ocr-service.dto';
-import { GoogleCloudClient, CloudStorageService } from '@/shared/libs/google-cloud';
+import { OcrResponseDto } from '../../dto/ocr-service.dto';
+import {
+  GoogleCloudClient,
+  CloudStorageService,
+} from '@/shared/libs/google-cloud';
 import { OpenAIService } from '@/shared/libs/openai/openai.service';
 import { VertexAIService } from '@/shared/libs/vertex-ai/vertex-ai.service';
 
@@ -121,9 +124,8 @@ export class OcrService {
         allText = result.fullTextAnnotation?.text || '';
       }
 
-      // const structuredData = await this.openAIService.processTextWithPrompt(allText);
-      const structuredData =
-        await this.vertexAIService.processTextWithPrompt(allText);
+      const structuredData = await this.openAIService.processTextWithPrompt(allText);
+      // const structuredData = await this.vertexAIService.processTextWithPrompt(allText);
 
       const processingTime = Date.now() - startTime;
       this.logger.log(

@@ -37,10 +37,13 @@ export class VoucherEntity {
   /**
    * Crea una entidad de voucher desde datos estructurados
    */
-  static fromData(data: VoucherData, files?: {
-    gcsFilename?: string;
-    originalFilename?: string;
-  }): VoucherEntity {
+  static fromData(
+    data: VoucherData,
+    files?: {
+      gcsFilename?: string;
+      originalFilename?: string;
+    },
+  ): VoucherEntity {
     if (data.casa === null) {
       throw new Error('El número de casa es requerido para crear un voucher');
     }

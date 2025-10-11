@@ -1,9 +1,15 @@
 import { Injectable } from '@nestjs/common';
-import { ConversationStateService, ConversationState } from '../services/conversation-state.service';
-import { WhatsAppMessagingService } from '../services/whatsapp-messaging.service';
+import {
+  ConversationStateService,
+  ConversationState,
+} from '../infrastructure/persistence/conversation-state.service';
+import { WhatsAppMessagingService } from '../infrastructure/whatsapp/whatsapp-messaging.service';
 import { VoucherValidator } from '../domain/voucher-validator';
 import { validateAndSetVoucherField } from '../shared/helpers/field-validator.helper';
-import { generateRecentDates, convertDateIdToString } from '../shared/helpers/date-converter.helper';
+import {
+  generateRecentDates,
+  convertDateIdToString,
+} from '../shared/helpers/date-converter.helper';
 import { ErrorMessages } from '@/shared/content';
 
 export interface HandleMissingDataInput {
@@ -49,7 +55,8 @@ export class HandleMissingDataUseCase {
       return { success: false, message: 'No context data found' };
     }
 
-    const { voucherData, missingFields, gcsFilename, originalFilename } = context.data;
+    const { voucherData, missingFields, gcsFilename, originalFilename } =
+      context.data;
 
     if (!missingFields || missingFields.length === 0) {
       return await this.handleNoMoreMissingFields(phoneNumber);
@@ -78,10 +85,7 @@ export class HandleMissingDataUseCase {
 
     // 5. Validar y actualizar el valor
     if (!voucherData) {
-      await this.sendWhatsAppMessage(
-        phoneNumber,
-        ErrorMessages.sessionExpired,
-      );
+      await this.sendWhatsAppMessage(phoneNumber, ErrorMessages.sessionExpired);
       this.conversationState.clearContext(phoneNumber);
       return { success: false, message: 'No voucher data' };
     }
@@ -93,7 +97,10 @@ export class HandleMissingDataUseCase {
     );
 
     if (!validationResult.isValid) {
-      await this.sendWhatsAppMessage(phoneNumber, validationResult.error || 'Valor inválido');
+      await this.sendWhatsAppMessage(
+        phoneNumber,
+        validationResult.error || 'Valor inválido',
+      );
       return { success: true }; // Continue conversation
     }
 

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { VoucherRepository } from '@/shared/database/repositories/voucher.repository';
-import { ConversationStateService } from '../services/conversation-state.service';
-import { WhatsAppMessagingService } from '../services/whatsapp-messaging.service';
+import { ConversationStateService } from '../infrastructure/persistence/conversation-state.service';
+import { WhatsAppMessagingService } from '../infrastructure/whatsapp/whatsapp-messaging.service';
 import { ConfirmationMessages, ErrorMessages } from '@/shared/content';
 import { combineDateAndTime } from '@/shared/common/utils';
 import { generateUniqueConfirmationCode } from '../shared/helpers';
@@ -44,7 +44,10 @@ export class ConfirmVoucherUseCase {
         this.conversationState.getVoucherDataForConfirmation(phoneNumber);
 
       if (!savedData) {
-        await this.sendWhatsAppMessage(phoneNumber, ErrorMessages.sessionExpired);
+        await this.sendWhatsAppMessage(
+          phoneNumber,
+          ErrorMessages.sessionExpired,
+        );
         this.conversationState.clearContext(phoneNumber);
         return { success: false, error: 'Session expired' };
       }

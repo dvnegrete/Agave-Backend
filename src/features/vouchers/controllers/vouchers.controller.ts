@@ -15,13 +15,13 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { VouchersService } from '../services/vouchers.service';
-import { OcrService } from '../services/ocr.service';
+import { VouchersService } from '../infrastructure/persistence/vouchers.service';
+import { OcrService } from '../infrastructure/ocr/ocr.service';
 import { OcrServiceDto } from '../dto/ocr-service.dto';
-import { WhatsAppMessageClassifierService } from '../services/whatsapp-message-classifier.service';
-import { VoucherProcessorService } from '../services/voucher-processor.service';
-import { WhatsAppMessagingService } from '../services/whatsapp-messaging.service';
-import { ConversationStateService } from '../services/conversation-state.service';
+import { WhatsAppMessageClassifierService } from '../infrastructure/whatsapp/whatsapp-message-classifier.service';
+import { VoucherProcessorService } from '../infrastructure/ocr/voucher-processor.service';
+import { WhatsAppMessagingService } from '../infrastructure/whatsapp/whatsapp-messaging.service';
+import { ConversationStateService } from '../infrastructure/persistence/conversation-state.service';
 import { ErrorMessages } from '@/shared/content';
 import { VoucherRepository } from '@/shared/database/repositories/voucher.repository';
 import { CloudStorageService } from '@/shared/libs/google-cloud';
@@ -106,7 +106,8 @@ export class VouchersController {
 
       let storageAvailable = false;
       try {
-        const storageClient = this.ocrService['googleCloudClient'].getStorageClient();
+        const storageClient =
+          this.ocrService['googleCloudClient'].getStorageClient();
         storageAvailable = !!storageClient;
       } catch {
         storageAvailable = false;
@@ -228,16 +229,12 @@ export class VouchersController {
       const phoneNumber = messages.from;
       const messageType = messages.type;
 
-      console.log('Número de WhatsApp:', phoneNumber);
-      console.log('Tipo de mensaje:', messageType);
-
       // CASO 1: Mensaje con imagen
       if (messageType === 'image' && messages.image) {
         const mediaId = messages.image.id;
         const mimeType = messages.image.mime_type;
         const caption = messages.image.caption || '';
 
-        console.log(`Imagen recibida: ${mediaId}, tipo: ${mimeType}`);
         if (caption) console.log(`Caption: ${caption}`);
 
         await this.processVoucherUseCase.execute({
@@ -253,8 +250,6 @@ export class VouchersController {
         const mediaId = messages.document.id;
         const mimeType = messages.document.mime_type;
         const filename = messages.document.filename || 'documento.pdf';
-
-        console.log(`Documento recibido: ${mediaId}, tipo: ${mimeType}, nombre: ${filename}`);
 
         if (mimeType === 'application/pdf') {
           await this.processVoucherUseCase.execute({
@@ -277,14 +272,11 @@ export class VouchersController {
 
         if (messages.interactive.type === 'button_reply') {
           userResponse = messages.interactive.button_reply.id;
-          console.log(`Botón presionado: ${userResponse}`);
         } else if (messages.interactive.type === 'list_reply') {
           userResponse = messages.interactive.list_reply.id;
-          console.log(`Opción de lista seleccionada: ${userResponse}`);
         }
 
         if (!userResponse) {
-          console.log('Mensaje interactivo sin respuesta identificable');
           return { success: true };
         }
 
@@ -319,14 +311,18 @@ export class VouchersController {
 
         // Sin contexto, usar clasificador de IA
         console.log('No hay contexto activo, clasificando mensaje...');
-        const classification = await this.messageClassifier.classifyMessage(messageText);
+        const classification =
+          await this.messageClassifier.classifyMessage(messageText);
 
         console.log('Clasificación:', {
           intent: classification.intent,
           confidence: classification.confidence,
         });
 
-        await this.whatsappMessaging.sendTextMessage(phoneNumber, classification.response);
+        await this.whatsappMessaging.sendTextMessage(
+          phoneNumber,
+          classification.response,
+        );
         return { success: true };
       }
 

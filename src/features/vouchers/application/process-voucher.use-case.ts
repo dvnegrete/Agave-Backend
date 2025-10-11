@@ -1,8 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { VoucherProcessorService } from '../services/voucher-processor.service';
-import { ConversationStateService, ConversationState } from '../services/conversation-state.service';
-import { WhatsAppMessagingService } from '../services/whatsapp-messaging.service';
-import { WhatsAppMediaService } from '../services/whatsapp-media.service';
+import { VoucherProcessorService } from '../infrastructure/ocr/voucher-processor.service';
+import {
+  ConversationStateService,
+  ConversationState,
+} from '../infrastructure/persistence/conversation-state.service';
+import { WhatsAppMessagingService } from '../infrastructure/whatsapp/whatsapp-messaging.service';
+import { WhatsAppMediaService } from '../infrastructure/whatsapp/whatsapp-media.service';
 import { VoucherValidator } from '../domain/voucher-validator';
 import { ErrorMessages } from '@/shared/content';
 

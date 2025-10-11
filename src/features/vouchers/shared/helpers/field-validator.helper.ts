@@ -6,7 +6,7 @@ import {
   validateTime,
   validateHouseNumber,
 } from '@/shared/common/utils';
-import { StructuredDataWithCasa } from '../../services/voucher-processor.service';
+import { StructuredDataWithCasa } from '../../infrastructure/ocr/voucher-processor.service';
 
 /**
  * Valida y establece el valor de un campo específico del voucher

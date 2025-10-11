@@ -1,13 +1,17 @@
 import { Module } from '@nestjs/common';
 import { VouchersController } from './controllers/vouchers.controller';
-import { VouchersService } from './services/vouchers.service';
-import { OcrService } from './services/ocr.service';
-import { WhatsAppMessageClassifierService } from './services/whatsapp-message-classifier.service';
-import { VoucherProcessorService } from './services/voucher-processor.service';
-import { WhatsAppMediaService } from './services/whatsapp-media.service';
-import { WhatsAppApiService } from './services/whatsapp-api.service';
-import { WhatsAppMessagingService } from './services/whatsapp-messaging.service';
-import { ConversationStateService } from './services/conversation-state.service';
+// Infrastructure - Persistence
+import { VouchersService } from './infrastructure/persistence/vouchers.service';
+import { ConversationStateService } from './infrastructure/persistence/conversation-state.service';
+// Infrastructure - OCR
+import { OcrService } from './infrastructure/ocr/ocr.service';
+import { VoucherProcessorService } from './infrastructure/ocr/voucher-processor.service';
+// Infrastructure - WhatsApp
+import { WhatsAppMessageClassifierService } from './infrastructure/whatsapp/whatsapp-message-classifier.service';
+import { WhatsAppMediaService } from './infrastructure/whatsapp/whatsapp-media.service';
+import { WhatsAppApiService } from './infrastructure/whatsapp/whatsapp-api.service';
+import { WhatsAppMessagingService } from './infrastructure/whatsapp/whatsapp-messaging.service';
+// External Modules
 import { GoogleCloudModule } from '@/shared/libs/google-cloud';
 import { VertexAIModule } from '@/shared/libs/vertex-ai/vertex-ai.module';
 import { OpenAIModule } from '@/shared/libs/openai/openai.module';
@@ -23,15 +27,17 @@ import { CorrectVoucherDataUseCase } from './application/correct-voucher-data.us
   imports: [GoogleCloudModule, VertexAIModule, OpenAIModule],
   controllers: [VouchersController],
   providers: [
-    // Services
+    // Infrastructure - Persistence
     VouchersService,
+    ConversationStateService,
+    // Infrastructure - OCR
     OcrService,
-    WhatsAppMessageClassifierService,
     VoucherProcessorService,
+    // Infrastructure - WhatsApp
+    WhatsAppMessageClassifierService,
     WhatsAppMediaService,
     WhatsAppApiService,
     WhatsAppMessagingService,
-    ConversationStateService,
     // Use Cases
     ProcessVoucherUseCase,
     ConfirmVoucherUseCase,

@@ -1,9 +1,15 @@
 import { Injectable } from '@nestjs/common';
-import { ConversationStateService, ConversationState } from '../services/conversation-state.service';
-import { WhatsAppMessagingService } from '../services/whatsapp-messaging.service';
+import {
+  ConversationStateService,
+  ConversationState,
+} from '../infrastructure/persistence/conversation-state.service';
+import { WhatsAppMessagingService } from '../infrastructure/whatsapp/whatsapp-messaging.service';
 import { VoucherValidator } from '../domain/voucher-validator';
 import { validateAndSetVoucherField } from '../shared/helpers/field-validator.helper';
-import { generateRecentDates, convertDateIdToString } from '../shared/helpers/date-converter.helper';
+import {
+  generateRecentDates,
+  convertDateIdToString,
+} from '../shared/helpers/date-converter.helper';
 import { CloudStorageService } from '@/shared/libs/google-cloud';
 import { ConfirmationMessages, ErrorMessages } from '@/shared/content';
 
@@ -68,7 +74,12 @@ export class CorrectVoucherDataUseCase {
     }
 
     // Validar que el campo seleccionado sea válido
-    const validFields = ['casa', 'referencia', 'fecha_pago', 'hora_transaccion'];
+    const validFields = [
+      'casa',
+      'referencia',
+      'fecha_pago',
+      'hora_transaccion',
+    ];
     if (!validFields.includes(fieldId)) {
       await this.sendWhatsAppMessage(
         phoneNumber,
@@ -80,10 +91,7 @@ export class CorrectVoucherDataUseCase {
     // Guardar el campo a corregir en el contexto
     const context = this.conversationState.getContext(phoneNumber);
     if (!context?.data) {
-      await this.sendWhatsAppMessage(
-        phoneNumber,
-        ErrorMessages.sessionExpired,
-      );
+      await this.sendWhatsAppMessage(phoneNumber, ErrorMessages.sessionExpired);
       this.conversationState.clearContext(phoneNumber);
       return { success: false, message: 'No context data' };
     }
@@ -137,16 +145,11 @@ export class CorrectVoucherDataUseCase {
         await this.cloudStorageService.deleteFile(savedData.gcsFilename);
         console.log(`🗑️  Archivo eliminado de GCS: ${savedData.gcsFilename}`);
       } catch (error) {
-        console.error(
-          `⚠️  Error al eliminar archivo de GCS: ${error.message}`,
-        );
+        console.error(`⚠️  Error al eliminar archivo de GCS: ${error.message}`);
       }
     }
 
-    await this.sendWhatsAppMessage(
-      phoneNumber,
-      ConfirmationMessages.cancelled,
-    );
+    await this.sendWhatsAppMessage(phoneNumber, ConfirmationMessages.cancelled);
 
     this.conversationState.clearContext(phoneNumber);
     return { success: true };
@@ -162,10 +165,7 @@ export class CorrectVoucherDataUseCase {
     const context = this.conversationState.getContext(phoneNumber);
 
     if (!context?.data?.fieldToCorrect) {
-      await this.sendWhatsAppMessage(
-        phoneNumber,
-        ErrorMessages.sessionExpired,
-      );
+      await this.sendWhatsAppMessage(phoneNumber, ErrorMessages.sessionExpired);
       this.conversationState.clearContext(phoneNumber);
       return { success: false, message: 'No field to correct' };
     }
@@ -193,10 +193,7 @@ export class CorrectVoucherDataUseCase {
 
     // Validar que tenemos los datos del voucher
     if (!context.data.voucherData) {
-      await this.sendWhatsAppMessage(
-        phoneNumber,
-        ErrorMessages.sessionExpired,
-      );
+      await this.sendWhatsAppMessage(phoneNumber, ErrorMessages.sessionExpired);
       this.conversationState.clearContext(phoneNumber);
       return { success: false, message: 'No voucher data' };
     }
@@ -237,10 +234,7 @@ export class CorrectVoucherDataUseCase {
     const updatedData = context.data.voucherData;
 
     if (!updatedData) {
-      await this.sendWhatsAppMessage(
-        phoneNumber,
-        ErrorMessages.sessionExpired,
-      );
+      await this.sendWhatsAppMessage(phoneNumber, ErrorMessages.sessionExpired);
       this.conversationState.clearContext(phoneNumber);
       return { success: false, message: 'No updated data' };
     }

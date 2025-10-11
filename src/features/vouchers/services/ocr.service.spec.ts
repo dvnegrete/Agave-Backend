@@ -1,16 +1,40 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { OcrService } from './ocr.service';
-import { GoogleCloudConfigService } from '../../config/google-cloud.config';
+import { OcrService } from '../infrastructure/ocr/ocr.service';
+import {
+  GoogleCloudClient,
+  CloudStorageService,
+} from '@/shared/libs/google-cloud';
+import { OpenAIService } from '@/shared/libs/openai/openai.service';
+import { VertexAIService } from '@/shared/libs/vertex-ai/vertex-ai.service';
 import { BadRequestException } from '@nestjs/common';
 
 describe('OcrService', () => {
   let service: OcrService;
-  let googleCloudConfig: GoogleCloudConfigService;
+  let googleCloudClient: GoogleCloudClient;
+  let cloudStorageService: CloudStorageService;
 
-  const mockGoogleCloudConfig = {
-    isEnabled: true,
-    applicationCredentials: '/path/to/credentials.json',
-    projectId: 'test-project',
+  const mockGoogleCloudClient = {
+    getVisionClient: jest.fn(),
+    getConfig: jest.fn(() => ({
+      projectId: 'test-project',
+      voucherBucketName: 'test-bucket',
+    })),
+    isReady: jest.fn(() => true),
+  };
+
+  const mockCloudStorageService = {
+    upload: jest.fn(),
+    downloadFile: jest.fn(),
+    getAllFiles: jest.fn(),
+    deleteMultipleFiles: jest.fn(),
+  };
+
+  const mockOpenAIService = {
+    processTextWithPrompt: jest.fn(),
+  };
+
+  const mockVertexAIService = {
+    processTextWithPrompt: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -18,16 +42,27 @@ describe('OcrService', () => {
       providers: [
         OcrService,
         {
-          provide: GoogleCloudConfigService,
-          useValue: mockGoogleCloudConfig,
+          provide: GoogleCloudClient,
+          useValue: mockGoogleCloudClient,
+        },
+        {
+          provide: CloudStorageService,
+          useValue: mockCloudStorageService,
+        },
+        {
+          provide: OpenAIService,
+          useValue: mockOpenAIService,
+        },
+        {
+          provide: VertexAIService,
+          useValue: mockVertexAIService,
         },
       ],
     }).compile();
 
     service = module.get<OcrService>(OcrService);
-    googleCloudConfig = module.get<GoogleCloudConfigService>(
-      GoogleCloudConfigService,
-    );
+    googleCloudClient = module.get<GoogleCloudClient>(GoogleCloudClient);
+    cloudStorageService = module.get<CloudStorageService>(CloudStorageService);
   });
 
   it('should be defined', () => {

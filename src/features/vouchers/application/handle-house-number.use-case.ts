@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { ConversationStateService } from '../services/conversation-state.service';
-import { WhatsAppMessagingService } from '../services/whatsapp-messaging.service';
+import { ConversationStateService } from '../infrastructure/persistence/conversation-state.service';
+import { WhatsAppMessagingService } from '../infrastructure/whatsapp/whatsapp-messaging.service';
 import { validateHouseNumber } from '@/shared/common/utils/validation/field-validator.util';
 import { ErrorMessages } from '@/shared/content';
 
@@ -49,10 +49,7 @@ export class HandleHouseNumberUseCase {
 
     // 2. Verificar que tenemos todos los datos necesarios
     if (!voucherData || !gcsFilename || !originalFilename) {
-      await this.sendWhatsAppMessage(
-        phoneNumber,
-        ErrorMessages.sessionExpired,
-      );
+      await this.sendWhatsAppMessage(phoneNumber, ErrorMessages.sessionExpired);
       this.conversationState.clearContext(phoneNumber);
       return { success: false, message: 'Missing data' };
     }

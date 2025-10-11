@@ -1,10 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import { ConversationStateService, ConversationState } from '../services/conversation-state.service';
+import {
+  ConversationStateService,
+  ConversationState,
+} from '../infrastructure/persistence/conversation-state.service';
 import { ConfirmVoucherUseCase } from './confirm-voucher.use-case';
 import { HandleMissingDataUseCase } from './handle-missing-data.use-case';
 import { HandleHouseNumberUseCase } from './handle-house-number.use-case';
 import { CorrectVoucherDataUseCase } from './correct-voucher-data.use-case';
-import { WhatsAppMessagingService } from '../services/whatsapp-messaging.service';
+import { WhatsAppMessagingService } from '../infrastructure/whatsapp/whatsapp-messaging.service';
 import { ConfirmationMessages } from '@/shared/content';
 
 export interface HandleWhatsAppMessageInput {
@@ -62,16 +65,25 @@ export class HandleWhatsAppMessageUseCase {
         return await this.handleConfirmation(phoneNumber, messageText);
 
       case ConversationState.WAITING_HOUSE_NUMBER:
-        return await this.handleHouseNumber.execute({ phoneNumber, messageText });
+        return await this.handleHouseNumber.execute({
+          phoneNumber,
+          messageText,
+        });
 
       case ConversationState.WAITING_MISSING_DATA:
-        return await this.handleMissingData.execute({ phoneNumber, messageText });
+        return await this.handleMissingData.execute({
+          phoneNumber,
+          messageText,
+        });
 
       case ConversationState.WAITING_CORRECTION_TYPE:
         return await this.handleCorrectionType(phoneNumber, messageText);
 
       case ConversationState.WAITING_CORRECTION_VALUE:
-        return await this.correctVoucherData.execute({ phoneNumber, newValue: messageText });
+        return await this.correctVoucherData.execute({
+          phoneNumber,
+          newValue: messageText,
+        });
 
       default:
         console.log(`Estado no manejado: ${context.state}`);

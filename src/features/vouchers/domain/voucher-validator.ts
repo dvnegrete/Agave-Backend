@@ -63,11 +63,7 @@ export class VoucherValidator {
     if (parts.length === 2) {
       const centavos = parseInt(parts[1], 10);
 
-      if (
-        isNaN(centavos) ||
-        centavos === 0 ||
-        centavos > maxCasas
-      ) {
+      if (isNaN(centavos) || centavos === 0 || centavos > maxCasas) {
         return null;
       }
 
