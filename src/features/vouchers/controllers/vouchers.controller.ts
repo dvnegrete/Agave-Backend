@@ -13,8 +13,6 @@ import {
   MaxFileSizeValidator,
   FileTypeValidator,
   UnauthorizedException,
-  ValidationPipe,
-  UsePipes,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { VouchersService } from '../infrastructure/persistence/vouchers.service';
@@ -151,17 +149,13 @@ export class VouchersController {
    */
   @Post('webhook/whatsapp')
   receiveWhatsAppMessage(@Body() body: any) {
-    console.log('🎯 Endpoint webhook/whatsapp ejecutado');
-    console.log('📦 Body recibido:', JSON.stringify(body, null, 2));
-
     // Procesar el mensaje de forma asíncrona (fire-and-forget)
     // No esperamos a que termine para responder a WhatsApp
     this.handleWhatsAppWebhookUseCase.execute(body).catch((error) => {
-      console.error('❌ Error procesando mensaje de WhatsApp:', error);
+      console.error('Error procesando mensaje de WhatsApp:', error);
     });
 
     // Responder inmediatamente a WhatsApp para evitar timeout
-    console.log('✅ Respondiendo a WhatsApp con success: true');
     return { success: true };
   }
 }

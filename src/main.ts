@@ -5,16 +5,6 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Middleware de logging global
-  app.use((req, res, next) => {
-    if (req.path === '/vouchers/webhook/whatsapp' && req.method === 'POST') {
-      console.log('🔍 Request recibido en middleware global');
-      console.log('Content-Type:', req.headers['content-type']);
-      console.log('Content-Length:', req.headers['content-length']);
-    }
-    next();
-  });
-
   // Habilitar validación global
   app.useGlobalPipes(
     new ValidationPipe({
