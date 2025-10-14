@@ -148,9 +148,15 @@ export class VouchersController {
    * y respondemos inmediatamente con success: true.
    */
   @Post('webhook/whatsapp')
-  receiveWhatsAppMessage(@Body() body: WhatsAppWebhookDto) {
+  receiveWhatsAppMessage(@Body() body: any) {
+    // DEBUG: Loguear el payload completo recibido de WhatsApp
+    console.log(
+      '📩 Webhook de WhatsApp recibido:',
+      JSON.stringify(body, null, 2),
+    );
+
     this.handleWhatsAppWebhookUseCase.execute(body).catch((error) => {
-      console.error('Error procesando mensaje de WhatsApp:', error);
+      console.error('❌ Error procesando mensaje de WhatsApp:', error);
     });
 
     return { success: true };
