@@ -15,7 +15,7 @@ import { CtaMaintenance } from './cta-maintenance.entity';
 import { CtaPenalties } from './cta-penalties.entity';
 import { CtaWater } from './cta-water.entity';
 import { CtaOtherPayments } from './cta-other-payments.entity';
-import { House } from './house.entity';
+import { HouseRecord } from './house-record.entity';
 
 @Entity('records')
 export class Record {
@@ -109,6 +109,6 @@ export class Record {
   @JoinColumn({ name: 'cta_other_payments_id' })
   ctaOtherPayments: CtaOtherPayments;
 
-  @OneToMany(() => House, (house) => house.record)
-  houses: House[];
+  @OneToMany(() => HouseRecord, (houseRecord) => houseRecord.record)
+  houseRecords: HouseRecord[];
 }

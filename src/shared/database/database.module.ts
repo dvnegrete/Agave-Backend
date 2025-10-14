@@ -5,6 +5,7 @@ import { DatabaseConfigService } from '../config/database.config';
 import {
   User,
   House,
+  HouseRecord,
   Record,
   TransactionBank,
   Voucher,
@@ -20,6 +21,10 @@ import {
 import { TransactionBankRepository } from './repositories/transaction-bank.repository';
 import { LastTransactionBankRepository } from './repositories/last-transaction-bank.repository';
 import { VoucherRepository } from './repositories/voucher.repository';
+import { RecordRepository } from './repositories/record.repository';
+import { HouseRepository } from './repositories/house.repository';
+import { UserRepository } from './repositories/user.repository';
+import { HouseRecordRepository } from './repositories/house-record.repository';
 
 @Global()
 @Module({
@@ -34,6 +39,7 @@ import { VoucherRepository } from './repositories/voucher.repository';
     TypeOrmModule.forFeature([
       User,
       House,
+      HouseRecord,
       Record,
       TransactionBank,
       Voucher,
@@ -52,6 +58,10 @@ import { VoucherRepository } from './repositories/voucher.repository';
     TransactionBankRepository,
     LastTransactionBankRepository,
     VoucherRepository,
+    RecordRepository,
+    HouseRepository,
+    UserRepository,
+    HouseRecordRepository,
   ],
   exports: [
     DatabaseConfigService,
@@ -59,6 +69,10 @@ import { VoucherRepository } from './repositories/voucher.repository';
     TransactionBankRepository,
     LastTransactionBankRepository,
     VoucherRepository,
+    RecordRepository,
+    HouseRepository,
+    UserRepository,
+    HouseRecordRepository,
   ],
 })
 export class DatabaseModule {}

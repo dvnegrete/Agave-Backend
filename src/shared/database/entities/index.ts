@@ -12,3 +12,4 @@ export * from './cta-water.entity';
 export * from './cta-other-payments.entity';
 export * from './record.entity';
 export * from './house.entity';
+export * from './house-record.entity';
