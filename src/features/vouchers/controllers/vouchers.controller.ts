@@ -18,31 +18,23 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { VouchersService } from '../infrastructure/persistence/vouchers.service';
 import { OcrService } from '../infrastructure/ocr/ocr.service';
 import { OcrServiceDto } from '../dto/ocr-service.dto';
-import { WhatsAppMessageClassifierService } from '../infrastructure/whatsapp/whatsapp-message-classifier.service';
+import { WhatsAppWebhookDto } from '../dto/whatsapp-webhook.dto';
 import { VoucherProcessorService } from '../infrastructure/ocr/voucher-processor.service';
-import { WhatsAppMessagingService } from '../infrastructure/whatsapp/whatsapp-messaging.service';
-import { ConversationStateService } from '../infrastructure/persistence/conversation-state.service';
-import { ErrorMessages } from '@/shared/content';
 import { VoucherRepository } from '@/shared/database/repositories/voucher.repository';
 import { CloudStorageService } from '@/shared/libs/google-cloud';
 // Use Cases
-import { ProcessVoucherUseCase } from '../application/process-voucher.use-case';
-import { HandleWhatsAppMessageUseCase } from '../application/handle-whatsapp-message.use-case';
+import { HandleWhatsAppWebhookUseCase } from '../application/handle-whatsapp-webhook.use-case';
 
 @Controller('vouchers')
 export class VouchersController {
   constructor(
     private readonly vouchersService: VouchersService,
     private readonly ocrService: OcrService,
-    private readonly messageClassifier: WhatsAppMessageClassifierService,
     private readonly voucherProcessor: VoucherProcessorService,
-    private readonly whatsappMessaging: WhatsAppMessagingService,
-    private readonly conversationState: ConversationStateService,
     private readonly voucherRepository: VoucherRepository,
     private readonly cloudStorageService: CloudStorageService,
     // Use Cases
-    private readonly processVoucherUseCase: ProcessVoucherUseCase,
-    private readonly handleWhatsAppMessageUseCase: HandleWhatsAppMessageUseCase,
+    private readonly handleWhatsAppWebhookUseCase: HandleWhatsAppWebhookUseCase,
   ) {}
 
   @Post('ocr-service')
@@ -76,69 +68,6 @@ export class VouchersController {
       };
     } catch (error) {
       throw new BadRequestException(error.message);
-    }
-  }
-
-  @Get('ocr-service/status')
-  async getOcrStatus(): Promise<{
-    isConfigured: boolean;
-    services: {
-      vision: boolean;
-      storage: boolean;
-      translate: boolean;
-      textToSpeech: boolean;
-      speech: boolean;
-    };
-    projectId?: string;
-    message: string;
-  }> {
-    try {
-      const visionClient =
-        this.ocrService['googleCloudClient'].getVisionClient();
-      const translateClient =
-        this.ocrService['googleCloudClient'].getTranslateClient();
-      const textToSpeechClient =
-        this.ocrService['googleCloudClient'].getTextToSpeechClient();
-      const speechClient =
-        this.ocrService['googleCloudClient'].getSpeechClient();
-
-      const config = this.ocrService['googleCloudClient'].getConfig();
-
-      let storageAvailable = false;
-      try {
-        const storageClient =
-          this.ocrService['googleCloudClient'].getStorageClient();
-        storageAvailable = !!storageClient;
-      } catch {
-        storageAvailable = false;
-      }
-
-      return {
-        isConfigured: this.ocrService['googleCloudClient'].isReady(),
-        services: {
-          vision: !!visionClient,
-          storage: storageAvailable,
-          translate: !!translateClient,
-          textToSpeech: !!textToSpeechClient,
-          speech: !!speechClient,
-        },
-        projectId: config?.projectId,
-        message: this.ocrService['googleCloudClient'].isReady()
-          ? 'Google Cloud está configurado y funcionando correctamente'
-          : 'Google Cloud no está configurado o hay errores en la configuración',
-      };
-    } catch (error) {
-      return {
-        isConfigured: false,
-        services: {
-          vision: false,
-          storage: false,
-          translate: false,
-          textToSpeech: false,
-          speech: false,
-        },
-        message: `Error al verificar configuración: ${error.message}`,
-      };
     }
   }
 
@@ -215,128 +144,7 @@ export class VouchersController {
    * Webhook de WhatsApp - Recibe y procesa mensajes entrantes
    */
   @Post('webhook/whatsapp')
-  async receiveWhatsAppMessage(@Body() body: any) {
-    try {
-      const entry = body.entry?.[0];
-      const changes = entry?.changes?.[0];
-      const value = changes?.value;
-      const messages = value?.messages?.[0];
-
-      if (!messages) {
-        return { success: true };
-      }
-
-      const phoneNumber = messages.from;
-      const messageType = messages.type;
-
-      // CASO 1: Mensaje con imagen
-      if (messageType === 'image' && messages.image) {
-        const mediaId = messages.image.id;
-        const mimeType = messages.image.mime_type;
-        const caption = messages.image.caption || '';
-
-        if (caption) console.log(`Caption: ${caption}`);
-
-        await this.processVoucherUseCase.execute({
-          phoneNumber,
-          mediaId,
-          mediaType: 'image',
-        });
-        return { success: true };
-      }
-
-      // CASO 2: Mensaje con documento (PDF)
-      if (messageType === 'document' && messages.document) {
-        const mediaId = messages.document.id;
-        const mimeType = messages.document.mime_type;
-        const filename = messages.document.filename || 'documento.pdf';
-
-        if (mimeType === 'application/pdf') {
-          await this.processVoucherUseCase.execute({
-            phoneNumber,
-            mediaId,
-            mediaType: 'document',
-          });
-        } else {
-          await this.whatsappMessaging.sendTextMessage(
-            phoneNumber,
-            ErrorMessages.onlyPdfSupported,
-          );
-        }
-        return { success: true };
-      }
-
-      // CASO 3: Mensaje interactivo (botones o listas)
-      if (messageType === 'interactive' && messages.interactive) {
-        let userResponse: string | undefined;
-
-        if (messages.interactive.type === 'button_reply') {
-          userResponse = messages.interactive.button_reply.id;
-        } else if (messages.interactive.type === 'list_reply') {
-          userResponse = messages.interactive.list_reply.id;
-        }
-
-        if (!userResponse) {
-          return { success: true };
-        }
-
-        const context = this.conversationState.getContext(phoneNumber);
-
-        if (context) {
-          console.log(`Contexto activo detectado: ${context.state}`);
-          await this.handleWhatsAppMessageUseCase.execute({
-            phoneNumber,
-            messageText: userResponse,
-          });
-        }
-
-        return { success: true };
-      }
-
-      // CASO 4: Mensaje de texto
-      if (messageType === 'text' && messages.text) {
-        const messageText = messages.text.body || '';
-        console.log('Mensaje de texto recibido:', messageText);
-
-        const context = this.conversationState.getContext(phoneNumber);
-
-        if (context) {
-          console.log(`Contexto activo detectado: ${context.state}`);
-          await this.handleWhatsAppMessageUseCase.execute({
-            phoneNumber,
-            messageText,
-          });
-          return { success: true };
-        }
-
-        // Sin contexto, usar clasificador de IA
-        console.log('No hay contexto activo, clasificando mensaje...');
-        const classification =
-          await this.messageClassifier.classifyMessage(messageText);
-
-        console.log('Clasificación:', {
-          intent: classification.intent,
-          confidence: classification.confidence,
-        });
-
-        await this.whatsappMessaging.sendTextMessage(
-          phoneNumber,
-          classification.response,
-        );
-        return { success: true };
-      }
-
-      // CASO 5: Otros tipos de mensaje no soportados
-      console.log(`Tipo de mensaje no soportado: ${messageType}`);
-      await this.whatsappMessaging.sendTextMessage(
-        phoneNumber,
-        ErrorMessages.unsupportedMessageType,
-      );
-
-      return { success: true };
-    } catch (error) {
-      console.error('Error procesando mensaje de WhatsApp:', error);
-      throw new BadRequestException('Error processing WhatsApp message');
-    }
+  async receiveWhatsAppMessage(@Body() body: WhatsAppWebhookDto) {
+    return await this.handleWhatsAppWebhookUseCase.execute(body);
   }
 }

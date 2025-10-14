@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConversationStateService } from '../infrastructure/persistence/conversation-state.service';
 import { WhatsAppMessagingService } from '../infrastructure/whatsapp/whatsapp-messaging.service';
+import { StructuredDataWithCasa } from '../infrastructure/ocr/voucher-processor.service';
 import { validateHouseNumber } from '@/shared/common/utils/validation/field-validator.util';
 import { ErrorMessages } from '@/shared/content';
 
@@ -95,7 +96,9 @@ export class HandleHouseNumberUseCase {
   /**
    * Construye el mensaje de confirmación con los datos del voucher
    */
-  private buildConfirmationMessage(voucherData: any): string {
+  private buildConfirmationMessage(
+    voucherData: StructuredDataWithCasa,
+  ): string {
     const parts = [
       '📋 *Datos del comprobante:*\n',
       `🏠 Casa: *${voucherData.casa}*`,

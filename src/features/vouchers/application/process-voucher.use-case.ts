@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { VoucherProcessorService } from '../infrastructure/ocr/voucher-processor.service';
+import {
+  VoucherProcessorService,
+  VoucherProcessingResult,
+} from '../infrastructure/ocr/voucher-processor.service';
 import {
   ConversationStateService,
   ConversationState,
@@ -95,7 +98,7 @@ export class ProcessVoucherUseCase {
    */
   private async handleCompleteData(
     phoneNumber: string,
-    result: any,
+    result: VoucherProcessingResult,
   ): Promise<ProcessVoucherOutput> {
     const voucherData = result.structuredData;
 
@@ -123,7 +126,7 @@ export class ProcessVoucherUseCase {
    */
   private async handleMissingHouseNumber(
     phoneNumber: string,
-    result: any,
+    result: VoucherProcessingResult,
   ): Promise<ProcessVoucherOutput> {
     const voucherData = result.structuredData;
 
@@ -147,7 +150,7 @@ export class ProcessVoucherUseCase {
    */
   private async handleMissingData(
     phoneNumber: string,
-    result: any,
+    result: VoucherProcessingResult,
   ): Promise<ProcessVoucherOutput> {
     const voucherData = result.structuredData;
     const missingFields = VoucherValidator.identifyMissingFields(voucherData);

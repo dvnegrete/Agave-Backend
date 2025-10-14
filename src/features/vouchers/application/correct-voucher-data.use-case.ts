@@ -10,6 +10,7 @@ import {
   generateRecentDates,
   convertDateIdToString,
 } from '../shared/helpers/date-converter.helper';
+import { StructuredDataWithCasa } from '../infrastructure/ocr/voucher-processor.service';
 import { CloudStorageService } from '@/shared/libs/google-cloud';
 import { ConfirmationMessages, ErrorMessages } from '@/shared/content';
 
@@ -261,7 +262,7 @@ export class CorrectVoucherDataUseCase {
    * Construye el mensaje de confirmación con datos actualizados
    */
   private buildConfirmationMessage(
-    voucherData: any,
+    voucherData: StructuredDataWithCasa,
     updatedFieldLabel: string,
   ): string {
     const parts = [

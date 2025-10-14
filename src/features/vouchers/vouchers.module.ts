@@ -19,6 +19,7 @@ import { OpenAIModule } from '@/shared/libs/openai/openai.module';
 import { ProcessVoucherUseCase } from './application/process-voucher.use-case';
 import { ConfirmVoucherUseCase } from './application/confirm-voucher.use-case';
 import { HandleWhatsAppMessageUseCase } from './application/handle-whatsapp-message.use-case';
+import { HandleWhatsAppWebhookUseCase } from './application/handle-whatsapp-webhook.use-case';
 import { HandleMissingDataUseCase } from './application/handle-missing-data.use-case';
 import { HandleHouseNumberUseCase } from './application/handle-house-number.use-case';
 import { CorrectVoucherDataUseCase } from './application/correct-voucher-data.use-case';
@@ -42,6 +43,7 @@ import { CorrectVoucherDataUseCase } from './application/correct-voucher-data.us
     ProcessVoucherUseCase,
     ConfirmVoucherUseCase,
     HandleWhatsAppMessageUseCase,
+    HandleWhatsAppWebhookUseCase,
     HandleMissingDataUseCase,
     HandleHouseNumberUseCase,
     CorrectVoucherDataUseCase,

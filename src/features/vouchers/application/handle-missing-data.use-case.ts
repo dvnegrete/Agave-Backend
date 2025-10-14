@@ -10,6 +10,7 @@ import {
   generateRecentDates,
   convertDateIdToString,
 } from '../shared/helpers/date-converter.helper';
+import { StructuredDataWithCasa } from '../infrastructure/ocr/voucher-processor.service';
 import { ErrorMessages } from '@/shared/content';
 
 export interface HandleMissingDataInput {
@@ -182,7 +183,7 @@ export class HandleMissingDataUseCase {
    */
   private async showFinalConfirmation(
     phoneNumber: string,
-    voucherData: any,
+    voucherData: StructuredDataWithCasa,
     gcsFilename: string,
     originalFilename: string,
   ): Promise<HandleMissingDataOutput> {
@@ -223,7 +224,7 @@ export class HandleMissingDataUseCase {
   /**
    * Construye el mensaje de confirmación con los datos del voucher
    */
-  private buildConfirmationMessage(voucherData: any): string {
+  private buildConfirmationMessage(voucherData: StructuredDataWithCasa): string {
     const parts = [
       '📋 *Datos del comprobante:*\n',
       `🏠 Casa: *${voucherData.casa}*`,
