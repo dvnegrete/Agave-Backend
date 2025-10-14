@@ -1,10 +1,140 @@
-# Database Schema - Transactions Bank
+# Database Schema
 
 ## Overview
 
-Este documento describe el esquema de base de datos del módulo de transacciones bancarias y las optimizaciones implementadas.
+Este documento describe el esquema de base de datos completo del sistema Agave, incluyendo transacciones bancarias, vouchers, usuarios y casas.
 
 ## Core Tables
+
+### Vouchers & Houses Module
+
+#### users
+Tabla de usuarios del sistema con autenticación Supabase.
+
+```sql
+CREATE TABLE users (
+    id              UUID PRIMARY KEY,
+    cel_phone       NUMERIC UNIQUE NOT NULL,
+    email           VARCHAR(255),
+    role            user_role NOT NULL DEFAULT 'tenant',
+    status          user_status NOT NULL DEFAULT 'active',
+    created_at      TIMESTAMP DEFAULT now(),
+    updated_at      TIMESTAMP DEFAULT now()
+);
+
+CREATE TYPE user_role AS ENUM ('tenant', 'admin', 'super_admin');
+CREATE TYPE user_status AS ENUM ('active', 'inactive', 'suspended');
+```
+
+**Columnas Principales:**
+- `id`: UUID generado manualmente (uuid v4) o por Supabase Auth
+- `cel_phone`: Número de teléfono en formato E.164 (incluye código de país)
+- `role`: Rol del usuario (inquilino, admin, super admin)
+- `status`: Estado del usuario
+
+#### houses
+Tabla de casas/propiedades en el sistema.
+
+```sql
+CREATE TABLE houses (
+    id              SERIAL PRIMARY KEY,
+    number_house    INT UNIQUE NOT NULL,
+    user_id         UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at      TIMESTAMP DEFAULT now(),
+    updated_at      TIMESTAMP DEFAULT now()
+);
+
+CREATE INDEX idx_houses_user_id ON houses(user_id);
+CREATE INDEX idx_houses_number_house ON houses(number_house);
+```
+
+**Columnas Principales:**
+- `id`: PK autogenerada (permite múltiples registros por casa)
+- `number_house`: Número único de casa/propiedad
+- `user_id`: Propietario actual (puede cambiar con el tiempo)
+
+#### vouchers
+Tabla de comprobantes de pago procesados vía WhatsApp.
+
+```sql
+CREATE TABLE vouchers (
+    id                      BIGSERIAL PRIMARY KEY,
+    image_url               TEXT,
+    amount                  FLOAT,
+    date                    DATE,
+    time                    TIME,
+    casa                    INTEGER,
+    no_referencia           VARCHAR(50),
+    confirmation_status     BOOLEAN DEFAULT false,
+    confirmation_code       VARCHAR(20) UNIQUE,
+    created_at              TIMESTAMP DEFAULT now(),
+    updated_at              TIMESTAMP DEFAULT now()
+);
+
+CREATE INDEX idx_vouchers_casa ON vouchers(casa);
+CREATE INDEX idx_vouchers_confirmation_status ON vouchers(confirmation_status);
+```
+
+**Columnas Principales:**
+- `amount`: Monto del pago
+- `casa`: Número de casa asociada (validación obligatoria)
+- `confirmation_status`: Estado de confirmación del voucher
+- `confirmation_code`: Código único generado para el voucher
+
+#### records
+Tabla central que relaciona vouchers con casas y estados de transacción.
+
+```sql
+CREATE TABLE records (
+    id                          SERIAL PRIMARY KEY,
+    vouchers_id                 BIGINT REFERENCES vouchers(id) ON DELETE CASCADE,
+    transaction_status_id       INT REFERENCES transaction_status(id) ON DELETE SET NULL,
+    cta_water_id               INT,
+    cta_maintenance_id         INT,
+    cta_ordinary_fee_id        INT,
+    cta_extraordinary_fee_id   INT,
+    created_at                 TIMESTAMP DEFAULT now(),
+    updated_at                 TIMESTAMP DEFAULT now()
+);
+
+CREATE INDEX idx_records_vouchers_id ON records(vouchers_id);
+CREATE INDEX idx_records_transaction_status_id ON records(transaction_status_id);
+```
+
+**Columnas Principales:**
+- `vouchers_id`: FK al voucher asociado
+- `transaction_status_id`: Estado de la transacción (null inicialmente)
+- `cta_*`: Campos para asociar cuentas específicas (null inicialmente, se llenan con transactions-bank)
+
+#### house_records
+**🆕 Tabla intermedia** que permite múltiples registros (pagos) por casa.
+
+```sql
+CREATE TABLE house_records (
+    id          SERIAL PRIMARY KEY,
+    house_id    INT REFERENCES houses(id) ON DELETE CASCADE,
+    record_id   INT REFERENCES records(id) ON DELETE CASCADE,
+    created_at  TIMESTAMP DEFAULT now(),
+    updated_at  TIMESTAMP DEFAULT now()
+);
+
+CREATE INDEX idx_house_records_house_id ON house_records(house_id);
+CREATE INDEX idx_house_records_record_id ON house_records(record_id);
+CREATE UNIQUE INDEX idx_house_records_unique ON house_records(house_id, record_id);
+```
+
+**Propósito:**
+- Permite que una casa tenga múltiples pagos (records)
+- Permite que un usuario tenga múltiples casas
+- Mantiene historial completo de pagos por casa
+- Soporta cambio de propietario sin perder historial
+
+**Relaciones:**
+```
+users (1) ──→ (N) houses (1) ──→ (N) house_records (N) ──→ (1) records (1) ──→ (1) vouchers
+```
+
+### Transactions Bank Module
 
 ### transactions_bank
 
@@ -153,8 +283,77 @@ ON transactions_bank (amount) WHERE amount > 10000;
 
 ## Data Types Rationale
 
+### Transactions Bank
 - **BIGINT para ID**: Soporta gran volumen de transacciones
 - **DATE/TIME separados**: Permite búsquedas eficientes por fecha sin hora
 - **FLOAT para amount**: Soporta decimales para montos monetarios
 - **TEXT para bank_name**: Flexible para nombres de banco variables
 - **BOOLEAN para flags**: Eficiente para campos true/false
+
+### Vouchers & Houses
+- **NUMERIC para cel_phone**: Almacena números E.164 sin perder precisión (10-15 dígitos)
+- **UUID para user_id**: Compatible con Supabase Auth
+- **SERIAL para house_id**: Permite múltiples records por casa
+- **INT UNIQUE para number_house**: Identifica casa única pero no es PK
+- **BIGSERIAL para vouchers**: Soporta gran volumen de comprobantes
+
+## Migration History
+
+### 2024-10-13: Voucher Registration with Multiple Tables
+**Migration:** `1729113600000-add-house-record-table-and-update-relations.ts`
+
+**Cambios:**
+1. Creación de tabla `house_records` (tabla intermedia)
+2. Modificación de `houses`:
+   - PK cambiado de `number_house` a `id SERIAL`
+   - `number_house` ahora es `UNIQUE` (no PK)
+   - Removido campo `record_id`
+3. Modificación de `records`:
+   - Relación actualizada a `houseRecords: HouseRecord[]`
+4. Migración de datos existentes preservada
+
+**Objetivo:** Permitir múltiples pagos por casa y cambio de propietarios
+
+**Documentación completa:** [Database Integration](../features/vouchers/database-integration.md)
+
+## Query Examples
+
+### Vouchers Module Queries
+
+#### Ver todos los pagos de una casa
+```sql
+SELECT
+    h.number_house,
+    u.cel_phone AS propietario,
+    v.amount,
+    v.date,
+    v.confirmation_code,
+    r.created_at AS fecha_registro
+FROM house_records hr
+JOIN houses h ON hr.house_id = h.id
+JOIN users u ON h.user_id = u.id
+JOIN records r ON hr.record_id = r.id
+JOIN vouchers v ON r.vouchers_id = v.id
+WHERE h.number_house = 42
+ORDER BY v.date DESC;
+```
+
+#### Ver casas de un usuario
+```sql
+SELECT h.*, COUNT(hr.id) AS total_pagos
+FROM houses h
+LEFT JOIN house_records hr ON h.id = hr.house_id
+JOIN users u ON h.user_id = u.id
+WHERE u.cel_phone = 525512345678
+GROUP BY h.id;
+```
+
+#### Buscar usuario por teléfono
+```sql
+SELECT * FROM users
+WHERE cel_phone = 525512345678;
+```
+
+### Transactions Bank Queries
+
+See existing queries above in "Query Patterns" section.

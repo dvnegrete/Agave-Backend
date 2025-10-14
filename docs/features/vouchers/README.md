@@ -534,24 +534,137 @@ graph TD
 
 ## Database Schema
 
+### 🆕 Multi-Table Registration Flow
+
+El sistema implementa un flujo transaccional que guarda información relacionada en múltiples tablas cuando se confirma un voucher:
+
+```
+vouchers → records → house_records → houses → users
+```
+
+#### Flujo de Registro Transaccional
+
+**Implementado en:** `confirm-voucher.use-case.ts:50`
+
+```typescript
+// TRANSACCIÓN ACID (todo o nada)
+1. ✅ Crear Voucher (vouchers table)
+   - Generar código de confirmación único (YYYYMM-XXXXXXX)
+   - confirmation_status = false (pendiente verificación en banco)
+
+2. ✅ Buscar o Crear Usuario (users table)
+   - Parsear cel_phone con código de país (formato E.164)
+   - Si NO existe: crear con UUID v4, role=TENANT, status=ACTIVE
+
+3. ✅ Crear Record (records table)
+   - vouchers_id = voucher.id
+   - transaction_status_id = null (se llenará con transactions-bank)
+   - cta_* = null (se llenarán con transactions-bank)
+
+4. ✅ Buscar o Crear Casa (houses table)
+   - Buscar por number_house (ÚNICO)
+   - Si NO existe: crear nueva casa
+   - Si EXISTE y cambió propietario: actualizar user_id
+
+5. ✅ Crear Asociación (house_records table)
+   - Relacionar house_id con record_id
+   - Permite múltiples pagos por casa
+```
+
+**Características Clave:**
+- ✅ **Transacción ACID**: Todo se guarda o nada se guarda (QueryRunner)
+- ✅ **Rollback automático** en caso de error
+- ✅ **Número de casa obligatorio**: Si falta → Error y rechazo
+- ✅ **Teléfono internacional**: Formato E.164 (cualquier código de país)
+- ✅ **Usuario multi-casa**: Un usuario puede tener varias casas
+- ✅ **Casa multi-pago**: Una casa puede tener múltiples records (pagos)
+- ✅ **Cambio de propietario**: Casa puede cambiar de usuario sin perder historial
+
+**Ver documentación completa:** [Database Integration](database-integration.md)
+
 ### Vouchers Table
 
 ```sql
 CREATE TABLE vouchers (
-  id SERIAL PRIMARY KEY,
-  date TIMESTAMP NOT NULL,
-  authorization_number VARCHAR(255),
-  confirmation_code VARCHAR(20) UNIQUE,  -- Código único YYYYMM-XXXXXXX
+  id BIGSERIAL PRIMARY KEY,
+  image_url TEXT,
   amount FLOAT NOT NULL,
+  date DATE,
+  time TIME,
+  casa INTEGER,  -- ⚠️ OBLIGATORIO para registro exitoso
+  no_referencia VARCHAR(50),
+  confirmation_code VARCHAR(20) UNIQUE,  -- Código único YYYYMM-XXXXXXX
   confirmation_status BOOLEAN DEFAULT false,
-  url TEXT,  -- GCS URL
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );
 
 CREATE UNIQUE INDEX idx_voucher_confirmation_code
 ON vouchers(confirmation_code);
+CREATE INDEX idx_vouchers_casa ON vouchers(casa);
+CREATE INDEX idx_vouchers_confirmation_status ON vouchers(confirmation_status);
 ```
+
+### Related Tables
+
+#### Users
+```sql
+CREATE TABLE users (
+  id UUID PRIMARY KEY,
+  cel_phone NUMERIC UNIQUE NOT NULL,  -- Formato E.164 (ej: 525512345678)
+  role user_role NOT NULL DEFAULT 'tenant',
+  status user_status NOT NULL DEFAULT 'active',
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+#### Houses
+```sql
+CREATE TABLE houses (
+  id SERIAL PRIMARY KEY,                 -- PK autogenerada
+  number_house INT UNIQUE NOT NULL,      -- Número único de casa
+  user_id UUID REFERENCES users(id),     -- Propietario actual
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+#### Records
+```sql
+CREATE TABLE records (
+  id SERIAL PRIMARY KEY,
+  vouchers_id BIGINT REFERENCES vouchers(id) ON DELETE CASCADE,
+  transaction_status_id INT,             -- null inicialmente
+  cta_water_id INT,                      -- null inicialmente
+  cta_maintenance_id INT,                -- null inicialmente
+  cta_ordinary_fee_id INT,               -- null inicialmente
+  cta_extraordinary_fee_id INT,          -- null inicialmente
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+#### House Records (Tabla Intermedia)
+```sql
+CREATE TABLE house_records (
+  id SERIAL PRIMARY KEY,
+  house_id INT REFERENCES houses(id) ON DELETE CASCADE,
+  record_id INT REFERENCES records(id) ON DELETE CASCADE,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Permite múltiples pagos por casa
+CREATE UNIQUE INDEX idx_house_records_unique ON house_records(house_id, record_id);
+```
+
+**Relaciones:**
+```
+users (1) ──→ (N) houses (1) ──→ (N) house_records (N) ──→ (1) records (1) ──→ (1) vouchers
+```
+
+**Ver esquema completo:** [Database Schema](../../database/schema.md)
 
 ## Message Templates
 
@@ -679,8 +792,8 @@ files: {
 ## Integration Points
 
 ### Google Cloud Platform
-- **Vision API**: OCR text extraction
-- **Cloud Storage**: File uploads
+- **Vision API**: OCR text extraction ([Setup Guide](../../modules/google-cloud/vision-api-setup.md))
+- **Cloud Storage**: File uploads ([Service Documentation](../../modules/google-cloud/README.md#cloud-storage-service))
 - **Translate API**: (Future) Multi-language support
 
 ### WhatsApp Business API
@@ -777,12 +890,12 @@ await this.whatsappMessaging.sendListMessage(
 
 ## Related Documentation
 
-- [OCR Implementation](ocr-implementation.md) - Detalles de implementación OCR
-- [WhatsApp Integration](whatsapp-integration.md) - Guía de integración WhatsApp
-- [Conversation Flow](conversation-flow.md) - Diagramas de flujo de conversación
+- [Database Integration](database-integration.md) - Sistema transaccional multi-tabla
+- [OCR Implementation](../../modules/vouchers/ocr-implementation.md) - Detalles de implementación OCR
 - [Google Cloud Library](../../modules/google-cloud/README.md) - Librería de GCP
+- [Vision API Setup](../../modules/google-cloud/vision-api-setup.md) - Configuración de Google Cloud Vision
 - [Content Dictionary](../../modules/content/README.md) - Mensajes centralizados
-- [Database Migrations](../../database/README.md) - Migraciones de BD
+- [Database Schema](../../database/schema.md) - Estructura de base de datos
 
 ## Troubleshooting
 
@@ -792,6 +905,7 @@ await this.whatsappMessaging.sendListMessage(
 - Verificar calidad de imagen (mínimo 300 DPI recomendado)
 - Comprobar que el texto sea legible
 - Revisar logs de Google Cloud Vision API
+- Consultar la [guía de configuración](../../modules/google-cloud/vision-api-setup.md#solución-de-problemas)
 
 ### WhatsApp Not Receiving
 **Problema**: No llegan mensajes de WhatsApp
@@ -812,6 +926,7 @@ await this.whatsappMessaging.sendListMessage(
 
 Para problemas o preguntas:
 1. Revisar logs en consola
-2. Verificar variables de entorno
-3. Consultar documentación de [Google Cloud Vision](https://cloud.google.com/vision/docs)
-4. Consultar documentación de [WhatsApp Business API](https://developers.facebook.com/docs/whatsapp)
+2. Verificar variables de entorno ([Ver configuración](../../modules/google-cloud/vision-api-setup.md#configurar-variables-de-entorno))
+3. Consultar [Guía de troubleshooting de Vision API](../../modules/google-cloud/vision-api-setup.md#solución-de-problemas)
+4. Consultar documentación de [Google Cloud Vision](https://cloud.google.com/vision/docs)
+5. Consultar documentación de [WhatsApp Business API](https://developers.facebook.com/docs/whatsapp)

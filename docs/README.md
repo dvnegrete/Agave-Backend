@@ -13,10 +13,11 @@ Documentación completa del backend de Agave, incluyendo arquitectura, features,
 - [Clean Architecture](features/transactions-bank/README.md#architecture) - Patrón de arquitectura implementado
 
 ### 💾 Database
-- [**Schema & Tables**](database/schema.md) - Estructura de tablas y relaciones
+- [**Schema & Tables**](database/schema.md) - Estructura completa de tablas (Transactions Bank + Vouchers/Houses)
 - [**Triggers & Functions**](database/triggers.md) - Lógica automática de duplicados
 - [**Indexes & Optimization**](database/indexes.md) - Optimización de performance
 - [**Setup & Commands**](database/setup.md) - Comandos npm y configuración
+- [**Migration History**](database/schema.md#migration-history) - Historial de cambios de esquema
 
 ### 🏦 Features
 
@@ -27,15 +28,17 @@ Documentación completa del backend de Agave, incluyendo arquitectura, features,
 - [File Processing](features/transactions-bank/README.md#supported-formats) - Formatos soportados
 
 #### Vouchers & OCR
-- [**Vouchers Module Overview**](modules/vouchers/README.md) - Módulo de procesamiento de comprobantes
+- [**Vouchers Feature Overview**](features/vouchers/README.md) - Módulo completo de procesamiento de comprobantes
+- [**Database Integration**](features/vouchers/database-integration.md) - Sistema transaccional multi-tabla (users, houses, records, vouchers)
 - [**OCR Implementation**](modules/vouchers/ocr-implementation.md) - Implementación de OCR con Google Cloud Vision
-- [WhatsApp Integration](modules/vouchers/README.md#whatsapp-integration) - Integración con WhatsApp Business API
+- [WhatsApp Integration](features/vouchers/README.md#whatsapp-integration) - Integración con WhatsApp Business API
 
 ### 📦 Shared Modules
 
 #### Google Cloud Platform
 - [**Google Cloud Library**](modules/google-cloud/README.md) - Librería unificada para servicios de GCP
-- [Vision API Setup](../GOOGLE_CLOUD_VISION_SETUP.md) - Configuración de Google Cloud Vision
+- [**Vision API Setup**](modules/google-cloud/vision-api-setup.md) - Configuración de Google Cloud Vision para OCR
+- [Cloud Storage Service](modules/google-cloud/README.md#cloud-storage-service) - Servicio centralizado de almacenamiento
 - [Services Available](modules/google-cloud/README.md#servicios-disponibles) - Vision, Storage, Translate, TTS, STT
 
 #### Content Dictionary System
@@ -134,14 +137,22 @@ src/
 
 ## Database Schema Overview
 
-### Core Tables
+### Transactions Bank Module
 - `transactions_bank`: Main transactions storage
 - `last_transaction_bank`: Processing reference tracking
 
+### Vouchers & Houses Module
+- `vouchers`: Comprobantes de pago con OCR
+- `records`: Registros centrales que relacionan vouchers con casas
+- `houses`: Casas/propiedades del sistema
+- `house_records`: Tabla intermedia (múltiples pagos por casa)
+- `users`: Usuarios con autenticación y números de teléfono internacionales
+
 ### Automatic Features
-- **Duplicate Detection**: SQL trigger prevents duplicates
+- **Duplicate Detection**: SQL trigger prevents duplicates (transactions-bank)
 - **Performance Optimization**: Partial indexes for common queries
-- **Reference Tracking**: Incremental processing support
+- **Transactional Integrity**: ACID transactions for voucher registration
+- **Multi-table Relationships**: Normalized schema with proper foreign keys
 
 ## API Overview
 
@@ -160,8 +171,10 @@ GET    /transactions-bank/export/json    # Export to JSON
 ```http
 POST   /vouchers/ocr-service             # Process voucher with OCR
 GET    /vouchers/ocr-service/languages   # Get supported languages
-POST   /vouchers/whatsapp-webhook        # WhatsApp webhook
+POST   /vouchers/whatsapp-webhook        # WhatsApp webhook (register voucher + multi-table insert)
 GET    /vouchers/whatsapp-webhook        # WhatsApp verification
+GET    /vouchers                         # Get all vouchers (with filters)
+GET    /vouchers/:id                     # Get voucher by ID with signed URL
 ```
 
 ## Development Guidelines
