@@ -149,13 +149,10 @@ export class VouchersController {
    */
   @Post('webhook/whatsapp')
   receiveWhatsAppMessage(@Body() body: WhatsAppWebhookDto) {
-    // Procesar el mensaje de forma asíncrona (fire-and-forget)
-    // No esperamos a que termine para responder a WhatsApp
     this.handleWhatsAppWebhookUseCase.execute(body).catch((error) => {
       console.error('Error procesando mensaje de WhatsApp:', error);
     });
 
-    // Responder inmediatamente a WhatsApp para evitar timeout
     return { success: true };
   }
 }

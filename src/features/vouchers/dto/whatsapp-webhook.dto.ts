@@ -78,17 +78,21 @@ export class WhatsAppTextDto {
 
 // DTO para el mensaje principal
 export class WhatsAppMessageDto {
+  @IsOptional()
   @IsString()
-  from: string;
+  from?: string;
 
+  @IsOptional()
   @IsString()
-  id: string;
+  id?: string;
 
+  @IsOptional()
   @IsString()
-  timestamp: string;
+  timestamp?: string;
 
+  @IsOptional()
   @IsString()
-  type:
+  type?:
     | 'text'
     | 'image'
     | 'document'
@@ -133,8 +137,9 @@ class WhatsAppContactDto {
 
 // DTO para el value que contiene mensajes y metadata
 class WhatsAppValueDto {
+  @IsOptional()
   @IsString()
-  messaging_product: string;
+  messaging_product?: string;
 
   @IsOptional()
   @ValidateNested({ each: true })
@@ -146,8 +151,9 @@ class WhatsAppValueDto {
   @Type(() => WhatsAppContactDto)
   contacts?: WhatsAppContactDto[];
 
+  @IsOptional()
   @IsObject()
-  metadata: {
+  metadata?: {
     display_phone_number: string;
     phone_number_id: string;
   };

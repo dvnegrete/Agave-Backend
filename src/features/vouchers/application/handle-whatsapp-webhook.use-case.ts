@@ -102,8 +102,8 @@ export class HandleWhatsAppWebhookUseCase {
     }
 
     return {
-      phoneNumber: message.from,
-      type: message.type,
+      phoneNumber: message.from || '',
+      type: message.type || '',
       data: message,
     };
   }
