@@ -191,30 +191,36 @@ class WhatsAppValueDto {
 
 // DTO para los changes
 class WhatsAppChangeDto {
+  @IsOptional()
   @ValidateNested()
   @Type(() => WhatsAppValueDto)
-  value: WhatsAppValueDto;
+  value?: WhatsAppValueDto;
 
+  @IsOptional()
   @IsString()
-  field: string;
+  field?: string;
 }
 
 // DTO para el entry
 class WhatsAppEntryDto {
+  @IsOptional()
   @IsString()
-  id: string;
+  id?: string;
 
+  @IsOptional()
   @ValidateNested({ each: true })
   @Type(() => WhatsAppChangeDto)
-  changes: WhatsAppChangeDto[];
+  changes?: WhatsAppChangeDto[];
 }
 
 // DTO principal del webhook
 export class WhatsAppWebhookDto {
+  @IsOptional()
   @IsString()
-  object: string;
+  object?: string;
 
+  @IsOptional()
   @ValidateNested({ each: true })
   @Type(() => WhatsAppEntryDto)
-  entry: WhatsAppEntryDto[];
+  entry?: WhatsAppEntryDto[];
 }
