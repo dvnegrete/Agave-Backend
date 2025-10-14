@@ -13,6 +13,8 @@ import {
   MaxFileSizeValidator,
   FileTypeValidator,
   UnauthorizedException,
+  ValidationPipe,
+  UsePipes,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { VouchersService } from '../infrastructure/persistence/vouchers.service';
@@ -148,6 +150,14 @@ export class VouchersController {
    * y respondemos inmediatamente con success: true.
    */
   @Post('webhook/whatsapp')
+  @UsePipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: false, // Permitir campos extra de WhatsApp
+      transform: true,
+      skipMissingProperties: true, // Ignorar propiedades faltantes
+    }),
+  )
   receiveWhatsAppMessage(@Body() body: WhatsAppWebhookDto) {
     console.log('🎯 Endpoint webhook/whatsapp ejecutado');
     console.log('📦 Body recibido:', JSON.stringify(body, null, 2));
