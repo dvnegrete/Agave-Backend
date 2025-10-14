@@ -135,6 +135,31 @@ class WhatsAppContactDto {
   wa_id: string;
 }
 
+// DTO para status updates (confirmaciones de entrega/lectura)
+class WhatsAppStatusDto {
+  @IsOptional()
+  @IsString()
+  id?: string;
+
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @IsOptional()
+  @IsString()
+  timestamp?: string;
+
+  @IsOptional()
+  @IsString()
+  recipient_id?: string;
+
+  @IsOptional()
+  conversation?: any;
+
+  @IsOptional()
+  pricing?: any;
+}
+
 // DTO para el value que contiene mensajes y metadata
 class WhatsAppValueDto {
   @IsOptional()
@@ -150,6 +175,11 @@ class WhatsAppValueDto {
   @ValidateNested({ each: true })
   @Type(() => WhatsAppContactDto)
   contacts?: WhatsAppContactDto[];
+
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => WhatsAppStatusDto)
+  statuses?: WhatsAppStatusDto[];
 
   @IsOptional()
   @IsObject()
