@@ -60,30 +60,36 @@ export class HandleWhatsAppWebhookUseCase {
 
       // Si no hay mensaje, retornar éxito (puede ser una notificación de estado)
       if (!message) {
+        console.log('✅ Webhook sin mensaje (status update) - ignorado');
         return { success: true };
       }
 
       const { phoneNumber, type } = message;
+      console.log(`📨 Mensaje recibido - Tipo: ${type}, De: ${phoneNumber}`);
 
       // 2. Delegar según el tipo de mensaje
       switch (type) {
         case 'image':
+          console.log('🖼️  Procesando imagen...');
           return await this.handleImageMessage(message);
 
         case 'document':
+          console.log('📄 Procesando documento...');
           return await this.handleDocumentMessage(message);
 
         case 'interactive':
+          console.log('🔘 Procesando respuesta interactiva...');
           return await this.handleInteractiveMessage(message);
 
         case 'text':
+          console.log('💬 Procesando mensaje de texto...');
           return await this.handleTextMessage(message);
 
         default:
           return await this.handleUnsupportedMessage(phoneNumber, type);
       }
     } catch (error) {
-      console.error('Error procesando mensaje de WhatsApp:', error);
+      console.error('❌ Error procesando mensaje de WhatsApp:', error);
       throw new BadRequestException('Error processing WhatsApp message');
     }
   }
@@ -117,6 +123,7 @@ export class HandleWhatsAppWebhookUseCase {
     const { phoneNumber, data } = message;
 
     if (!data.image) {
+      console.log('⚠️  No se encontró objeto image en el mensaje');
       return { success: true };
     }
 
@@ -124,15 +131,18 @@ export class HandleWhatsAppWebhookUseCase {
     const mediaId = image.id;
     const caption = image.caption || '';
 
+    console.log(`📸 Imagen recibida - MediaID: ${mediaId}`);
     if (caption) {
-      console.log(`Caption recibido: ${caption}`);
+      console.log(`📝 Caption recibido: ${caption}`);
     }
 
+    console.log('🔄 Iniciando procesamiento de voucher...');
     await this.processVoucher.execute({
       phoneNumber,
       mediaId,
       mediaType: 'image',
     });
+    console.log('✅ Voucher procesado exitosamente');
 
     return { success: true };
   }
