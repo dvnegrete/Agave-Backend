@@ -150,15 +150,7 @@ export class VouchersController {
    * y respondemos inmediatamente con success: true.
    */
   @Post('webhook/whatsapp')
-  @UsePipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: false, // Permitir campos extra de WhatsApp
-      transform: true,
-      skipMissingProperties: true, // Ignorar propiedades faltantes
-    }),
-  )
-  receiveWhatsAppMessage(@Body() body: WhatsAppWebhookDto) {
+  receiveWhatsAppMessage(@Body() body: any) {
     console.log('🎯 Endpoint webhook/whatsapp ejecutado');
     console.log('📦 Body recibido:', JSON.stringify(body, null, 2));
 
