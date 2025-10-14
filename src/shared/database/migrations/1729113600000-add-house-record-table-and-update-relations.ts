@@ -149,8 +149,12 @@ export class AddHouseRecordTableAndUpdateRelations1729113600000
 
     // 1. Eliminar índices
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_houses_number_house"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_house_records_record_id"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_house_records_house_id"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_house_records_record_id"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_house_records_house_id"`,
+    );
 
     // 2. Eliminar foreign keys de house_records
     await queryRunner.query(`

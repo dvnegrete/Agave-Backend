@@ -23,15 +23,18 @@ export class RecordRepository {
   /**
    * Crea un nuevo record en la base de datos
    */
-  async create(data: CreateRecordDto, queryRunner?: QueryRunner): Promise<Record> {
+  async create(
+    data: CreateRecordDto,
+    queryRunner?: QueryRunner,
+  ): Promise<Record> {
     const recordData: Partial<Record> = {
       vouchers_id: data.vouchers_id,
-      transaction_status_id: data.transaction_status_id ?? null,
-      cta_extraordinary_fee_id: data.cta_extraordinary_fee_id ?? null,
-      cta_maintence_id: data.cta_maintence_id ?? null,
-      cta_penalities_id: data.cta_penalities_id ?? null,
-      cta_water_id: data.cta_water_id ?? null,
-      cta_other_payments_id: data.cta_other_payments_id ?? null,
+      transaction_status_id: data.transaction_status_id ?? undefined,
+      cta_extraordinary_fee_id: data.cta_extraordinary_fee_id ?? undefined,
+      cta_maintence_id: data.cta_maintence_id ?? undefined,
+      cta_penalities_id: data.cta_penalities_id ?? undefined,
+      cta_water_id: data.cta_water_id ?? undefined,
+      cta_other_payments_id: data.cta_other_payments_id ?? undefined,
     };
 
     if (queryRunner) {
@@ -64,7 +67,23 @@ export class RecordRepository {
    * Actualiza un record por su ID
    */
   async update(id: number, data: Partial<CreateRecordDto>): Promise<Record> {
-    await this.recordRepository.update(id, data);
+    const updateData: any = {};
+    if (data.vouchers_id !== undefined)
+      updateData.vouchers_id = data.vouchers_id;
+    if (data.transaction_status_id !== undefined)
+      updateData.transaction_status_id = data.transaction_status_id;
+    if (data.cta_extraordinary_fee_id !== undefined)
+      updateData.cta_extraordinary_fee_id = data.cta_extraordinary_fee_id;
+    if (data.cta_maintence_id !== undefined)
+      updateData.cta_maintence_id = data.cta_maintence_id;
+    if (data.cta_penalities_id !== undefined)
+      updateData.cta_penalities_id = data.cta_penalities_id;
+    if (data.cta_water_id !== undefined)
+      updateData.cta_water_id = data.cta_water_id;
+    if (data.cta_other_payments_id !== undefined)
+      updateData.cta_other_payments_id = data.cta_other_payments_id;
+
+    await this.recordRepository.update(id, updateData);
     const updated = await this.findById(id);
     if (!updated) {
       throw new Error(`Record con ID ${id} no encontrado`);

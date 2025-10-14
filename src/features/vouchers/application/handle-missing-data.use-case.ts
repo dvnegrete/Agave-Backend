@@ -224,7 +224,9 @@ export class HandleMissingDataUseCase {
   /**
    * Construye el mensaje de confirmación con los datos del voucher
    */
-  private buildConfirmationMessage(voucherData: StructuredDataWithCasa): string {
+  private buildConfirmationMessage(
+    voucherData: StructuredDataWithCasa,
+  ): string {
     const parts = [
       '📋 *Datos del comprobante:*\n',
       `🏠 Casa: *${voucherData.casa}*`,

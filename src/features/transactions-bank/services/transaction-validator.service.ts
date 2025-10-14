@@ -84,7 +84,8 @@ export class TransactionValidatorService {
     const now = new Date();
     const futureDate = new Date();
     futureDate.setDate(
-      now.getDate() + BusinessValues.transactionsBank.dateValidation.maxFutureDays,
+      now.getDate() +
+        BusinessValues.transactionsBank.dateValidation.maxFutureDays,
     );
 
     if (dateObj > futureDate) {
@@ -93,7 +94,8 @@ export class TransactionValidatorService {
 
     const pastDate = new Date();
     pastDate.setFullYear(
-      now.getFullYear() - BusinessValues.transactionsBank.dateValidation.maxPastYears,
+      now.getFullYear() -
+        BusinessValues.transactionsBank.dateValidation.maxPastYears,
     );
 
     if (dateObj < pastDate) {
@@ -201,10 +203,9 @@ export class TransactionValidatorService {
       !(this.SUPPORTED_CURRENCIES as readonly string[]).includes(currencyUpper)
     ) {
       errors.push(
-        TransactionsBankValidationMessages.currency.notSupported(
-          currency,
-          [...this.SUPPORTED_CURRENCIES],
-        ),
+        TransactionsBankValidationMessages.currency.notSupported(currency, [
+          ...this.SUPPORTED_CURRENCIES,
+        ]),
       );
     }
   }

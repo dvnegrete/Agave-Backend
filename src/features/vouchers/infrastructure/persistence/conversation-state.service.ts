@@ -57,10 +57,13 @@ export class ConversationStateService {
     }
 
     // Verificar si la sesión ha expirado
-    const isExpired = Date.now() - context.lastMessageAt.getTime() > this.SESSION_TIMEOUT_MS;
+    const isExpired =
+      Date.now() - context.lastMessageAt.getTime() > this.SESSION_TIMEOUT_MS;
 
     if (isExpired) {
-      this.logger.log(`Sesión expirada para ${phoneNumber}, limpiando contexto`);
+      this.logger.log(
+        `Sesión expirada para ${phoneNumber}, limpiando contexto`,
+      );
       this.clearContext(phoneNumber);
       return null;
     }
@@ -177,7 +180,15 @@ export class ConversationStateService {
    */
   isConfirmationMessage(message: string): boolean {
     const normalizedMessage = message.trim().toLowerCase();
-    const confirmations = ['si', 'sí', 'yes', 'ok', 'confirmar', 'confirmo', 'correcto'];
+    const confirmations = [
+      'si',
+      'sí',
+      'yes',
+      'ok',
+      'confirmar',
+      'confirmo',
+      'correcto',
+    ];
     return confirmations.includes(normalizedMessage);
   }
 
@@ -214,7 +225,8 @@ export class ConversationStateService {
     let cleanedCount = 0;
 
     for (const [phoneNumber, context] of this.conversations.entries()) {
-      const isExpired = now - context.lastMessageAt.getTime() > this.SESSION_TIMEOUT_MS;
+      const isExpired =
+        now - context.lastMessageAt.getTime() > this.SESSION_TIMEOUT_MS;
 
       if (isExpired) {
         this.conversations.delete(phoneNumber);
@@ -304,7 +316,10 @@ export class ConversationStateService {
     // if (!voucherData.referencia || voucherData.referencia.trim() === '') {
     //   missingFields.push('referencia');
     // }
-    if (!voucherData.hora_transaccion || voucherData.hora_transaccion.trim() === '') {
+    if (
+      !voucherData.hora_transaccion ||
+      voucherData.hora_transaccion.trim() === ''
+    ) {
       missingFields.push('hora_transaccion');
     }
     if (!voucherData.casa) {
@@ -319,7 +334,10 @@ export class ConversationStateService {
    */
   getNextMissingField(phoneNumber: string): string | null {
     const context = this.getContext(phoneNumber);
-    if (!context?.data?.missingFields || context.data.missingFields.length === 0) {
+    if (
+      !context?.data?.missingFields ||
+      context.data.missingFields.length === 0
+    ) {
       return null;
     }
     return context.data.missingFields[0];
@@ -331,7 +349,9 @@ export class ConversationStateService {
   removeFromMissingFields(phoneNumber: string, field: string): void {
     const context = this.getContext(phoneNumber);
     if (context?.data?.missingFields) {
-      context.data.missingFields = context.data.missingFields.filter(f => f !== field);
+      context.data.missingFields = context.data.missingFields.filter(
+        (f) => f !== field,
+      );
       this.logger.log(
         `Campo ${field} removido de campos faltantes para ${phoneNumber}. Quedan: ${context.data.missingFields.length}`,
       );

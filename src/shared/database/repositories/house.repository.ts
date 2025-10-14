@@ -22,7 +22,10 @@ export class HouseRepository {
   /**
    * Crea una nueva casa en la base de datos
    */
-  async create(data: CreateHouseDto, queryRunner?: QueryRunner): Promise<House> {
+  async create(
+    data: CreateHouseDto,
+    queryRunner?: QueryRunner,
+  ): Promise<House> {
     const houseData: Partial<House> = {
       number_house: data.number_house,
       user_id: data.user_id,

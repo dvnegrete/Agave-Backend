@@ -9,7 +9,10 @@ import { HouseRecordRepository } from '@/shared/database/repositories/house-reco
 import { ConversationStateService } from '../infrastructure/persistence/conversation-state.service';
 import { WhatsAppMessagingService } from '../infrastructure/whatsapp/whatsapp-messaging.service';
 import { ConfirmationMessages, ErrorMessages } from '@/shared/content';
-import { combineDateAndTime, parsePhoneNumberWithCountryCode } from '@/shared/common/utils';
+import {
+  combineDateAndTime,
+  parsePhoneNumberWithCountryCode,
+} from '@/shared/common/utils';
 import { generateUniqueConfirmationCode } from '../shared/helpers';
 import { Role, Status } from '@/shared/database/entities/enums';
 
@@ -192,7 +195,10 @@ export class ConfirmVoucherUseCase {
   /**
    * Busca un usuario por cel_phone o lo crea si no existe
    */
-  private async findOrCreateUser(phoneNumber: string, queryRunner: any): Promise<any> {
+  private async findOrCreateUser(
+    phoneNumber: string,
+    queryRunner: any,
+  ): Promise<any> {
     try {
       // Parsear número de teléfono con código de país
       const celPhone = parsePhoneNumberWithCountryCode(phoneNumber);
@@ -245,9 +251,7 @@ export class ConfirmVoucherUseCase {
 
       if (!house) {
         // Casa no existe, crear nueva
-        console.log(
-          `Creando nueva casa ${numberHouse} para usuario ${userId}`,
-        );
+        console.log(`Creando nueva casa ${numberHouse} para usuario ${userId}`);
 
         house = await this.houseRepository.create(
           {

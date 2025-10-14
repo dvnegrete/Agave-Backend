@@ -28,7 +28,10 @@ export class HouseRecordRepository {
     };
 
     if (queryRunner) {
-      const houseRecord = queryRunner.manager.create(HouseRecord, houseRecordData);
+      const houseRecord = queryRunner.manager.create(
+        HouseRecord,
+        houseRecordData,
+      );
       return await queryRunner.manager.save(houseRecord);
     }
 

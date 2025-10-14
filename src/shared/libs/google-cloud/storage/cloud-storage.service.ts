@@ -190,7 +190,10 @@ export class CloudStorageService {
         publicUrl: `https://storage.googleapis.com/${bucketName}/${fileName}`,
       };
     } catch (error) {
-      this.logger.error(`Error al subir archivo a GCS: ${error.message}`, error);
+      this.logger.error(
+        `Error al subir archivo a GCS: ${error.message}`,
+        error,
+      );
       throw new BadRequestException(
         `Error al subir archivo a Cloud Storage: ${error.message}`,
       );
@@ -214,11 +217,13 @@ export class CloudStorageService {
    * });
    * ```
    */
-  async getAllFiles(options: {
-    bucketName?: string;
-    prefix?: string;
-    maxResults?: number;
-  } = {}): Promise<CloudStorageFile[]> {
+  async getAllFiles(
+    options: {
+      bucketName?: string;
+      prefix?: string;
+      maxResults?: number;
+    } = {},
+  ): Promise<CloudStorageFile[]> {
     try {
       const storageClient = this.getStorageClient();
       const bucketName = options.bucketName || this.getDefaultBucketName();
@@ -228,9 +233,14 @@ export class CloudStorageService {
         maxResults: options.maxResults,
       });
 
-      return files.map((file) => this.mapFileToCloudStorageFile(file, bucketName));
+      return files.map((file) =>
+        this.mapFileToCloudStorageFile(file, bucketName),
+      );
     } catch (error) {
-      this.logger.error(`Error al obtener archivos de GCS: ${error.message}`, error);
+      this.logger.error(
+        `Error al obtener archivos de GCS: ${error.message}`,
+        error,
+      );
       throw new BadRequestException(
         `Error al obtener archivos de Cloud Storage: ${error.message}`,
       );
@@ -255,9 +265,14 @@ export class CloudStorageService {
 
       await storageClient.bucket(bucket).file(fileName).delete();
 
-      this.logger.log(`Archivo eliminado exitosamente: gs://${bucket}/${fileName}`);
+      this.logger.log(
+        `Archivo eliminado exitosamente: gs://${bucket}/${fileName}`,
+      );
     } catch (error) {
-      this.logger.error(`Error al eliminar archivo de GCS: ${error.message}`, error);
+      this.logger.error(
+        `Error al eliminar archivo de GCS: ${error.message}`,
+        error,
+      );
       throw new BadRequestException(
         `Error al eliminar archivo de Cloud Storage: ${error.message}`,
       );
@@ -302,7 +317,10 @@ export class CloudStorageService {
 
       this.logger.log(`${fileNames.length} archivos eliminados exitosamente`);
     } catch (error) {
-      this.logger.error(`Error al eliminar archivos de GCS: ${error.message}`, error);
+      this.logger.error(
+        `Error al eliminar archivos de GCS: ${error.message}`,
+        error,
+      );
       throw new BadRequestException(
         `Error al eliminar archivos de Cloud Storage: ${error.message}`,
       );
@@ -328,7 +346,9 @@ export class CloudStorageService {
 
       return exists;
     } catch (error) {
-      this.logger.error(`Error al verificar existencia de archivo: ${error.message}`);
+      this.logger.error(
+        `Error al verificar existencia de archivo: ${error.message}`,
+      );
       return false;
     }
   }
@@ -359,7 +379,10 @@ export class CloudStorageService {
       this.logger.log(`Archivo descargado exitosamente: ${fileName}`);
       return contents;
     } catch (error) {
-      this.logger.error(`Error al descargar archivo de GCS: ${error.message}`, error);
+      this.logger.error(
+        `Error al descargar archivo de GCS: ${error.message}`,
+        error,
+      );
       throw new BadRequestException(
         `Error al descargar archivo de Cloud Storage: ${error.message}`,
       );
@@ -451,7 +474,7 @@ export class CloudStorageService {
     bucketName: string,
   ): CloudStorageFile {
     const size = file.metadata.size;
-    const sizeNumber = typeof size === 'string' ? parseInt(size) : (size || 0);
+    const sizeNumber = typeof size === 'string' ? parseInt(size) : size || 0;
 
     return {
       name: file.name,

@@ -55,7 +55,9 @@ export class VertexAIService {
       // IMPORTANTE: Vertex AI a veces retorna un array con un objeto dentro [{}]
       // en lugar de un objeto directo {}. Detectar y corregir esto.
       if (Array.isArray(parsedData) && parsedData.length > 0) {
-        this.logger.log('Vertex AI retornó un array, extrayendo primer elemento');
+        this.logger.log(
+          'Vertex AI retornó un array, extrayendo primer elemento',
+        );
         parsedData = parsedData[0];
       }
 
