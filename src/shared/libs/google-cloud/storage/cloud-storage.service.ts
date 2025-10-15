@@ -420,22 +420,27 @@ export class CloudStorageService {
 
       const file = storageClient.bucket(bucket).file(fileName);
 
+      // Verificar si el archivo existe antes de generar la URL
+      const [exists] = await file.exists();
+      if (!exists) {
+        throw new BadRequestException(
+          `El archivo ${fileName} no existe en el bucket ${bucket}`,
+        );
+      }
+
       const [signedUrl] = await file.getSignedUrl({
         version: 'v4',
         action,
         expires: Date.now() + expiresInMinutes * 60 * 1000,
       });
 
-      this.logger.log(
-        `URL firmada generada para ${fileName} (válida por ${expiresInMinutes} minutos)`,
-      );
-
       return signedUrl;
     } catch (error) {
-      this.logger.error(
-        `Error al generar URL firmada: ${error.message}`,
-        error,
-      );
+      // Si el error ya es un BadRequestException, re-lanzarlo
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
       throw new BadRequestException(
         `Error al generar URL de acceso: ${error.message}`,
       );
