@@ -12,11 +12,13 @@ import { HandleWhatsAppMessageUseCase } from './handle-whatsapp-message.use-case
 import { WhatsAppMessageClassifierService } from '../infrastructure/whatsapp/whatsapp-message-classifier.service';
 import { WhatsAppMessagingService } from '../infrastructure/whatsapp/whatsapp-messaging.service';
 import { ConversationStateService } from '../infrastructure/persistence/conversation-state.service';
+import { WhatsAppDeduplicationService } from '../infrastructure/whatsapp/whatsapp-deduplication.service';
 import { ErrorMessages } from '@/shared/content';
 
 export interface HandleWhatsAppWebhookOutput {
   success: boolean;
   message?: string;
+  isDuplicate?: boolean;
 }
 
 interface ExtractedMessage {
@@ -49,6 +51,7 @@ export class HandleWhatsAppWebhookUseCase {
     private readonly messageClassifier: WhatsAppMessageClassifierService,
     private readonly whatsappMessaging: WhatsAppMessagingService,
     private readonly conversationState: ConversationStateService,
+    private readonly deduplication: WhatsAppDeduplicationService,
   ) {}
 
   async execute(
@@ -63,9 +66,25 @@ export class HandleWhatsAppWebhookUseCase {
         return { success: true };
       }
 
+      // 2. Verificar deduplicación usando el ID único del mensaje
+      const messageId = message.data.id;
+      if (messageId && this.deduplication.isDuplicate(messageId)) {
+        return {
+          success: true,
+          isDuplicate: true,
+          message: 'Duplicate message ignored',
+        };
+      }
+
+      // 3. Marcar mensaje como procesado ANTES de procesarlo
+      // Esto previene race conditions si WhatsApp reintenta mientras procesamos
+      if (messageId) {
+        this.deduplication.markAsProcessed(messageId);
+      }
+
       const { phoneNumber, type } = message;
 
-      // 2. Delegar según el tipo de mensaje
+      // 4. Delegar según el tipo de mensaje
       switch (type) {
         case 'image':
           return await this.handleImageMessage(message);

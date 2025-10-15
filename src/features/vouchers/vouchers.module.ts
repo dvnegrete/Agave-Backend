@@ -11,6 +11,7 @@ import { WhatsAppMessageClassifierService } from './infrastructure/whatsapp/what
 import { WhatsAppMediaService } from './infrastructure/whatsapp/whatsapp-media.service';
 import { WhatsAppApiService } from './infrastructure/whatsapp/whatsapp-api.service';
 import { WhatsAppMessagingService } from './infrastructure/whatsapp/whatsapp-messaging.service';
+import { WhatsAppDeduplicationService } from './infrastructure/whatsapp/whatsapp-deduplication.service';
 // External Modules
 import { GoogleCloudModule } from '@/shared/libs/google-cloud';
 import { VertexAIModule } from '@/shared/libs/vertex-ai/vertex-ai.module';
@@ -39,6 +40,7 @@ import { CorrectVoucherDataUseCase } from './application/correct-voucher-data.us
     WhatsAppMediaService,
     WhatsAppApiService,
     WhatsAppMessagingService,
+    WhatsAppDeduplicationService,
     // Use Cases
     ProcessVoucherUseCase,
     ConfirmVoucherUseCase,

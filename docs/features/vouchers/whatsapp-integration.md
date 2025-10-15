@@ -1095,6 +1095,171 @@ private async processMessageAsync(body: any) {
 }
 ```
 
+### Message Deduplication
+
+WhatsApp puede reintentar enviar el mismo mensaje si:
+- No recibe respuesta HTTP 200 en menos de 20 segundos
+- Recibe un error 5xx (error de servidor)
+- Hay problemas de red o conectividad
+- El webhook responde correctamente pero el procesamiento falla silenciosamente
+
+**Problema anterior:**
+```typescript
+// ❌ PROBLEMA: Si el procesamiento falla silenciosamente,
+// WhatsApp NO sabe que falló y puede reintentar horas después
+@Post('webhook/whatsapp')
+receiveWhatsAppMessage(@Body() body: any) {
+  this.handleWhatsAppWebhookUseCase.execute(body).catch((error) => {
+    console.error('Error procesando mensaje:', error);
+    // Error capturado pero WhatsApp ya recibió 200 OK
+  });
+
+  return { success: true }; // WhatsApp cree que todo está bien
+}
+```
+
+**Solución implementada:**
+```typescript
+// ✅ SOLUCIÓN: Deduplicación usando message.id único
+@Post('webhook/whatsapp')
+receiveWhatsAppMessage(@Body() body: unknown) {
+  // 1. Validar estructura básica ANTES de responder
+  const isObject = body && typeof body === 'object';
+  const hasEntry =
+    isObject &&
+    'entry' in body &&
+    Array.isArray(body.entry) &&
+    body.entry.length > 0;
+
+  if (!hasEntry) {
+    console.log('⚠️  Webhook recibido con estructura inválida');
+    return { success: true }; // Evitar reintentos de payloads malformados
+  }
+
+  // 2. Procesar de forma asíncrona
+  this.handleWhatsAppWebhookUseCase.execute(body as any).catch((error) => {
+    console.error('❌ Error procesando mensaje de WhatsApp:', error);
+  });
+
+  return { success: true };
+}
+```
+
+**WhatsAppDeduplicationService:**
+
+Ubicación: `src/features/vouchers/infrastructure/whatsapp/whatsapp-deduplication.service.ts`
+
+```typescript
+@Injectable()
+export class WhatsAppDeduplicationService {
+  private processedMessages = new Map<string, number>();
+  private readonly RETENTION_TIME_MS = 24 * 60 * 60 * 1000; // 24 horas
+
+  /**
+   * Verifica si un mensaje ya fue procesado
+   */
+  isDuplicate(messageId: string): boolean {
+    return this.processedMessages.has(messageId);
+  }
+
+  /**
+   * Marca un mensaje como procesado
+   */
+  markAsProcessed(messageId: string): void {
+    this.processedMessages.set(messageId, Date.now());
+  }
+
+  /**
+   * Limpieza automática cada hora de mensajes antiguos (>24h)
+   */
+  private cleanup(): void {
+    const now = Date.now();
+    for (const [messageId, timestamp] of this.processedMessages.entries()) {
+      if (now - timestamp > this.RETENTION_TIME_MS) {
+        this.processedMessages.delete(messageId);
+      }
+    }
+  }
+}
+```
+
+**Uso en HandleWhatsAppWebhookUseCase:**
+
+```typescript
+async execute(webhook: WhatsAppWebhookDto): Promise<HandleWhatsAppWebhookOutput> {
+  try {
+    const message = this.extractMessage(webhook);
+    if (!message) return { success: true };
+
+    // Verificar deduplicación usando el ID único del mensaje
+    const messageId = message.data.id;
+    if (messageId && this.deduplication.isDuplicate(messageId)) {
+      console.log(`⚠️  Mensaje duplicado detectado: ${messageId}. Ignorando...`);
+      return {
+        success: true,
+        isDuplicate: true,
+        message: 'Duplicate message ignored',
+      };
+    }
+
+    // Marcar como procesado ANTES de procesarlo
+    // Esto previene race conditions si WhatsApp reintenta mientras procesamos
+    if (messageId) {
+      this.deduplication.markAsProcessed(messageId);
+    }
+
+    // Procesar mensaje...
+    const { phoneNumber, type } = message;
+    // ... resto del procesamiento
+  } catch (error) {
+    console.error('Error procesando mensaje de WhatsApp:', error);
+    throw new BadRequestException('Error processing WhatsApp message');
+  }
+}
+```
+
+**Características:**
+- ✅ **Cache en memoria**: Almacena IDs de mensajes procesados por 24 horas
+- ✅ **Limpieza automática**: Cada hora elimina mensajes antiguos (>24h)
+- ✅ **Prevención de race conditions**: Marca como procesado ANTES de procesar
+- ✅ **Singleton service**: Una sola instancia compartida en toda la app
+- ✅ **Zero dependencies**: No requiere Redis ni base de datos externa
+
+**Casos cubiertos:**
+1. ✅ WhatsApp reintenta porque el servidor respondió tarde (>20s)
+2. ✅ WhatsApp reintenta porque recibió 5xx
+3. ✅ WhatsApp reintenta porque hubo timeout de red
+4. ✅ Mensaje procesado con error silencioso que causó reintento horas después
+5. ✅ Usuario envía el mismo mensaje dos veces manualmente (diferente message.id)
+
+**Limitaciones:**
+- ⚠️ **No persistente**: Si el servidor se reinicia, se pierde el cache
+- ⚠️ **No distribuido**: Si tienes múltiples instancias, usa Redis
+
+**Para producción con múltiples instancias:**
+```typescript
+// Usar Redis para compartir cache entre instancias
+import { Injectable } from '@nestjs/common';
+import { RedisService } from '@/shared/libs/redis';
+
+@Injectable()
+export class WhatsAppDeduplicationService {
+  constructor(private readonly redis: RedisService) {}
+
+  async isDuplicate(messageId: string): Promise<boolean> {
+    const key = `whatsapp:processed:${messageId}`;
+    const exists = await this.redis.exists(key);
+    return exists === 1;
+  }
+
+  async markAsProcessed(messageId: string): Promise<void> {
+    const key = `whatsapp:processed:${messageId}`;
+    // TTL de 24 horas (auto-limpieza)
+    await this.redis.setex(key, 86400, Date.now().toString());
+  }
+}
+```
+
 ### Optimization Tips
 
 1. **Respond immediately**: Return 200 OK before processing
@@ -1102,6 +1267,8 @@ private async processMessageAsync(body: any) {
 3. **Cache tokens**: Reusar WhatsApp API token
 4. **Batch downloads**: Si múltiples archivos
 5. **Queue system**: Bull/Redis for high volume
+6. **Deduplication**: Prevenir procesamiento de mensajes duplicados
+7. **Validate early**: Rechazar payloads malformados antes de procesar
 
 ## Security
 

@@ -18,7 +18,6 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { VouchersService } from '../infrastructure/persistence/vouchers.service';
 import { OcrService } from '../infrastructure/ocr/ocr.service';
 import { OcrServiceDto } from '../dto/ocr-service.dto';
-import { WhatsAppWebhookDto } from '../dto/whatsapp-webhook.dto';
 import { VoucherProcessorService } from '../infrastructure/ocr/voucher-processor.service';
 import { VoucherRepository } from '@/shared/database/repositories/voucher.repository';
 import { CloudStorageService } from '@/shared/libs/google-cloud';
@@ -146,13 +145,39 @@ export class VouchersController {
    * IMPORTANTE: Este endpoint debe responder en menos de 20 segundos o WhatsApp
    * considerará que falló. Por eso procesamos el mensaje de forma asíncrona
    * y respondemos inmediatamente con success: true.
+   *
+   * DEDUPLICACIÓN: WhatsApp puede reintentar enviar el mismo mensaje si:
+   * - No recibe respuesta en 20 segundos
+   * - Recibe un error 5xx
+   * - Hay problemas de red
+   *
+   * Para prevenir procesamiento duplicado, validamos la estructura básica
+   * del webhook y usamos el message.id para detectar duplicados.
    */
   @Post('webhook/whatsapp')
-  receiveWhatsAppMessage(@Body() body: any) {
+  receiveWhatsAppMessage(@Body() body: unknown) {
+    // Validación básica de la estructura del webhook
+    // Esto ayuda a rechazar payloads malformados antes de procesarlos
+    const isObject = body && typeof body === 'object';
+    const hasEntry =
+      isObject &&
+      'entry' in body &&
+      Array.isArray(body.entry) &&
+      body.entry.length > 0;
+
+    if (!hasEntry) {
+      // Respondemos con éxito para que WhatsApp no reintente
+      // (probablemente es spam o un webhook de status)
+      return { success: true };
+    }
+
     // Procesar el mensaje de forma asíncrona (fire-and-forget)
     // No esperamos a que termine para responder a WhatsApp
-    this.handleWhatsAppWebhookUseCase.execute(body).catch((error) => {
-      console.error('Error procesando mensaje de WhatsApp:', error);
+
+    this.handleWhatsAppWebhookUseCase.execute(body as any).catch((error) => {
+      console.error('❌ Error procesando mensaje de WhatsApp:', error);
+      // IMPORTANTE: No re-lanzamos el error para que el controlador
+      // siempre responda 200 a WhatsApp y evite reintentos
     });
 
     // Responder inmediatamente a WhatsApp para evitar timeout
