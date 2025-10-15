@@ -24,8 +24,12 @@ docs/
 │   └── setup.md                          # Comandos de setup
 │
 ├── features/                              # Documentación de features
-│   └── transactions-bank/
-│       └── README.md                     # Feature de transacciones bancarias
+│   ├── transactions-bank/
+│   │   └── README.md                     # Feature de transacciones bancarias
+│   ├── bank-reconciliation/
+│   │   └── README.md                     # Feature de conciliación bancaria
+│   └── vouchers/
+│       └── README.md                     # Feature de procesamiento de vouchers
 │
 ├── modules/                               # Documentación de módulos compartidos
 │   ├── README.md                         # Índice de módulos
@@ -89,6 +93,16 @@ Módulo de procesamiento de transacciones bancarias con:
 - Soporte multi-banco
 - Validación de datos
 - Exportación de reportes
+
+#### Bank Reconciliation
+- **Ubicación en código**: `src/features/bank-reconciliation/`
+- **Documentación**: [features/bank-reconciliation/README.md](features/bank-reconciliation/README.md)
+
+Módulo de conciliación bancaria automática con:
+- Matching de vouchers vs transacciones bancarias
+- Identificación de casa por centavos
+- Tres grupos de resultados (conciliados, pendientes, sobrantes)
+- Niveles de confianza y validación manual
 
 #### Vouchers & OCR
 - **Ubicación en código**: `src/features/vouchers/`

@@ -21,6 +21,7 @@ import {
 import { TransactionBankRepository } from './repositories/transaction-bank.repository';
 import { LastTransactionBankRepository } from './repositories/last-transaction-bank.repository';
 import { VoucherRepository } from './repositories/voucher.repository';
+import { TransactionStatusRepository } from './repositories/transaction-status.repository';
 import { RecordRepository } from './repositories/record.repository';
 import { HouseRepository } from './repositories/house.repository';
 import { UserRepository } from './repositories/user.repository';
@@ -58,6 +59,7 @@ import { HouseRecordRepository } from './repositories/house-record.repository';
     TransactionBankRepository,
     LastTransactionBankRepository,
     VoucherRepository,
+    TransactionStatusRepository,
     RecordRepository,
     HouseRepository,
     UserRepository,
@@ -69,6 +71,7 @@ import { HouseRecordRepository } from './repositories/house-record.repository';
     TransactionBankRepository,
     LastTransactionBankRepository,
     VoucherRepository,
+    TransactionStatusRepository,
     RecordRepository,
     HouseRepository,
     UserRepository,

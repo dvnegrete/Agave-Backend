@@ -33,6 +33,12 @@ Documentación completa del backend de Agave, incluyendo arquitectura, features,
 - [**OCR Implementation**](modules/vouchers/ocr-implementation.md) - Implementación de OCR con Google Cloud Vision
 - [WhatsApp Integration](features/vouchers/README.md#whatsapp-integration) - Integración con WhatsApp Business API
 
+#### Bank Reconciliation
+- [**Feature Overview**](features/bank-reconciliation/README.md) - Conciliación automática de vouchers vs transacciones bancarias
+- [API Endpoints](features/bank-reconciliation/README.md#api-endpoints) - Endpoint de conciliación
+- [Business Logic](features/bank-reconciliation/README.md#business-logic) - Algoritmo de matching y reglas
+- [Configuration](features/bank-reconciliation/README.md#configuration) - Configuración de tolerancias y umbrales
+
 ### 📦 Shared Modules
 
 #### Google Cloud Platform
@@ -175,6 +181,11 @@ POST   /vouchers/whatsapp-webhook        # WhatsApp webhook (register voucher + 
 GET    /vouchers/whatsapp-webhook        # WhatsApp verification
 GET    /vouchers                         # Get all vouchers (with filters)
 GET    /vouchers/:id                     # Get voucher by ID with signed URL
+```
+
+### Bank Reconciliation Endpoints
+```http
+POST   /bank-reconciliation/reconcile    # Execute reconciliation (all or by date range)
 ```
 
 ## Development Guidelines
