@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   VoucherProcessorService,
   VoucherProcessingResult,
@@ -9,6 +9,7 @@ import {
 } from '../infrastructure/persistence/conversation-state.service';
 import { WhatsAppMessagingService } from '../infrastructure/whatsapp/whatsapp-messaging.service';
 import { WhatsAppMediaService } from '../infrastructure/whatsapp/whatsapp-media.service';
+import { CloudStorageService } from '@/shared/libs/google-cloud';
 import { VoucherValidator } from '../domain/voucher-validator';
 import { ErrorMessages } from '@/shared/content';
 
@@ -36,14 +37,19 @@ export interface ProcessVoucherOutput {
  */
 @Injectable()
 export class ProcessVoucherUseCase {
+  private readonly logger = new Logger(ProcessVoucherUseCase.name);
+
   constructor(
     private readonly voucherProcessor: VoucherProcessorService,
     private readonly whatsappMedia: WhatsAppMediaService,
     private readonly whatsappMessaging: WhatsAppMessagingService,
     private readonly conversationState: ConversationStateService,
+    private readonly cloudStorageService: CloudStorageService,
   ) {}
 
   async execute(input: ProcessVoucherInput): Promise<ProcessVoucherOutput> {
+    let gcsFilename: string | undefined;
+
     try {
       const { phoneNumber, mediaId, mediaType } = input;
 
@@ -68,6 +74,9 @@ export class ProcessVoucherUseCase {
         phoneNumber,
       );
 
+      // Guardar el nombre del archivo para eliminarlo en caso de error
+      gcsFilename = result.gcsFilename;
+
       const voucherData = result.structuredData;
 
       // 4. Determinar el flujo según los datos extraídos
@@ -84,12 +93,35 @@ export class ProcessVoucherUseCase {
 
       return { success: true };
     } catch (error) {
+      console.log(error);
       console.error(`Error procesando voucher: ${error.message}`);
+
+      // Eliminar el archivo del bucket si fue subido exitosamente antes del error
+      if (gcsFilename) {
+        await this.cleanupUploadedFile(gcsFilename);
+      }
+
       await this.sendWhatsAppMessage(
         input.phoneNumber,
         ErrorMessages.processingError,
       );
       return { success: false, message: error.message };
+    }
+  }
+
+  /**
+   * Limpia el archivo subido a Google Cloud Storage
+   * Si la eliminación falla, solo registra el error sin lanzar excepción
+   */
+  private async cleanupUploadedFile(gcsFilename: string): Promise<void> {
+    try {
+      await this.cloudStorageService.deleteFile(gcsFilename);
+      this.logger.log(`✅ Archivo eliminado exitosamente: ${gcsFilename}`);
+    } catch (cleanupError) {
+      this.logger.warn(
+        `⚠️ No se pudo eliminar el archivo ${gcsFilename} del bucket: ${cleanupError.message}`,
+      );
+      // No re-lanzamos el error para no afectar el flujo principal
     }
   }
 
