@@ -10,6 +10,13 @@ import {
   generateRecentDates,
   convertDateIdToString,
 } from '../shared/helpers/date-converter.helper';
+import {
+  formatMonto,
+  formatCasa,
+  formatFecha,
+  formatHora,
+  formatReferencia,
+} from '../shared/helpers/voucher-formatter.helper';
 import { StructuredDataWithCasa } from '../infrastructure/ocr/voucher-processor.service';
 import { CloudStorageService } from '@/shared/libs/google-cloud';
 import { ConfirmationMessages, ErrorMessages } from '@/shared/content';
@@ -258,6 +265,7 @@ export class CorrectVoucherDataUseCase {
 
   /**
    * Construye el mensaje de confirmación con datos actualizados
+   * Protege contra valores vacíos usando funciones de formato
    */
   private buildConfirmationMessage(
     voucherData: StructuredDataWithCasa,
@@ -266,11 +274,11 @@ export class CorrectVoucherDataUseCase {
     const parts = [
       `✅ *${updatedFieldLabel}* actualizado correctamente.\n`,
       'Por favor, confirma que los siguientes datos son correctos:\n',
-      `📍 Casa: *${voucherData.casa}*`,
-      `💰 Monto: *${voucherData.monto}*`,
-      `📅 Fecha: *${voucherData.fecha_pago}*`,
-      `🕒 Hora: *${voucherData.hora_transaccion}*`,
-      `🔢 Referencia: *${voucherData.referencia || 'No disponible'}*`,
+      `📍 Casa: *${formatCasa(voucherData.casa)}*`,
+      `💰 Monto: *${formatMonto(voucherData.monto)}*`,
+      `📅 Fecha: *${formatFecha(voucherData.fecha_pago)}*`,
+      `🕒 Hora: *${formatHora(voucherData.hora_transaccion)}*`,
+      `🔢 Referencia: *${formatReferencia(voucherData.referencia)}*`,
       '\n¿Los datos son correctos?',
     ];
 

@@ -3,6 +3,13 @@ import { ConversationStateService } from '../infrastructure/persistence/conversa
 import { WhatsAppMessagingService } from '../infrastructure/whatsapp/whatsapp-messaging.service';
 import { StructuredDataWithCasa } from '../infrastructure/ocr/voucher-processor.service';
 import { validateHouseNumber } from '@/shared/common/utils/validation/field-validator.util';
+import {
+  formatMonto,
+  formatCasa,
+  formatFecha,
+  formatHora,
+  formatReferencia,
+} from '../shared/helpers/voucher-formatter.helper';
 import { ErrorMessages } from '@/shared/content';
 import { CONFIRM_CANCEL_BUTTONS } from '../shared/constants/whatsapp-buttons.const';
 
@@ -93,25 +100,20 @@ export class HandleHouseNumberUseCase {
 
   /**
    * Construye el mensaje de confirmación con los datos del voucher
+   * Protege contra valores vacíos usando funciones de formato
    */
   private buildConfirmationMessage(
     voucherData: StructuredDataWithCasa,
   ): string {
     const parts = [
       '📋 *Datos del comprobante:*\n',
-      `🏠 Casa: *${voucherData.casa}*`,
-      `💰 Monto: *$${voucherData.monto}*`,
-      `📅 Fecha: *${voucherData.fecha_pago}*`,
-    ];
-
-    if (voucherData.referencia) {
-      parts.push(`🔢 Referencia: *${voucherData.referencia}*`);
-    }
-
-    parts.push(
-      `⏰ Hora: *${voucherData.hora_transaccion}*`,
+      `🏠 Casa: *${formatCasa(voucherData.casa)}*`,
+      `💰 Monto: *${formatMonto(voucherData.monto)}*`,
+      `📅 Fecha: *${formatFecha(voucherData.fecha_pago)}*`,
+      `🔢 Referencia: *${formatReferencia(voucherData.referencia)}*`,
+      `⏰ Hora: *${formatHora(voucherData.hora_transaccion)}*`,
       '\n¿Los datos son correctos?',
-    );
+    ];
 
     return parts.join('\n');
   }
