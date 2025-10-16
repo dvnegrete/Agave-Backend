@@ -51,9 +51,6 @@ export class WhatsAppDeduplicationService {
     }
 
     this.processedMessages.set(messageId, Date.now());
-    console.log(
-      `✅ Mensaje ${messageId} marcado como procesado. Total en cache: ${this.processedMessages.size}`,
-    );
   }
 
   /**

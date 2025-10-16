@@ -11,14 +11,14 @@ export const ConfirmationMessages = {
    */
   request: (
     data: ConfirmationData,
-  ) => `Voy a registrar tu pago con el estatus "pendiente verificación en banco" con los siguientes datos que he encontrado en el comprobante:
-      Monto de pago: ${data.monto}
-      Fecha de Pago: ${data.fecha_pago}
-      Numero de Casa: ${data.casa}
-      Referencia: ${data.referencia || 'No disponible'}
-      Hora de Transacción: ${data.hora_transaccion}
+  ) => `Voy a registrar tu pago con el estatus *"pendiente verificación en banco"* con los siguientes datos que he encontrado en el comprobante:
+      💰 Monto: *$: ${data.monto}*
+      📅 Fecha: *${data.fecha_pago}*
+      🏠 Casa: *${data.casa}*
+      🔢 Referencia: *${data.referencia || 'No disponible'}*
+      ⏰ Hora: *${data.hora_transaccion}*
 
-      Si los datos son correctos, escribe SI`,
+      ¿Son correctos los datos?`,
 
   /**
    * Mensaje de éxito cuando el usuario confirma el registro

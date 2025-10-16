@@ -12,6 +12,7 @@ import { WhatsAppMediaService } from '../infrastructure/whatsapp/whatsapp-media.
 import { CloudStorageService } from '@/shared/libs/google-cloud';
 import { VoucherValidator } from '../domain/voucher-validator';
 import { ErrorMessages } from '@/shared/content';
+import { CONFIRM_CANCEL_BUTTONS } from '../shared/constants/whatsapp-buttons.const';
 
 export interface ProcessVoucherInput {
   phoneNumber: string;
@@ -144,10 +145,7 @@ export class ProcessVoucherUseCase {
     await this.whatsappMessaging.sendButtonMessage(
       phoneNumber,
       result.whatsappMessage,
-      [
-        { id: 'confirm', title: '✅ Sí, es correcto' },
-        { id: 'cancel', title: '❌ No, editar datos' },
-      ],
+      CONFIRM_CANCEL_BUTTONS,
     );
 
     return { success: true };

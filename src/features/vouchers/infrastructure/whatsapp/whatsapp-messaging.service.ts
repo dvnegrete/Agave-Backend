@@ -94,7 +94,6 @@ export class WhatsAppMessagingService {
       };
 
       await this.whatsappApi.sendMessage(payload);
-      this.logger.log(`Mensaje con botones enviado exitosamente a ${to}`);
     } catch (error) {
       this.logger.error(
         `Error al enviar mensaje con botones a ${to}: ${error.message}`,

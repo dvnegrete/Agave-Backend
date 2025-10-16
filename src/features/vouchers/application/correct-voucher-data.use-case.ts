@@ -13,6 +13,7 @@ import {
 import { StructuredDataWithCasa } from '../infrastructure/ocr/voucher-processor.service';
 import { CloudStorageService } from '@/shared/libs/google-cloud';
 import { ConfirmationMessages, ErrorMessages } from '@/shared/content';
+import { CONFIRM_CANCEL_BUTTONS } from '../shared/constants/whatsapp-buttons.const';
 
 export interface CorrectVoucherDataInput {
   phoneNumber: string;
@@ -249,10 +250,7 @@ export class CorrectVoucherDataUseCase {
     await this.whatsappMessaging.sendButtonMessage(
       phoneNumber,
       confirmationMessage,
-      [
-        { id: 'confirm', title: '✅ Sí, es correcto' },
-        { id: 'cancel', title: '❌ No, editar datos' },
-      ],
+      CONFIRM_CANCEL_BUTTONS,
     );
 
     return { success: true };

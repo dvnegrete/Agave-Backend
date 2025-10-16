@@ -182,13 +182,13 @@ export class VoucherProcessorService {
     // Caso 1: faltan_datos = false y casa es un valor numérico
     if (!data.faltan_datos && typeof data.casa === 'number') {
       return `Voy a registrar tu pago con el estatus "pendiente verificación en banco" con los siguientes datos que he encontrado en el comprobante:
-      Monto de pago: ${data.monto}
-      Fecha de Pago: ${data.fecha_pago}
-      Numero de Casa: ${data.casa}
-      Referencia: ${data.referencia}
-      Hora de Transacción: ${data.hora_transaccion}
+      💰 Monto: *$: ${data.monto}*
+      📅 Fecha: *${data.fecha_pago}*
+      🏠 Casa: *${data.casa}*
+      🔢 Referencia: *${data.referencia || 'No disponible'}*
+      ⏰ Hora: *${data.hora_transaccion}*
 
-      Si los datos son correctos, escribe SI`;
+      ¿Los datos son correctos?`;
     }
 
     // Fallback

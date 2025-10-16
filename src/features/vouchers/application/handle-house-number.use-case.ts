@@ -4,6 +4,7 @@ import { WhatsAppMessagingService } from '../infrastructure/whatsapp/whatsapp-me
 import { StructuredDataWithCasa } from '../infrastructure/ocr/voucher-processor.service';
 import { validateHouseNumber } from '@/shared/common/utils/validation/field-validator.util';
 import { ErrorMessages } from '@/shared/content';
+import { CONFIRM_CANCEL_BUTTONS } from '../shared/constants/whatsapp-buttons.const';
 
 export interface HandleHouseNumberInput {
   phoneNumber: string;
@@ -84,10 +85,7 @@ export class HandleHouseNumberUseCase {
     await this.whatsappMessaging.sendButtonMessage(
       phoneNumber,
       confirmationMessage,
-      [
-        { id: 'confirm', title: '✅ Sí, es correcto' },
-        { id: 'cancel', title: '❌ No, editar datos' },
-      ],
+      CONFIRM_CANCEL_BUTTONS,
     );
 
     return { success: true };

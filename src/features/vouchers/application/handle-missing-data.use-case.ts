@@ -12,6 +12,7 @@ import {
 } from '../shared/helpers/date-converter.helper';
 import { StructuredDataWithCasa } from '../infrastructure/ocr/voucher-processor.service';
 import { ErrorMessages } from '@/shared/content';
+import { CONFIRM_CANCEL_BUTTONS } from '../shared/constants/whatsapp-buttons.const';
 
 export interface HandleMissingDataInput {
   phoneNumber: string;
@@ -212,10 +213,7 @@ export class HandleMissingDataUseCase {
     await this.whatsappMessaging.sendButtonMessage(
       phoneNumber,
       confirmationMessage,
-      [
-        { id: 'confirm', title: '✅ Sí, es correcto' },
-        { id: 'cancel', title: '❌ No, editar datos' },
-      ],
+      CONFIRM_CANCEL_BUTTONS,
     );
 
     return { success: true };
