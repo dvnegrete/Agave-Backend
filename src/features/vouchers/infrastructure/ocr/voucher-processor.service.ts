@@ -105,7 +105,18 @@ export class VoucherProcessorService {
 
   /**
    * Extrae el número de casa desde los centavos del monto
-   * Regla de negocio: los centavos indican el número de casa (ej: 123.05 → casa 5)
+   * Regla de negocio:
+   * - .1 → casa 10, .2 → casa 20, .3 → casa 30, .4 → casa 40, etc.
+   * - .01 → casa 1, .04 → casa 4, .05 → casa 5, etc.
+   * - .0 o .00 → null (inválido)
+   * - Valores > 66 → null (excede máximo)
+   *
+   * Ejemplos:
+   * - 1000.1 → 10 (un dígito se multiplica por 10)
+   * - 1000.4 → 40 (un dígito se multiplica por 10)
+   * - 1000.04 → 4 (dos dígitos se interpretan como está)
+   * - 1000.05 → 5
+   * - 1000.00 → null
    */
   private extractCentavos(
     structuredData: StructuredData,
@@ -121,19 +132,25 @@ export class VoucherProcessorService {
       const parts = montoStr.split('.');
 
       if (parts.length === 2) {
-        const centavos = parseInt(parts[1], 10);
+        const centavosStr = parts[1];
+
+        // Normalizar: si tiene un solo dígito, multiplicar por 10
+        // Ejemplo: ".1" → "10", ".4" → "40"
+        const normalizedCentavos = centavosStr.length === 1
+          ? parseInt(centavosStr, 10) * 10
+          : parseInt(centavosStr, 10);
 
         if (
-          isNaN(centavos) ||
-          centavos === 0 ||
-          centavos > businessRules.maxCasas
+          isNaN(normalizedCentavos) ||
+          normalizedCentavos === 0 ||
+          normalizedCentavos > businessRules.maxCasas
         ) {
           modifiedData.casa = null;
         } else if (
-          centavos >= businessRules.minCasas &&
-          centavos <= businessRules.maxCasas
+          normalizedCentavos >= businessRules.minCasas &&
+          normalizedCentavos <= businessRules.maxCasas
         ) {
-          modifiedData.casa = centavos;
+          modifiedData.casa = normalizedCentavos;
         } else {
           modifiedData.casa = null;
         }
