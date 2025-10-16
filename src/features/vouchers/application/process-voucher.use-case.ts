@@ -9,7 +9,7 @@ import {
 } from '../infrastructure/persistence/conversation-state.service';
 import { WhatsAppMessagingService } from '../infrastructure/whatsapp/whatsapp-messaging.service';
 import { WhatsAppMediaService } from '../infrastructure/whatsapp/whatsapp-media.service';
-import { CloudStorageService } from '@/shared/libs/google-cloud';
+import { GcsCleanupService } from '@/shared/libs/google-cloud';
 import { VoucherValidator } from '../domain/voucher-validator';
 import { ErrorMessages } from '@/shared/content';
 import { CONFIRM_CANCEL_BUTTONS } from '../shared/constants/whatsapp-buttons.const';
@@ -45,7 +45,7 @@ export class ProcessVoucherUseCase {
     private readonly whatsappMedia: WhatsAppMediaService,
     private readonly whatsappMessaging: WhatsAppMessagingService,
     private readonly conversationState: ConversationStateService,
-    private readonly cloudStorageService: CloudStorageService,
+    private readonly gcsCleanupService: GcsCleanupService,
   ) {}
 
   async execute(input: ProcessVoucherInput): Promise<ProcessVoucherOutput> {
@@ -111,19 +111,14 @@ export class ProcessVoucherUseCase {
   }
 
   /**
-   * Limpia el archivo subido a Google Cloud Storage
-   * Si la eliminación falla, solo registra el error sin lanzar excepción
+   * Limpia el archivo temporal subido a Google Cloud Storage
+   * Delegado al servicio centralizado de limpieza
    */
   private async cleanupUploadedFile(gcsFilename: string): Promise<void> {
-    try {
-      await this.cloudStorageService.deleteFile(gcsFilename);
-      this.logger.log(`✅ Archivo eliminado exitosamente: ${gcsFilename}`);
-    } catch (cleanupError) {
-      this.logger.warn(
-        `⚠️ No se pudo eliminar el archivo ${gcsFilename} del bucket: ${cleanupError.message}`,
-      );
-      // No re-lanzamos el error para no afectar el flujo principal
-    }
+    await this.gcsCleanupService.deleteTemporaryProcessingFile(
+      gcsFilename,
+      'error-en-procesamiento',
+    );
   }
 
   /**

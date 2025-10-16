@@ -18,7 +18,7 @@ import {
   formatReferencia,
 } from '../shared/helpers/voucher-formatter.helper';
 import { StructuredDataWithCasa } from '../infrastructure/ocr/voucher-processor.service';
-import { CloudStorageService } from '@/shared/libs/google-cloud';
+import { GcsCleanupService } from '@/shared/libs/google-cloud';
 import { ConfirmationMessages, ErrorMessages } from '@/shared/content';
 import { CONFIRM_CANCEL_BUTTONS } from '../shared/constants/whatsapp-buttons.const';
 
@@ -49,7 +49,7 @@ export class CorrectVoucherDataUseCase {
   constructor(
     private readonly conversationState: ConversationStateService,
     private readonly whatsappMessaging: WhatsAppMessagingService,
-    private readonly cloudStorageService: CloudStorageService,
+    private readonly gcsCleanupService: GcsCleanupService,
   ) {}
 
   async execute(
@@ -150,12 +150,10 @@ export class CorrectVoucherDataUseCase {
       this.conversationState.getVoucherDataForConfirmation(phoneNumber);
 
     if (savedData?.gcsFilename) {
-      try {
-        await this.cloudStorageService.deleteFile(savedData.gcsFilename);
-        console.log(`🗑️  Archivo eliminado de GCS: ${savedData.gcsFilename}`);
-      } catch (error) {
-        console.error(`⚠️  Error al eliminar archivo de GCS: ${error.message}`);
-      }
+      await this.gcsCleanupService.deleteTemporaryProcessingFile(
+        savedData.gcsFilename,
+        'cancelacion-usuario',
+      );
     }
 
     await this.sendWhatsAppMessage(phoneNumber, ConfirmationMessages.cancelled);

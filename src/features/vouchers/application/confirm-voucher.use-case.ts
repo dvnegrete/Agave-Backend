@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { VoucherRepository } from '@/shared/database/repositories/voucher.repository';
@@ -8,6 +8,8 @@ import { UserRepository } from '@/shared/database/repositories/user.repository';
 import { HouseRecordRepository } from '@/shared/database/repositories/house-record.repository';
 import { ConversationStateService } from '../infrastructure/persistence/conversation-state.service';
 import { WhatsAppMessagingService } from '../infrastructure/whatsapp/whatsapp-messaging.service';
+import { VoucherDuplicateDetectorService } from '../infrastructure/persistence/voucher-duplicate-detector.service';
+import { GcsCleanupService } from '@/shared/libs/google-cloud';
 import { ConfirmationMessages, ErrorMessages } from '@/shared/content';
 import {
   combineDateAndTime,
@@ -39,6 +41,8 @@ export interface ConfirmVoucherOutput {
  */
 @Injectable()
 export class ConfirmVoucherUseCase {
+  private readonly logger = new Logger(ConfirmVoucherUseCase.name);
+
   constructor(
     private readonly dataSource: DataSource,
     private readonly voucherRepository: VoucherRepository,
@@ -48,6 +52,8 @@ export class ConfirmVoucherUseCase {
     private readonly houseRecordRepository: HouseRecordRepository,
     private readonly conversationState: ConversationStateService,
     private readonly whatsappMessaging: WhatsAppMessagingService,
+    private readonly duplicateDetector: VoucherDuplicateDetectorService,
+    private readonly gcsCleanupService: GcsCleanupService,
   ) {}
 
   async execute(input: ConfirmVoucherInput): Promise<ConfirmVoucherOutput> {
@@ -86,11 +92,44 @@ export class ConfirmVoucherUseCase {
         savedData.voucherData.hora_transaccion,
       );
 
-      // 4. Preparar datos del voucher
+      // 4. VALIDACIÓN DE DUPLICADOS (antes de crear transacción)
+      const amount = parseFloat(savedData.voucherData.monto);
+      const duplicateCheck = await this.duplicateDetector.detectDuplicate(
+        dateTime,
+        amount,
+        savedData.voucherData.casa,
+      );
+
+      if (duplicateCheck.isDuplicate) {
+        this.logger.warn(
+          `⚠️  Duplicado detectado. Rechazando voucher. ${duplicateCheck.message}`,
+        );
+
+        // Eliminar archivo GCS
+        if (savedData.gcsFilename) {
+          await this.cleanupGcsFile(savedData.gcsFilename);
+        }
+
+        // Enviar mensaje de rechazo
+        await this.sendWhatsAppMessage(
+          phoneNumber,
+          `❌ Este comprobante ya fue registrado previamente.\n\n${duplicateCheck.message}`,
+        );
+
+        // Limpiar contexto
+        this.conversationState.clearContext(phoneNumber);
+
+        return {
+          success: false,
+          error: `Duplicado detectado: ${duplicateCheck.message}`,
+        };
+      }
+
+      // 5. Preparar datos del voucher
       const voucherData = {
         date: dateTime,
         authorization_number: savedData.voucherData.referencia || 'N/A',
-        amount: parseFloat(savedData.voucherData.monto),
+        amount: amount,
         confirmation_status: false,
         url: savedData.gcsFilename,
       };
@@ -300,6 +339,17 @@ export class ConfirmVoucherUseCase {
       );
       throw new Error(`Error al procesar casa: ${error.message}`);
     }
+  }
+
+  /**
+   * Limpia el archivo temporal detectado como duplicado
+   * Delegado al servicio centralizado de limpieza
+   */
+  private async cleanupGcsFile(gcsFilename: string): Promise<void> {
+    await this.gcsCleanupService.deleteTemporaryProcessingFile(
+      gcsFilename,
+      'duplicado-detectado',
+    );
   }
 
   private async sendWhatsAppMessage(

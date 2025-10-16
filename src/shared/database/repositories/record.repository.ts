@@ -54,6 +54,16 @@ export class RecordRepository {
   }
 
   /**
+   * Busca records por voucher ID
+   */
+  async findByVoucherId(voucherId: number): Promise<Record[]> {
+    return this.recordRepository.find({
+      where: { vouchers_id: voucherId },
+      relations: ['houseRecords'],
+    });
+  }
+
+  /**
    * Obtiene todos los records con relaciones
    */
   async findAll(): Promise<Record[]> {

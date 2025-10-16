@@ -25,3 +25,5 @@ export {
   UploadFileResult,
   CloudStorageFile,
 } from './storage/cloud-storage.service';
+
+export { GcsCleanupService, GcsCleanupOptions } from './gcs-cleanup.service';
