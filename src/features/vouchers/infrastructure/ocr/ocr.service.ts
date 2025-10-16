@@ -16,11 +16,65 @@ export class OcrService {
     private readonly cloudStorageService: CloudStorageService,
     private readonly openAIService: OpenAIService,
     private readonly vertexAIService: VertexAIService,
-  ) {}
+  ) { }
 
   private formatTimestamp(date: Date): string {
     const pad = (num: number) => num.toString().padStart(2, '0');
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}_${pad(date.getHours())}-${pad(date.getMinutes())}-${pad(date.getSeconds())}`;
+  }
+
+  /**
+   * Normaliza los datos retornados por OpenAI o Vertex AI
+   * Convierte todos los campos string a strings reales (no números)
+   * Esto es crítico porque JSON.parse() convierte "123.45" a 123.45
+   *
+   * @param data - Datos brutos de OpenAI/Vertex
+   * @returns Datos normalizados con todos los strings correctamente tipados
+   */
+  private normalizeStructuredData(data: any): any {
+    if (!data || typeof data !== 'object') {
+      return data;
+    }
+
+    return {
+      monto: this.toSafeString(data.monto),
+      fecha_pago: this.toSafeString(data.fecha_pago),
+      referencia: this.toSafeString(data.referencia),
+      hora_transaccion: this.toSafeString(data.hora_transaccion),
+      faltan_datos: data.faltan_datos === true || data.faltan_datos === 'true',
+      pregunta: this.toSafeString(data.pregunta),
+      // Preservar otros campos que podrían estar presentes
+      ...Object.keys(data)
+        .filter(
+          (key) =>
+            ![
+              'monto',
+              'fecha_pago',
+              'referencia',
+              'hora_transaccion',
+              'faltan_datos',
+              'pregunta',
+            ].includes(key),
+        )
+        .reduce((acc, key) => {
+          acc[key] = data[key];
+          return acc;
+        }, {} as any),
+    };
+  }
+
+  /**
+   * Convierte un valor a string de forma segura
+   * Maneja null, undefined, números y strings
+   *
+   * @param value - Valor a convertir
+   * @returns String convertido o vacío si es inválido
+   */
+  private toSafeString(value: any): string {
+    if (value === null || value === undefined || value === '') {
+      return '';
+    }
+    return String(value).trim();
   }
 
   async extractTextFromImage(
@@ -124,13 +178,17 @@ export class OcrService {
         allText = result.fullTextAnnotation?.text || '';
       }
 
-      const structuredData =
+      let structuredData =
         await this.openAIService.processTextWithPrompt(allText);
-      // const structuredData = await this.vertexAIService.processTextWithPrompt(allText);
+      // let structuredData = await this.vertexAIService.processTextWithPrompt(allText);
+
+      // Normalizar los datos para garantizar tipos correctos
+      // Especialmente importante porque JSON.parse() convierte números
+      structuredData = this.normalizeStructuredData(structuredData);
 
       const processingTime = Date.now() - startTime;
       this.logger.log(
-        `Procesamiento de archivo (Vision + VertexAI) completado en ${processingTime}ms para: ${filename}`,
+        `Procesamiento de archivo (Vision + OpenAI/VertexAI) completado en ${processingTime}ms para: ${filename}`,
       );
 
       return {

@@ -298,6 +298,19 @@ export class ConversationStateService {
   }
 
   /**
+   * Convierte un valor a string de forma segura
+   * Maneja null, undefined, números y strings
+   * @param value - Valor a convertir
+   * @returns String convertido o vacío si es inválido
+   */
+  private toSafeString(value: any): string {
+    if (value === null || value === undefined) {
+      return '';
+    }
+    return String(value).trim();
+  }
+
+  /**
    * Identifica qué campos están faltantes en los datos del voucher
    * NOTA: El campo 'referencia' NO es obligatorio y no se solicita al usuario
    * Campos obligatorios: monto, fecha_pago, hora_transaccion, casa
@@ -306,20 +319,17 @@ export class ConversationStateService {
   identifyMissingFields(voucherData: StructuredDataWithCasa): string[] {
     const missingFields: string[] = [];
 
-    if (!voucherData.monto || voucherData.monto.trim() === '') {
+    if (!this.toSafeString(voucherData.monto)) {
       missingFields.push('monto');
     }
-    if (!voucherData.fecha_pago || voucherData.fecha_pago.trim() === '') {
+    if (!this.toSafeString(voucherData.fecha_pago)) {
       missingFields.push('fecha_pago');
     }
     // NOTA: 'referencia' NO es obligatoria - se omite de la validación
-    // if (!voucherData.referencia || voucherData.referencia.trim() === '') {
+    // if (!this.toSafeString(voucherData.referencia)) {
     //   missingFields.push('referencia');
     // }
-    if (
-      !voucherData.hora_transaccion ||
-      voucherData.hora_transaccion.trim() === ''
-    ) {
+    if (!this.toSafeString(voucherData.hora_transaccion)) {
       missingFields.push('hora_transaccion');
     }
     if (!voucherData.casa) {
