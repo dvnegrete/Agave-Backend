@@ -3,6 +3,7 @@ import { VouchersController } from './controllers/vouchers.controller';
 // Infrastructure - Persistence
 import { VouchersService } from './infrastructure/persistence/vouchers.service';
 import { ConversationStateService } from './infrastructure/persistence/conversation-state.service';
+import { VoucherDuplicateDetectorService } from './infrastructure/persistence/voucher-duplicate-detector.service';
 // Infrastructure - OCR
 import { OcrService } from './infrastructure/ocr/ocr.service';
 import { VoucherProcessorService } from './infrastructure/ocr/voucher-processor.service';
@@ -32,6 +33,7 @@ import { CorrectVoucherDataUseCase } from './application/correct-voucher-data.us
     // Infrastructure - Persistence
     VouchersService,
     ConversationStateService,
+    VoucherDuplicateDetectorService,
     // Infrastructure - OCR
     OcrService,
     VoucherProcessorService,
