@@ -142,6 +142,7 @@ export class CorrectVoucherDataUseCase {
 
   /**
    * Maneja la cancelación completa del registro
+   * Elimina el archivo GCS temporal antes de limpiar el contexto
    */
   private async handleCancellation(
     phoneNumber: string,
@@ -149,10 +150,27 @@ export class CorrectVoucherDataUseCase {
     const savedData =
       this.conversationState.getVoucherDataForConfirmation(phoneNumber);
 
-    if (savedData?.gcsFilename) {
-      await this.gcsCleanupService.deleteTemporaryProcessingFile(
+    if (!savedData) {
+      console.warn(
+        `[handleCancellation] No se encontraron datos guardados para ${phoneNumber}`,
+      );
+      await this.sendWhatsAppMessage(
+        phoneNumber,
+        'Hubo un problema al procesar tu solicitud. Por favor intenta nuevamente.',
+      );
+      this.conversationState.clearContext(phoneNumber);
+      return { success: false, message: 'No saved data found' };
+    }
+
+    // Eliminar archivo GCS si existe
+    if (savedData?.gcsFilename) {   
+      const deleteResult = await this.gcsCleanupService.deleteTemporaryProcessingFile(
         savedData.gcsFilename,
         'cancelacion-usuario',
+      );
+    } else {
+      console.warn(
+        `[handleCancellation] No se encontró gcsFilename para ${phoneNumber}`,
       );
     }
 

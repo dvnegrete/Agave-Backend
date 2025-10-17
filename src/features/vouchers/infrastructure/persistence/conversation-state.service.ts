@@ -155,6 +155,8 @@ export class ConversationStateService {
 
   /**
    * Obtiene los datos del voucher guardados para confirmación
+   * Funciona en cualquier estado donde haya datos de voucher disponibles (no solo WAITING_CONFIRMATION)
+   * porque el usuario puede estar editando o cancelando desde esos estados
    */
   getVoucherDataForConfirmation(phoneNumber: string): {
     voucherData: StructuredDataWithCasa;
@@ -164,7 +166,7 @@ export class ConversationStateService {
   } | null {
     const context = this.getContext(phoneNumber);
 
-    if (!context || context.state !== ConversationState.WAITING_CONFIRMATION) {
+    if (!context || !context.data?.voucherData) {
       return null;
     }
 
