@@ -50,7 +50,7 @@ describe('FieldValidatorHelper', () => {
   });
 
   describe('validateAndUpdateVoucherField', () => {
-    it('should validate and update monto field', () => {
+    it('should validate and update monto field when provided', () => {
       const mockResult = { isValid: true, value: '500.15' };
       mockValidateAmount.mockReturnValue(mockResult);
 
@@ -61,7 +61,23 @@ describe('FieldValidatorHelper', () => {
       expect(voucherData.monto).toBe('500.15');
     });
 
-    it('should validate and update fecha_pago field', () => {
+    it('should reject empty monto (mandatory field)', () => {
+      const result = validateAndUpdateVoucherField(voucherData, 'monto', '');
+
+      expect(result.isValid).toBe(false);
+      expect(result.error).toContain('El monto es obligatorio');
+      expect(mockValidateAmount).not.toHaveBeenCalled();
+    });
+
+    it('should reject whitespace-only monto (mandatory field)', () => {
+      const result = validateAndUpdateVoucherField(voucherData, 'monto', '   ');
+
+      expect(result.isValid).toBe(false);
+      expect(result.error).toContain('El monto es obligatorio');
+      expect(mockValidateAmount).not.toHaveBeenCalled();
+    });
+
+    it('should validate and update fecha_pago field when provided', () => {
       const mockResult = { isValid: true, value: '2025-01-15' };
       mockValidateDate.mockReturnValue(mockResult);
 
@@ -74,6 +90,30 @@ describe('FieldValidatorHelper', () => {
       expect(mockValidateDate).toHaveBeenCalledWith('2025-01-15');
       expect(result).toEqual(mockResult);
       expect(voucherData.fecha_pago).toBe('2025-01-15');
+    });
+
+    it('should reject empty fecha_pago (mandatory field)', () => {
+      const result = validateAndUpdateVoucherField(
+        voucherData,
+        'fecha_pago',
+        '',
+      );
+
+      expect(result.isValid).toBe(false);
+      expect(result.error).toContain('La fecha de pago es obligatoria');
+      expect(mockValidateDate).not.toHaveBeenCalled();
+    });
+
+    it('should reject whitespace-only fecha_pago (mandatory field)', () => {
+      const result = validateAndUpdateVoucherField(
+        voucherData,
+        'fecha_pago',
+        '   ',
+      );
+
+      expect(result.isValid).toBe(false);
+      expect(result.error).toContain('La fecha de pago es obligatoria');
+      expect(mockValidateDate).not.toHaveBeenCalled();
     });
 
     it('should validate and update referencia field when provided', () => {
@@ -113,7 +153,7 @@ describe('FieldValidatorHelper', () => {
       expect(mockValidateReference).not.toHaveBeenCalled();
     });
 
-    it('should validate and update hora_transaccion field', () => {
+    it('should validate and update hora_transaccion field when provided', () => {
       const mockResult = { isValid: true, value: '10:30:00' };
       mockValidateTime.mockReturnValue(mockResult);
 
@@ -128,7 +168,31 @@ describe('FieldValidatorHelper', () => {
       expect(voucherData.hora_transaccion).toBe('10:30:00');
     });
 
-    it('should validate and update casa field in voucherData', () => {
+    it('should reject empty hora_transaccion (mandatory field)', () => {
+      const result = validateAndUpdateVoucherField(
+        voucherData,
+        'hora_transaccion',
+        '',
+      );
+
+      expect(result.isValid).toBe(false);
+      expect(result.error).toContain('La hora de transacción es obligatoria');
+      expect(mockValidateTime).not.toHaveBeenCalled();
+    });
+
+    it('should reject whitespace-only hora_transaccion (mandatory field)', () => {
+      const result = validateAndUpdateVoucherField(
+        voucherData,
+        'hora_transaccion',
+        '   ',
+      );
+
+      expect(result.isValid).toBe(false);
+      expect(result.error).toContain('La hora de transacción es obligatoria');
+      expect(mockValidateTime).not.toHaveBeenCalled();
+    });
+
+    it('should validate and update casa field in voucherData when provided', () => {
       const mockResult = { isValid: true, value: '15' };
       mockValidateHouseNumber.mockReturnValue(mockResult);
 
@@ -139,6 +203,22 @@ describe('FieldValidatorHelper', () => {
       expect(voucherData.casa).toBe(15);
     });
 
+    it('should reject empty casa (mandatory field)', () => {
+      const result = validateAndUpdateVoucherField(voucherData, 'casa', '');
+
+      expect(result.isValid).toBe(false);
+      expect(result.error).toContain('El número de casa es obligatorio');
+      expect(mockValidateHouseNumber).not.toHaveBeenCalled();
+    });
+
+    it('should reject whitespace-only casa (mandatory field)', () => {
+      const result = validateAndUpdateVoucherField(voucherData, 'casa', '   ');
+
+      expect(result.isValid).toBe(false);
+      expect(result.error).toContain('El número de casa es obligatorio');
+      expect(mockValidateHouseNumber).not.toHaveBeenCalled();
+    });
+
     it('should not update casa when validation fails', () => {
       const mockResult = { isValid: false, error: 'Invalid house number' };
       mockValidateHouseNumber.mockReturnValue(mockResult);
@@ -146,16 +226,6 @@ describe('FieldValidatorHelper', () => {
       const result = validateAndUpdateVoucherField(voucherData, 'casa', 'invalid');
 
       expect(mockValidateHouseNumber).toHaveBeenCalledWith('invalid');
-      expect(result).toEqual(mockResult);
-      expect(voucherData.casa).toBeNull();
-    });
-
-    it('should not update casa when value is not provided', () => {
-      const mockResult = { isValid: true, value: undefined };
-      mockValidateHouseNumber.mockReturnValue(mockResult);
-
-      const result = validateAndUpdateVoucherField(voucherData, 'casa', '');
-
       expect(result).toEqual(mockResult);
       expect(voucherData.casa).toBeNull();
     });
