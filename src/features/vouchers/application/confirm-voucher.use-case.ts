@@ -113,7 +113,7 @@ export class ConfirmVoucherUseCase {
         // Enviar mensaje de rechazo
         await this.sendWhatsAppMessage(
           phoneNumber,
-          `❌ Este comprobante ya fue registrado previamente.\n\n${duplicateCheck.message}`,
+          `❌ Este comprobante ya fue registrado previamente. ${duplicateCheck.message}`,
         );
 
         // Limpiar contexto

@@ -106,11 +106,7 @@ export class VoucherDuplicateDetectorService {
                 confirmation_code: voucher.confirmation_code,
                 confirmation_status: voucher.confirmation_status,
               },
-              message: `Este comprobante ya fue registrado el ${this.formatDate(
-                voucher.date,
-              )} por $${voucher.amount.toFixed(2)} para la casa ${
-                house.number_house
-              }. Código de confirmación: ${voucher.confirmation_code}`,
+              message: `El Código de confirmación de ese registro es: ${voucher.confirmation_code}`,
             };
           }
         } catch (error) {
@@ -169,17 +165,4 @@ export class VoucherDuplicateDetectorService {
     }
   }
 
-  /**
-   * Formatea una fecha para mostrar al usuario
-   */
-  private formatDate(date: Date): string {
-    const d = new Date(date);
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
-    const hours = String(d.getHours()).padStart(2, '0');
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-
-    return `${day}/${month}/${year} a las ${hours}:${minutes}`;
-  }
 }
