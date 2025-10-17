@@ -19,7 +19,6 @@ export class VoucherValidator {
 
   /**
    * Identifica qué campos están faltantes en los datos del voucher
-   * NOTA: El campo 'referencia' NO es obligatorio
    * @param voucherData - Datos del voucher a validar
    * @returns Array de campos faltantes
    */
@@ -32,7 +31,6 @@ export class VoucherValidator {
     if (!this.toSafeString(voucherData.fecha_pago)) {
       missingFields.push('fecha_pago');
     }
-    // NOTA: 'referencia' NO es obligatoria - se omite de la validación
     if (!this.toSafeString(voucherData.hora_transaccion)) {
       missingFields.push('hora_transaccion');
     }

@@ -5,7 +5,7 @@ import {
 } from '../infrastructure/persistence/conversation-state.service';
 import { WhatsAppMessagingService } from '../infrastructure/whatsapp/whatsapp-messaging.service';
 import { VoucherValidator } from '../domain/voucher-validator';
-import { validateAndSetVoucherField } from '../shared/helpers/field-validator.helper';
+import { validateAndUpdateVoucherField } from '../shared/helpers/field-validator.helper';
 import {
   generateRecentDates,
   convertDateIdToString,
@@ -92,14 +92,14 @@ export class HandleMissingDataUseCase {
       }
     }
 
-    // 5. Validar y actualizar el valor
+    // 5. Validar y actualizar el valor atomicamente
     if (!voucherData) {
       await this.sendWhatsAppMessage(phoneNumber, ErrorMessages.sessionExpired);
       this.conversationState.clearContext(phoneNumber);
       return { success: false, message: 'No voucher data' };
     }
 
-    const validationResult = validateAndSetVoucherField(
+    const validationResult = validateAndUpdateVoucherField(
       voucherData,
       currentField,
       valueToValidate,
@@ -112,6 +112,8 @@ export class HandleMissingDataUseCase {
       );
       return { success: true }; // Continue conversation
     }
+
+    // El valor ya está actualizado en voucherData de forma atomica
 
     // 6. Remover el campo de la lista de faltantes
     const updatedMissingFields = missingFields.slice(1);

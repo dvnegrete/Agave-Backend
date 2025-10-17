@@ -5,7 +5,7 @@ import {
 } from '../infrastructure/persistence/conversation-state.service';
 import { WhatsAppMessagingService } from '../infrastructure/whatsapp/whatsapp-messaging.service';
 import { VoucherValidator } from '../domain/voucher-validator';
-import { validateAndSetVoucherField } from '../shared/helpers/field-validator.helper';
+import { validateAndUpdateVoucherField } from '../shared/helpers/field-validator.helper';
 import {
   generateRecentDates,
   convertDateIdToString,
@@ -205,8 +205,8 @@ export class CorrectVoucherDataUseCase {
       return { success: false, message: 'No voucher data' };
     }
 
-    // Validar el nuevo valor
-    const validationResult = validateAndSetVoucherField(
+    // Validar y actualizar el valor atomicamente
+    const validationResult = validateAndUpdateVoucherField(
       context.data.voucherData,
       fieldToCorrect,
       valueToUpdate,
@@ -220,12 +220,8 @@ export class CorrectVoucherDataUseCase {
       return { success: true }; // Continue conversation
     }
 
-    // Actualizar el campo en los datos del voucher
-    this.conversationState.updateVoucherField(
-      phoneNumber,
-      fieldToCorrect,
-      validationResult.value!,
-    );
+    // El valor ya está actualizado en voucherData de forma atomica
+    // No necesita updateVoucherField adicional
 
     // Limpiar el campo temporal
     delete context.data.fieldToCorrect;

@@ -9,38 +9,82 @@ import {
 import { StructuredDataWithCasa } from '../../infrastructure/ocr/voucher-processor.service';
 
 /**
- * Valida y establece el valor de un campo específico del voucher
- * @param voucherData - Datos del voucher
- * @param fieldName - Nombre del campo a validar
- * @param value - Valor a asignar
- * @returns Resultado de validación
+ * Valida y actualiza ATOMICAMENTE un campo específico del voucher
+ * Este es el helper único para validar y guardar datos en voucherData
+ * Garantiza que cuando un dato es válido, SIEMPRE se actualiza en voucherData
+ *
+ * NOTA: El campo 'referencia' NO es obligatorio.
+ * - Si el usuario proporciona un valor válido: se actualiza
+ * - Si el usuario deja vacío: se mantiene como está (no es obligatorio)
+ * - Campos obligatorios: monto, fecha_pago, hora_transaccion, casa
+ *
+ * @param voucherData - Datos del voucher (se modifica en place)
+ * @param fieldName - Nombre del campo a validar y actualizar
+ * @param value - Valor a validar y asignar
+ * @returns Resultado de validación + actualización
+ *
+ * @example
+ * const result = validateAndUpdateVoucherField(voucherData, 'hora_transaccion', '14:30');
+ * if (result.isValid) {
+ *   // El campo ya está actualizado en voucherData
+ *   console.log(voucherData.hora_transaccion); // '14:30'
+ * }
  */
-export function validateAndSetVoucherField(
+export function validateAndUpdateVoucherField(
   voucherData: StructuredDataWithCasa,
   fieldName: string,
   value: string,
 ): ValidationResult {
+  // 1. Validar el valor
+  let validationResult: ValidationResult;
+
   switch (fieldName) {
     case 'monto':
-      return validateAmount(value);
+      validationResult = validateAmount(value);
+      if (validationResult.isValid && validationResult.value) {
+        voucherData.monto = validationResult.value;
+      }
+      break;
 
     case 'fecha_pago':
-      return validateDate(value);
+      validationResult = validateDate(value);
+      if (validationResult.isValid && validationResult.value) {
+        voucherData.fecha_pago = validationResult.value;
+      }
+      break;
 
     case 'referencia':
-      return validateReference(value);
+      // NOTA: referencia NO es obligatoria
+      // Si está vacía, es válida (no es un error)
+      if (!value || value.trim() === '') {
+        // Campo opcional vacío = válido
+        validationResult = { isValid: true, value: '' };
+      } else {
+        // Si tiene valor, validar el formato
+        validationResult = validateReference(value);
+        if (validationResult.isValid && validationResult.value) {
+          voucherData.referencia = validationResult.value;
+        }
+      }
+      break;
 
     case 'hora_transaccion':
-      return validateTime(value);
+      validationResult = validateTime(value);
+      if (validationResult.isValid && validationResult.value) {
+        voucherData.hora_transaccion = validationResult.value;
+      }
+      break;
 
     case 'casa':
-      const result = validateHouseNumber(value);
-      if (result.isValid && result.value) {
-        voucherData.casa = parseInt(result.value, 10);
+      validationResult = validateHouseNumber(value);
+      if (validationResult.isValid && validationResult.value) {
+        voucherData.casa = parseInt(validationResult.value, 10);
       }
-      return result;
+      break;
 
     default:
-      return { isValid: true, value };
+      validationResult = { isValid: true, value };
   }
+
+  return validationResult;
 }
