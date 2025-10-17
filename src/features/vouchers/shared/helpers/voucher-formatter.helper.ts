@@ -49,16 +49,73 @@ export function formatCasa(
 
 /**
  * Formatea una fecha
- * @param fecha - Fecha a formatear (formato esperado: YYYY-MM-DD)
- * @returns Fecha formateada o "No disponible"
+ * @param fecha - Fecha a formatear (formato esperado: YYYY-MM-DD o DD/MM/YYYY)
+ * @returns Fecha formateada en formato DD-MMMM-YYYY (ej: 24-agosto-2025) o "No disponible"
  */
-export function formatFecha(
-  fecha: string | null | undefined,
-): string {
+export function formatFecha(fecha: string | null | undefined): string {
   if (fecha === null || fecha === undefined || fecha === '') {
     return 'No disponible';
   }
-  return String(fecha).trim();
+
+  const fechaStr = String(fecha).trim();
+
+  try {
+    let day: number;
+    let month: number;
+    let year: number;
+
+    if (fechaStr.includes('/')) {
+      // Formato: DD/MM/YYYY
+      const [dayStr, monthStr, yearStr] = fechaStr.split('/');
+      day = parseInt(dayStr, 10);
+      month = parseInt(monthStr, 10);
+      year = parseInt(yearStr, 10);
+    } else if (fechaStr.includes('-')) {
+      // Formato: YYYY-MM-DD
+      const [yearStr, monthStr, dayStr] = fechaStr.split('-');
+      day = parseInt(dayStr, 10);
+      month = parseInt(monthStr, 10);
+      year = parseInt(yearStr, 10);
+    } else {
+      return fechaStr; // Si no es un formato reconocido, retornar como está
+    }
+
+    // Validar valores
+    if (
+      isNaN(day) ||
+      isNaN(month) ||
+      isNaN(year) ||
+      day < 1 ||
+      day > 31 ||
+      month < 1 ||
+      month > 12
+    ) {
+      return fechaStr; // Si la fecha es inválida, retornar como está
+    }
+
+    // Meses en español
+    const meses = [
+      'enero',
+      'febrero',
+      'marzo',
+      'abril',
+      'mayo',
+      'junio',
+      'julio',
+      'agosto',
+      'septiembre',
+      'octubre',
+      'noviembre',
+      'diciembre',
+    ];
+
+    const dayFormatted = String(day).padStart(2, '0');
+    const monthName = meses[month - 1];
+
+    return `${dayFormatted}-${monthName}-${year}`;
+  } catch (error) {
+    return fechaStr; // Si algo sale mal, retornar como está
+  }
 }
 
 /**
@@ -66,9 +123,7 @@ export function formatFecha(
  * @param hora - Hora a formatear (formato esperado: HH:MM:SS)
  * @returns Hora formateada o "No disponible"
  */
-export function formatHora(
-  hora: string | null | undefined,
-): string {
+export function formatHora(hora: string | null | undefined): string {
   if (hora === null || hora === undefined || hora === '') {
     return 'No disponible';
   }

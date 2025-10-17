@@ -1,6 +1,7 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { OcrService } from './ocr.service';
 import { getVouchersBusinessRules } from '@/shared/config/business-rules.config';
+import { formatFecha } from '../../shared/helpers/voucher-formatter.helper';
 
 export interface StructuredData {
   monto: string;
@@ -182,8 +183,8 @@ export class VoucherProcessorService {
     // Caso 1: faltan_datos = false y casa es un valor numérico
     if (!data.faltan_datos && typeof data.casa === 'number') {
       return `Voy a registrar tu pago con el estatus "pendiente verificación en banco" con los siguientes datos que he encontrado en el comprobante:
-      💰 Monto: *$: ${data.monto}*
-      📅 Fecha: *${data.fecha_pago}*
+      💰 Monto: *$${data.monto}*
+      📅 Fecha: *${formatFecha(data.fecha_pago)}*
       🏠 Casa: *${data.casa}*
       🔢 Referencia: *${data.referencia || 'No disponible'}*
       ⏰ Hora: *${data.hora_transaccion}*
