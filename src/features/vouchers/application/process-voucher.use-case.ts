@@ -13,6 +13,7 @@ import { GcsCleanupService } from '@/shared/libs/google-cloud';
 import { VoucherValidator } from '../domain/voucher-validator';
 import { ErrorMessages } from '@/shared/content';
 import { CONFIRM_CANCEL_BUTTONS } from '../shared/constants/whatsapp-buttons.const';
+import { generateRecentDates } from '../shared/helpers/date-converter.helper';
 
 export interface ProcessVoucherInput {
   phoneNumber: string;
@@ -172,6 +173,8 @@ export class ProcessVoucherUseCase {
 
   /**
    * Maneja el caso cuando faltan múltiples datos
+   * Si el primer campo faltante es fecha_pago, envía lista de fechas recientes
+   * Si es otro campo, pide entrada de texto
    */
   private async handleMissingData(
     phoneNumber: string,
@@ -194,10 +197,27 @@ export class ProcessVoucherUseCase {
     const firstMissingField = missingFields[0];
     const fieldLabel = VoucherValidator.getFieldLabel(firstMissingField);
 
-    await this.sendWhatsAppMessage(
-      phoneNumber,
-      `No pude extraer todos los datos del comprobante.\n\nPor favor proporciona el siguiente dato:\n\n*${fieldLabel}*`,
-    );
+    // Si el campo faltante es fecha_pago, enviar lista de fechas recientes
+    if (firstMissingField === 'fecha_pago') {
+      const dateOptions = generateRecentDates();
+      await this.whatsappMessaging.sendListMessage(
+        phoneNumber,
+        'No pude extraer la fecha del comprobante.\n\nPor favor selecciona la fecha de pago:',
+        'Seleccionar fecha',
+        [
+          {
+            title: 'Fechas Recientes',
+            rows: dateOptions,
+          },
+        ],
+      );
+    } else {
+      // Para otros campos, pedir entrada de texto
+      await this.sendWhatsAppMessage(
+        phoneNumber,
+        `No pude extraer todos los datos del comprobante.\n\nPor favor proporciona el siguiente dato:\n\n*${fieldLabel}*`,
+      );
+    }
 
     return { success: true };
   }
