@@ -2,6 +2,7 @@ import {
   Injectable,
   UnauthorizedException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient } from '@supabase/supabase-js';
@@ -16,8 +17,10 @@ import { AuthError, User } from '@supabase/supabase-js';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   private supabaseClient;
   private supabaseAdminClient;
+  private isEnabled = false;
 
   constructor(private configService: ConfigService) {
     // Inicializar clientes de Supabase usando ConfigService
@@ -28,20 +31,37 @@ export class AuthService {
     );
 
     if (!supabaseUrl || !supabaseAnonKey) {
-      throw new Error('Configuración de Supabase incompleta');
+      this.logger.warn(
+        'Configuración de Supabase incompleta. El servicio de autenticación no estará disponible.',
+      );
+      return;
     }
 
-    this.supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+    try {
+      this.supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
 
-    if (supabaseServiceRoleKey) {
-      this.supabaseAdminClient = createClient(
-        supabaseUrl,
-        supabaseServiceRoleKey,
-      );
+      if (supabaseServiceRoleKey) {
+        this.supabaseAdminClient = createClient(
+          supabaseUrl,
+          supabaseServiceRoleKey,
+        );
+      }
+
+      this.isEnabled = true;
+      this.logger.log('Servicio de autenticación de Supabase inicializado correctamente');
+    } catch (error) {
+      this.logger.error('Error al inicializar el cliente de Supabase:', error);
+    }
+  }
+
+  private ensureEnabled() {
+    if (!this.isEnabled) {
+      throw new BadRequestException('El servicio de autenticación no está disponible');
     }
   }
 
   async signUp(signUpDto: SignUpDto): Promise<AuthResponseDto> {
+    this.ensureEnabled();
     try {
       const { data, error } = await this.supabaseClient.auth.signUp({
         email: signUpDto.email,
@@ -81,6 +101,7 @@ export class AuthService {
   }
 
   async signIn(signInDto: SignInDto): Promise<AuthResponseDto> {
+    this.ensureEnabled();
     try {
       const { data, error } = await this.supabaseClient.auth.signInWithPassword(
         {
@@ -116,6 +137,7 @@ export class AuthService {
   }
 
   async signInWithOAuth(oAuthDto: OAuthSignInDto): Promise<{ url: string }> {
+    this.ensureEnabled();
     try {
       const { data, error } = await this.supabaseClient.auth.signInWithOAuth({
         provider: oAuthDto.provider as any,
@@ -140,6 +162,7 @@ export class AuthService {
   async refreshToken(
     refreshTokenDto: RefreshTokenDto,
   ): Promise<AuthResponseDto> {
+    this.ensureEnabled();
     try {
       const { data, error } = await this.supabaseClient.auth.refreshSession({
         refresh_token: refreshTokenDto.refreshToken,
@@ -172,6 +195,7 @@ export class AuthService {
   }
 
   async signOut(): Promise<void> {
+    this.ensureEnabled();
     try {
       const { error } = await this.supabaseClient.auth.signOut();
       if (error) {
@@ -186,6 +210,7 @@ export class AuthService {
   }
 
   async getCurrentUser(accessToken: string): Promise<User | null> {
+    this.ensureEnabled();
     try {
       const {
         data: { user },
@@ -206,6 +231,7 @@ export class AuthService {
   }
 
   async handleOAuthCallback(code: string): Promise<AuthResponseDto> {
+    this.ensureEnabled();
     try {
       const { data, error } =
         await this.supabaseClient.auth.exchangeCodeForSession(code);

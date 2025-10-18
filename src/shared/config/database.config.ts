@@ -104,7 +104,8 @@ export class DatabaseConfigService {
       password: config.password,
       database: config.database,
       ssl: config.ssl ? { rejectUnauthorized: false } : false,
-      entities: [__dirname + '/../database/entities/*.entity{.ts,.js}'],
+      // Usar solo autoLoadEntities en lugar de especificar el patrón entities
+      // Esto evita la carga duplicada y problemas con dependencias circulares
       autoLoadEntities: true,
       synchronize: this.configService.get<string>('NODE_ENV') === 'development',
       logging: this.configService.get<string>('NODE_ENV') === 'development',
