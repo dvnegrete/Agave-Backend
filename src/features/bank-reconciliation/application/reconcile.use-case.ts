@@ -72,7 +72,7 @@ export class ReconcileUseCase {
     const processedVoucherIds = new Set<number>();
 
     for (const transaction of pendingTransactions) {
-      const matchResult = this.matchingService.matchTransaction(
+      const matchResult = await this.matchingService.matchTransaction(
         transaction,
         pendingVouchers,
         processedVoucherIds,
