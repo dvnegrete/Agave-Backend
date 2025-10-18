@@ -15,7 +15,7 @@ import {
 } from '../../domain';
 
 export type MatchResult =
-  | { type: 'matched'; match: ReconciliationMatch; voucherId: number }
+  | { type: 'matched'; match: ReconciliationMatch; voucherId: number; voucher: Voucher }
   | { type: 'surplus'; surplus: SurplusTransaction }
   | { type: 'manual'; case: ManualValidationCase };
 
@@ -93,7 +93,7 @@ export class MatchingService {
       dateDifferenceHours: dateDiff,
     });
 
-    return { type: 'matched', match, voucherId: voucher.id };
+    return { type: 'matched', match, voucherId: voucher.id, voucher };
   }
 
   /**
@@ -130,7 +130,7 @@ export class MatchingService {
         dateDifferenceHours: dateDiff,
       });
 
-      return { type: 'matched', match, voucherId: voucher.id };
+      return { type: 'matched', match, voucherId: voucher.id, voucher };
     }
 
     // Múltiples coincidencias aún → validación manual

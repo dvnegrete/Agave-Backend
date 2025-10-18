@@ -83,7 +83,7 @@ export class ReconcileUseCase {
         try {
           await this.persistenceService.persistReconciliation(
             matchResult.match.transactionBankId,
-            matchResult.voucherId,
+            matchResult.voucher,
             matchResult.match.houseNumber,
           );
 

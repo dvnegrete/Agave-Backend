@@ -137,9 +137,10 @@ export class VoucherProcessorService {
 
         // Normalizar: si tiene un solo dígito, multiplicar por 10
         // Ejemplo: ".1" → "10", ".4" → "40"
-        const normalizedCentavos = centavosStr.length === 1
-          ? parseInt(centavosStr, 10) * 10
-          : parseInt(centavosStr, 10);
+        const normalizedCentavos =
+          centavosStr.length === 1
+            ? parseInt(centavosStr, 10) * 10
+            : parseInt(centavosStr, 10);
 
         if (
           isNaN(normalizedCentavos) ||
