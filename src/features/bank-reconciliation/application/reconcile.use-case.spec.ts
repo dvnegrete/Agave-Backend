@@ -31,6 +31,8 @@ describe('ReconcileUseCase', () => {
 
     const mockPersistenceService = {
       persistReconciliation: jest.fn(),
+      persistSurplus: jest.fn().mockResolvedValue(undefined),
+      persistManualValidationCase: jest.fn().mockResolvedValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -452,6 +454,164 @@ describe('ReconcileUseCase', () => {
 
       expect(result.summary.totalProcessed).toBe(0);
       expect(result.summary.getSuccessRate()).toBe(0);
+    });
+
+    it('should persist surplus transactions to database', async () => {
+      const mockTransaction = createMockTransaction('tx1', 1500.0);
+      dataService.getPendingTransactions.mockResolvedValue([mockTransaction]);
+      dataService.getPendingVouchers.mockResolvedValue([]);
+
+      // Mock surplus result (requires manual review)
+      matchingService.matchTransaction.mockResolvedValue({
+        type: 'surplus',
+        surplus: SurplusTransaction.fromTransaction(
+          mockTransaction,
+          'Sin información suficiente para conciliar (sin centavos válidos ni concepto claro)',
+          true,
+          undefined,
+        ),
+      });
+
+      await useCase.execute({ startDate: new Date(), endDate: new Date() });
+
+      // Verificar que se llamó persistSurplus
+      expect(persistenceService.persistSurplus).toHaveBeenCalledWith(
+        mockTransaction.id,
+        expect.objectContaining({
+          transactionBankId: mockTransaction.id,
+          requiresManualReview: true,
+          reason: expect.stringContaining('Sin información suficiente'),
+        }),
+      );
+
+      // Verificar que está en sobrantes
+      expect(persistenceService.persistSurplus).toHaveBeenCalledTimes(1);
+    });
+
+    it('should persist manual validation cases to database', async () => {
+      const mockTransaction = createMockTransaction('tx1', 1500.0);
+      const mockVoucher1 = createMockVoucher(1, 1500.0);
+      const mockVoucher2 = createMockVoucher(2, 1500.0);
+
+      dataService.getPendingTransactions.mockResolvedValue([mockTransaction]);
+      dataService.getPendingVouchers.mockResolvedValue([
+        mockVoucher1,
+        mockVoucher2,
+      ]);
+
+      // Mock manual validation result
+      matchingService.matchTransaction.mockResolvedValue({
+        type: 'manual',
+        case: ManualValidationCase.create({
+          transaction: mockTransaction,
+          possibleMatches: [
+            {
+              voucher: mockVoucher1,
+              dateDifferenceHours: 2,
+              similarityScore: 0.85,
+            },
+            {
+              voucher: mockVoucher2,
+              dateDifferenceHours: 3,
+              similarityScore: 0.82,
+            },
+          ],
+          reason: 'Múltiples vouchers candidatos con alta similitud',
+        }),
+      });
+
+      await useCase.execute({ startDate: new Date(), endDate: new Date() });
+
+      // Verificar que se llamó persistManualValidationCase
+      expect(
+        persistenceService.persistManualValidationCase,
+      ).toHaveBeenCalledWith(
+        mockTransaction.id,
+        expect.objectContaining({
+          transactionBankId: mockTransaction.id,
+          possibleMatches: expect.arrayContaining([
+            expect.objectContaining({ voucherId: 1, similarity: 0.85 }),
+            expect.objectContaining({ voucherId: 2, similarity: 0.82 }),
+          ]),
+          reason: expect.stringContaining('Múltiples vouchers candidatos'),
+        }),
+      );
+
+      // Verificar que está en manualValidationRequired
+      expect(
+        persistenceService.persistManualValidationCase,
+      ).toHaveBeenCalledTimes(1);
+    });
+
+    it('should continue processing even if persistSurplus fails', async () => {
+      const mockTransaction = createMockTransaction('tx1', 1500.0);
+      dataService.getPendingTransactions.mockResolvedValue([mockTransaction]);
+      dataService.getPendingVouchers.mockResolvedValue([]);
+
+      // Mock surplus result
+      matchingService.matchTransaction.mockResolvedValue({
+        type: 'surplus',
+        surplus: SurplusTransaction.fromTransaction(
+          mockTransaction,
+          'Sin información suficiente',
+          true,
+          undefined,
+        ),
+      });
+
+      // Mock persistSurplus to fail
+      persistenceService.persistSurplus.mockRejectedValue(
+        new Error('Database error'),
+      );
+
+      const result = await useCase.execute({
+        startDate: new Date(),
+        endDate: new Date(),
+      });
+
+      // El sobrante debe estar en el response aunque falló la persistencia
+      expect(result.sobrantes.length).toBe(1);
+      expect(result.sobrantes[0].transactionBankId).toBe(mockTransaction.id);
+    });
+
+    it('should continue processing even if persistManualValidationCase fails', async () => {
+      const mockTransaction = createMockTransaction('tx1', 1500.0);
+      const mockVoucher1 = createMockVoucher(1, 1500.0);
+
+      dataService.getPendingTransactions.mockResolvedValue([mockTransaction]);
+      dataService.getPendingVouchers.mockResolvedValue([mockVoucher1]);
+
+      // Mock manual validation result
+      matchingService.matchTransaction.mockResolvedValue({
+        type: 'manual',
+        case: ManualValidationCase.create({
+          transaction: mockTransaction,
+          possibleMatches: [
+            {
+              voucher: mockVoucher1,
+              dateDifferenceHours: 2,
+              similarityScore: 0.85,
+            },
+          ],
+          reason: 'Múltiples candidatos',
+        }),
+      });
+
+      // Mock persistManualValidationCase to fail
+      persistenceService.persistManualValidationCase.mockRejectedValue(
+        new Error('Database error'),
+      );
+
+      const result = await useCase.execute({
+        startDate: new Date(),
+        endDate: new Date(),
+      });
+
+      // El caso manual debe estar en el response aunque falló la persistencia
+      expect(result.manualValidationRequired.length).toBe(1);
+      expect(result.manualValidationRequired[0].transactionBankId).toBe(
+        mockTransaction.id,
+      );
     });
   });
 });

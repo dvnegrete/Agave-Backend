@@ -8,12 +8,36 @@ export interface CreateTransactionStatusDto {
   validation_status?: ValidationStatus;
   transactions_bank_id?: string | null;
   vouchers_id?: number | null;
+  reason?: string;
+  identified_house_number?: number;
+  processed_at?: Date;
+  metadata?: {
+    possibleMatches?: Array<{
+      voucherId: number;
+      similarity: number;
+      dateDifferenceHours: number;
+    }>;
+    matchCriteria?: string[];
+    confidenceLevel?: string;
+  };
 }
 
 export interface UpdateTransactionStatusDto {
   validation_status?: ValidationStatus;
   transactions_bank_id?: string | null;
   vouchers_id?: number | null;
+  reason?: string;
+  identified_house_number?: number;
+  processed_at?: Date;
+  metadata?: {
+    possibleMatches?: Array<{
+      voucherId: number;
+      similarity: number;
+      dateDifferenceHours: number;
+    }>;
+    matchCriteria?: string[];
+    confidenceLevel?: string;
+  };
 }
 
 @Injectable()
@@ -34,6 +58,10 @@ export class TransactionStatusRepository {
       validation_status: data.validation_status || ValidationStatus.PENDING,
       transactions_bank_id: data.transactions_bank_id ?? undefined,
       vouchers_id: data.vouchers_id ?? undefined,
+      reason: data.reason,
+      identified_house_number: data.identified_house_number,
+      processed_at: data.processed_at,
+      metadata: data.metadata,
     };
 
     if (queryRunner) {
@@ -121,6 +149,14 @@ export class TransactionStatusRepository {
       updateData.transactions_bank_id = data.transactions_bank_id ?? undefined;
     if (data.vouchers_id !== undefined)
       updateData.vouchers_id = data.vouchers_id ?? undefined;
+    if (data.reason !== undefined)
+      updateData.reason = data.reason;
+    if (data.identified_house_number !== undefined)
+      updateData.identified_house_number = data.identified_house_number;
+    if (data.processed_at !== undefined)
+      updateData.processed_at = data.processed_at;
+    if (data.metadata !== undefined)
+      updateData.metadata = data.metadata;
 
     await this.transactionStatusRepository.update(id, updateData);
     const updated = await this.findById(id);

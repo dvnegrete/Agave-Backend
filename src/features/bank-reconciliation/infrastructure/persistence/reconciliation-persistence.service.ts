@@ -8,6 +8,10 @@ import { VoucherRepository } from '@/shared/database/repositories/voucher.reposi
 import { Voucher } from '@/shared/database/entities/voucher.entity';
 import { ValidationStatus } from '@/shared/database/entities/enums';
 import { GcsCleanupService } from '@/shared/libs/google-cloud/gcs-cleanup.service';
+import {
+  SurplusTransaction,
+  ManualValidationCase,
+} from '../../domain';
 
 /**
  * UUID del usuario "Sistema" para casas creadas automáticamente por conciliación bancaria
@@ -125,17 +129,27 @@ export class ReconciliationPersistenceService {
   /**
    * Crea un TransactionStatus con validation_status = CONFIRMED
    * @param voucherId - ID del voucher (puede ser null si conciliación automática)
+   * @param metadata - Información adicional de la conciliación (matchCriteria, confidenceLevel)
    */
   private async createTransactionStatus(
     transactionBankId: string,
     voucherId: number | null,
     queryRunner: QueryRunner,
+    metadata?: {
+      matchCriteria?: string[];
+      confidenceLevel?: string;
+    },
   ) {
     return await this.transactionStatusRepository.create(
       {
         validation_status: ValidationStatus.CONFIRMED,
         transactions_bank_id: transactionBankId,
         vouchers_id: voucherId,
+        reason: voucherId
+          ? 'Conciliado con voucher'
+          : 'Conciliado automáticamente por centavos/concepto',
+        processed_at: new Date(),
+        metadata: metadata,
       },
       queryRunner,
     );
@@ -258,5 +272,112 @@ export class ReconciliationPersistenceService {
       { id: voucher.id },
       { confirmation_status: true, url: null },
     );
+  }
+
+  /**
+   * Persiste una transacción sobrante en la base de datos
+   * Crea un TransactionStatus con estado NOT_FOUND o CONFLICT
+   *
+   * @param transactionBankId - ID de la transacción bancaria
+   * @param surplus - Objeto SurplusTransaction con información del sobrante
+   */
+  async persistSurplus(
+    transactionBankId: string,
+    surplus: SurplusTransaction,
+  ): Promise<void> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // Determinar el status según si requiere validación manual
+      // CONFLICT: cuando hay conflicto entre centavos y concepto
+      // NOT_FOUND: cuando no hay información suficiente
+      const status = surplus.reason.includes('Conflicto')
+        ? ValidationStatus.CONFLICT
+        : ValidationStatus.NOT_FOUND;
+
+      await this.transactionStatusRepository.create(
+        {
+          validation_status: status,
+          transactions_bank_id: transactionBankId,
+          vouchers_id: null,
+          reason: surplus.reason,
+          identified_house_number: surplus.houseNumber,
+          processed_at: new Date(),
+          metadata: undefined,
+        },
+        queryRunner,
+      );
+
+      await queryRunner.commitTransaction();
+      this.logger.log(
+        `Sobrante persistido: Transaction ${transactionBankId}, Status: ${status}, Razón: ${surplus.reason}`,
+      );
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+
+      this.logger.error(
+        `Error al persistir sobrante: ${errorMessage}`,
+        errorStack,
+      );
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Persiste un caso que requiere validación manual
+   * Guarda los posibles candidatos en el campo metadata para revisión posterior
+   *
+   * @param transactionBankId - ID de la transacción bancaria
+   * @param manualCase - Objeto ManualValidationCase con candidatos y scores
+   */
+  async persistManualValidationCase(
+    transactionBankId: string,
+    manualCase: ManualValidationCase,
+  ): Promise<void> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      await this.transactionStatusRepository.create(
+        {
+          validation_status: ValidationStatus.REQUIRES_MANUAL,
+          transactions_bank_id: transactionBankId,
+          vouchers_id: null,
+          reason: manualCase.reason,
+          identified_house_number: undefined,
+          processed_at: new Date(),
+          metadata: {
+            possibleMatches: manualCase.possibleMatches,
+          },
+        },
+        queryRunner,
+      );
+
+      await queryRunner.commitTransaction();
+      this.logger.log(
+        `Caso manual persistido: Transaction ${transactionBankId}, Candidatos: ${manualCase.possibleMatches.length}, Razón: ${manualCase.reason}`,
+      );
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+
+      this.logger.error(
+        `Error al persistir caso manual: ${errorMessage}`,
+        errorStack,
+      );
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 }
