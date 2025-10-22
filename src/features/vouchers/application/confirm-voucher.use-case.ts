@@ -92,8 +92,30 @@ export class ConfirmVoucherUseCase {
         savedData.voucherData.hora_transaccion,
       );
 
-      // 4. VALIDACIÓN DE DUPLICADOS (antes de crear transacción)
+      // 4. VALIDAR MONTO (antes de cualquier operación)
       const amount = parseFloat(savedData.voucherData.monto);
+
+      // Validar que amount sea un número válido y positivo
+      if (isNaN(amount) || !isFinite(amount) || amount <= 0) {
+        if (savedData.gcsFilename) {
+          await this.cleanupGcsFile(savedData.gcsFilename);
+        }
+
+        await this.sendWhatsAppMessage(
+          phoneNumber,
+          `❌ Error: El monto extraído del comprobante es inválido.\n\n` +
+            `Por favor envía un comprobante con el monto claramente visible.`,
+        );
+
+        this.conversationState.clearContext(phoneNumber);
+
+        return {
+          success: false,
+          error: `Monto inválido: ${savedData.voucherData.monto}`,
+        };
+      }
+
+      // 5. VALIDACIÓN DE DUPLICADOS (después de validar monto)
       const duplicateCheck = await this.duplicateDetector.detectDuplicate(
         dateTime,
         amount,
@@ -125,7 +147,7 @@ export class ConfirmVoucherUseCase {
         };
       }
 
-      // 5. Preparar datos del voucher
+      // 6. Preparar datos del voucher
       const voucherData = {
         date: dateTime,
         authorization_number: savedData.voucherData.referencia || 'N/A',
@@ -134,7 +156,7 @@ export class ConfirmVoucherUseCase {
         url: savedData.gcsFilename,
       };
 
-      // 5. Generar código único e insertar voucher (con retry logic)
+      // 7. Generar código único e insertar voucher (con retry logic)
       const result = await generateUniqueConfirmationCode(
         this.voucherRepository,
         voucherData,
@@ -153,7 +175,7 @@ export class ConfirmVoucherUseCase {
       await queryRunner.startTransaction();
 
       try {
-        // 6. El voucher ya fue creado, obtenerlo por código de confirmación
+        // 8. El voucher ya fue creado, obtenerlo por código de confirmación
         const voucher = await this.voucherRepository.findByConfirmationCode(
           result.code!,
         );
@@ -162,10 +184,10 @@ export class ConfirmVoucherUseCase {
           throw new Error('Voucher no encontrado después de crearlo');
         }
 
-        // 7. Buscar o crear Usuario por cel_phone
+        // 9. Buscar o crear Usuario por cel_phone
         const user = await this.findOrCreateUser(phoneNumber, queryRunner);
 
-        // 8. Crear Record con voucher_id
+        // 10. Crear Record con voucher_id
         const record = await this.recordRepository.create(
           {
             vouchers_id: voucher.id,
@@ -179,7 +201,7 @@ export class ConfirmVoucherUseCase {
           queryRunner,
         );
 
-        // 9. Buscar o crear House y asociar con Record
+        // 11. Buscar o crear House y asociar con Record
         await this.findOrCreateHouseAssociation(
           savedData.voucherData.casa,
           user.id,
@@ -190,7 +212,7 @@ export class ConfirmVoucherUseCase {
         // COMMIT - Todo exitoso
         await queryRunner.commitTransaction();
 
-        // 10. Enviar mensaje de éxito con el código de confirmación
+        // 12. Enviar mensaje de éxito con el código de confirmación
         const confirmationData = {
           casa: savedData.voucherData.casa,
           monto: savedData.voucherData.monto,
@@ -205,7 +227,7 @@ export class ConfirmVoucherUseCase {
           ConfirmationMessages.success(confirmationData),
         );
 
-        // 11. Limpiar contexto
+        // 13. Limpiar contexto
         this.conversationState.clearContext(phoneNumber);
 
         return { success: true, confirmationCode: result.code };

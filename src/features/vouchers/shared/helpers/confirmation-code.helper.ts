@@ -20,6 +20,20 @@ export async function generateUniqueConfirmationCode(
   voucherData: any,
   maxRetries: number = 5,
 ): Promise<ConfirmationCodeGenerationResult> {
+  // Validar amount antes de intentar insertar
+  if (
+    voucherData.amount === undefined ||
+    voucherData.amount === null ||
+    isNaN(voucherData.amount) ||
+    !isFinite(voucherData.amount) ||
+    voucherData.amount <= 0
+  ) {
+    return {
+      success: false,
+      error: `Amount inválido: ${voucherData.amount}. Debe ser un número positivo.`,
+    };
+  }
+
   let attempt = 0;
 
   while (attempt < maxRetries) {
