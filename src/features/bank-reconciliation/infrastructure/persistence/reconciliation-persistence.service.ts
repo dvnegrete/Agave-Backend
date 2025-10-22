@@ -10,6 +10,16 @@ import { ValidationStatus } from '@/shared/database/entities/enums';
 import { GcsCleanupService } from '@/shared/libs/google-cloud/gcs-cleanup.service';
 
 /**
+ * UUID del usuario "Sistema" para casas creadas automáticamente por conciliación bancaria
+ * Este usuario debe existir en la tabla users
+ *
+ * IMPORTANTE: Asegúrate de que existe un usuario con este UUID en tu base de datos.
+ * Si no existe, créalo con:
+ * INSERT INTO users (id, email) VALUES ('00000000-0000-0000-0000-000000000000', 'sistema@conciliacion.local');
+ */
+const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
+
+/**
  * Servicio de infraestructura para persistencia de conciliaciones
  * Maneja todas las operaciones de base de datos relacionadas con la conciliación
  */
@@ -32,12 +42,12 @@ export class ReconciliationPersistenceService {
    * Crea todos los registros necesarios en una transacción atómica
    *
    * @param transactionBankId - ID de la transacción bancaria
-   * @param voucher - Objeto completo del voucher (ya obtenido en el matching)
+   * @param voucher - Objeto completo del voucher (puede ser null si conciliación automática sin voucher)
    * @param houseNumber - Número de casa
    */
   async persistReconciliation(
     transactionBankId: string,
-    voucher: Voucher,
+    voucher: Voucher | null,
     houseNumber: number,
   ): Promise<void> {
     const queryRunner = this.dataSource.createQueryRunner();
@@ -45,19 +55,35 @@ export class ReconciliationPersistenceService {
     await queryRunner.startTransaction();
 
     try {
-      // 1. Crear TransactionStatus asociando transaction_bank con voucher
+      // 1. Crear TransactionStatus (con o sin voucher)
       const transactionStatus = await this.createTransactionStatus(
         transactionBankId,
-        voucher.id,
+        voucher?.id ?? null,
         queryRunner,
       );
 
-      // 2. Obtener o crear Record
-      const recordId = await this.getOrCreateRecord(
-        voucher.id,
-        transactionStatus.id,
-        queryRunner,
-      );
+      // 2. Obtener o crear Record (solo si hay voucher)
+      let recordId: number;
+      if (voucher) {
+        recordId = await this.getOrCreateRecord(
+          voucher.id,
+          transactionStatus.id,
+          queryRunner,
+        );
+      } else {
+        // Sin voucher, crear record directamente
+        const newRecord = await this.recordRepository.create(
+          {
+            vouchers_id: null,
+            transaction_status_id: transactionStatus.id,
+          },
+          queryRunner,
+        );
+        recordId = newRecord.id;
+        this.logger.log(
+          `Creado record sin voucher ID: ${recordId} para TransactionStatus ID: ${transactionStatus.id}`,
+        );
+      }
 
       // 3. Verificar que la casa existe y crear HouseRecord
       await this.createHouseRecordAssociation(
@@ -69,13 +95,16 @@ export class ReconciliationPersistenceService {
       // 4. Actualizar confirmation_status en TransactionBank
       await this.updateTransactionBankStatus(transactionBankId, queryRunner);
 
-      // Pasar el objeto Voucher completo para evitar consulta adicional a BD
-      await this.updateVoucherStatus(voucher, queryRunner);
+      // 5. Actualizar voucher solo si existe
+      if (voucher) {
+        await this.updateVoucherStatus(voucher, queryRunner);
+      }
 
       await queryRunner.commitTransaction();
 
+      const voucherInfo = voucher ? `Voucher ${voucher.id}` : 'Sin voucher (conciliación automática)';
       this.logger.log(
-        `Conciliación exitosa: TransactionBank ${transactionBankId} <-> Voucher ${voucher.id} -> Casa ${houseNumber}`,
+        `Conciliación exitosa: TransactionBank ${transactionBankId} <-> ${voucherInfo} -> Casa ${houseNumber}`,
       );
     } catch (error) {
       await queryRunner.rollbackTransaction();
@@ -95,10 +124,11 @@ export class ReconciliationPersistenceService {
 
   /**
    * Crea un TransactionStatus con validation_status = CONFIRMED
+   * @param voucherId - ID del voucher (puede ser null si conciliación automática)
    */
   private async createTransactionStatus(
     transactionBankId: string,
-    voucherId: number,
+    voucherId: number | null,
     queryRunner: QueryRunner,
   ) {
     return await this.transactionStatusRepository.create(
@@ -146,19 +176,37 @@ export class ReconciliationPersistenceService {
   }
 
   /**
-   * Crea la asociación HouseRecord después de verificar que la casa existe
+   * Crea la asociación HouseRecord, creando la casa si no existe
+   * Sigue el mismo patrón que confirm-voucher.use-case.ts
    */
   private async createHouseRecordAssociation(
     houseNumber: number,
     recordId: number,
     queryRunner: QueryRunner,
   ): Promise<void> {
-    const house = await this.houseRepository.findByNumberHouse(houseNumber);
+    // Buscar casa existente por número
+    let house = await this.houseRepository.findByNumberHouse(houseNumber);
 
     if (!house) {
-      throw new Error(`Casa con número ${houseNumber} no encontrada`);
+      // Casa no existe, crear nueva asignada al usuario "Sistema"
+      this.logger.log(
+        `Casa ${houseNumber} no existe, creando automáticamente (asignada a usuario Sistema)`,
+      );
+
+      house = await this.houseRepository.create(
+        {
+          number_house: houseNumber,
+          user_id: SYSTEM_USER_ID, // Usuario "Sistema" para conciliación automática
+        },
+        queryRunner,
+      );
+
+      this.logger.log(
+        `Casa ${houseNumber} creada exitosamente con ID: ${house.id} (propietario: Sistema)`,
+      );
     }
 
+    // Crear asociación en house_records
     await this.houseRecordRepository.create(
       {
         house_id: house.id,

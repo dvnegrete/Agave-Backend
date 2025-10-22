@@ -12,6 +12,7 @@ import {
   ManualValidationCase,
   ConfidenceLevel,
   MatchCriteria,
+  ConceptResult,
 } from '../../domain';
 import { ConceptHouseExtractorService } from './concept-house-extractor.service';
 import { ConceptAnalyzerService } from './concept-analyzer.service';
@@ -26,10 +27,13 @@ export type MatchResult =
  * Implementa la lógica de coincidencias basada en reglas de negocio
  *
  * Estrategia de matching:
- * 1. AMOUNT + DATE: Monto exacto + fecha cercana
- * 2. CONCEPT: Análisis del concepto para extraer número de casa
- * 3. CENTS: Identificación por centavos del monto
- * 4. MANUAL: Requiere revisión humana si hay ambigüedad
+ * 1. AMOUNT + DATE: Monto exacto + fecha cercana (usa voucher más cercano)
+ * 2. CENTS: Los centavos son suficientes para conciliar automáticamente
+ *    - EXCEPTO cuando hay conflicto con concepto → validación manual
+ * 3. CONCEPT: Solo si concepto tiene alta confianza y no hay centavos
+ * 4. MANUAL: Requiere revisión si:
+ *    - Conflicto entre centavos y concepto
+ *    - Sin centavos, sin concepto, sin voucher
  */
 @Injectable()
 export class MatchingService {
@@ -113,6 +117,7 @@ export class MatchingService {
 
   /**
    * Resuelve el caso de múltiples coincidencias por monto
+   * NUEVO: Usa el voucher más cercano en fecha en lugar de marcar para validación manual
    */
   private async resolveMultipleMatches(
     transaction: TransactionBank,
@@ -131,8 +136,9 @@ export class MatchingService {
       .filter((m) => m.dateDiff <= ReconciliationConfig.DATE_TOLERANCE_HOURS)
       .sort((a, b) => a.dateDiff - b.dateDiff);
 
-    // Si hay una sola coincidencia dentro de tolerancia de fecha
-    if (matchesWithDateDiff.length === 1) {
+    // Si hay al menos una coincidencia dentro de tolerancia
+    // NUEVO: Usar el más cercano (antes requería validación manual si había múltiples)
+    if (matchesWithDateDiff.length >= 1) {
       const { voucher, dateDiff } = matchesWithDateDiff[0];
       const houseNumber = extractHouseNumberFromCents(transaction.amount);
 
@@ -145,23 +151,11 @@ export class MatchingService {
         dateDifferenceHours: dateDiff,
       });
 
+      this.logger.log(
+        `Múltiples vouchers encontrados, usando el más cercano: Voucher ${voucher.id} (diferencia: ${dateDiff}h)`,
+      );
+
       return { type: 'matched', match, voucherId: voucher.id, voucher };
-    }
-
-    // Múltiples coincidencias aún → validación manual
-    if (matchesWithDateDiff.length > 1) {
-      const manualCase = ManualValidationCase.create({
-        transaction,
-        possibleMatches: matchesWithDateDiff.map((m) => ({
-          voucher: m.voucher,
-          dateDifferenceHours: m.dateDiff,
-          similarityScore:
-            1 - m.dateDiff / ReconciliationConfig.DATE_TOLERANCE_HOURS,
-        })),
-        reason: 'Multiple vouchers with same amount and similar dates',
-      });
-
-      return { type: 'manual', case: manualCase };
     }
 
     // Sin coincidencias dentro de tolerancia
@@ -170,137 +164,176 @@ export class MatchingService {
 
   /**
    * Maneja el caso donde no hay voucher coincidente
-   * Intenta identificar casa por concepto o centavos
+   *
+   * Nueva estrategia simplificada:
+   * 1. Centavos válidos → conciliar (excepto si hay conflicto con concepto)
+   * 2. Concepto claro sin centavos → conciliar
+   * 3. Sin información → sobrante con revisión manual
    */
   private async handleNoVoucherMatch(transaction: TransactionBank): Promise<MatchResult> {
-    const houseNumberFromCents = extractHouseNumberFromCents(transaction.amount);
-    let houseNumberFromConcept: number | null = null;
-    let conceptConfidence: 'high' | 'medium' | 'low' | 'none' = 'none';
+    const centsHouse = extractHouseNumberFromCents(transaction.amount);
+    const conceptResult = await this.extractHouseFromConcept(transaction.concept);
 
-    // 1. Intentar extraer número de casa del concepto
-    if (ReconciliationConfig.ENABLE_CONCEPT_MATCHING && transaction.concept) {
-      try {
-        // Primero intentar con regex (rápido y sin IA)
-        const extractionResult = this.conceptExtractorService.extractHouseNumber(
-          transaction.concept,
-        );
-
-        houseNumberFromConcept = extractionResult.houseNumber;
-        conceptConfidence = extractionResult.confidence;
-
-        // Si el patrón regex no es conclusivo, intentar con IA
-        if (
-          conceptConfidence === 'low' ||
-          conceptConfidence === 'none' ||
-          houseNumberFromConcept === null
-        ) {
-          if (ReconciliationConfig.ENABLE_AI_CONCEPT_ANALYSIS) {
-            try {
-              this.logger.debug(`Usando IA para analizar concepto: "${transaction.concept}"`);
-              const aiResult = await this.conceptAnalyzerService.analyzeConceptWithAI({
-                concept: transaction.concept,
-                amount: transaction.amount,
-                houseNumberRange: {
-                  min: 1,
-                  max: ReconciliationConfig.MAX_HOUSE_NUMBER,
-                },
-              });
-
-              if (aiResult.houseNumber !== null) {
-                houseNumberFromConcept = aiResult.houseNumber;
-                conceptConfidence = aiResult.confidence;
-              }
-            } catch (error) {
-              this.logger.warn(
-                `Error al analizar concepto con IA: ${error instanceof Error ? error.message : 'Unknown'}`,
-              );
-            }
-          }
-        }
-      } catch (error) {
-        this.logger.warn(
-          `Error al extraer número de concepto: ${error instanceof Error ? error.message : 'Unknown'}`,
-        );
-      }
+    // Estrategia 1: Centavos válidos
+    if (this.isValidHouseNumber(centsHouse)) {
+      return this.reconcileByCents(transaction, centsHouse, conceptResult);
     }
 
-    // 2. Validación cruzada: SOLO se concilia automáticamente si hay coincidencia de dos fuentes
-    // REGLA FUNDAMENTAL: Sin voucher + sin validación cruzada = NO se concilia automáticamente
-
-    // 2a. Si tenemos AMBAS fuentes: concepto + centavos
-    if (houseNumberFromConcept && houseNumberFromCents > 0) {
-      if (houseNumberFromConcept === houseNumberFromCents) {
-        // ✅ CORRECTO: Las dos fuentes coinciden → conciliada automáticamente
-        this.logger.debug(
-          `Casa ${houseNumberFromConcept} confirmada por validación cruzada: concepto + centavos coinciden`,
-        );
-
-        const surplus = SurplusTransaction.fromTransaction(
-          transaction,
-          `No voucher found, but house ${houseNumberFromConcept} confirmed by cross-validation: concept + cents match (confidence: ${conceptConfidence})`,
-          false, // requiresManualReview = false - DOS fuentes coinciden
-          houseNumberFromConcept,
-        );
-
-        return { type: 'surplus', surplus };
-      } else {
-        // ⚠️ Conflicto: conceptos y centavos no coinciden → manual review requerido
-        this.logger.warn(
-          `Conflicto detectado: concepto sugiere casa ${houseNumberFromConcept}, centavos sugieren casa ${houseNumberFromCents}`,
-        );
-
-        const surplus = SurplusTransaction.fromTransaction(
-          transaction,
-          `Conflict: concept suggests house ${houseNumberFromConcept} (confidence: ${conceptConfidence}), but cents suggest house ${houseNumberFromCents}. Manual review required.`,
-          true, // requiresManualReview = true - CONFLICTO
-          houseNumberFromConcept, // Usar concepto como principal
-        );
-
-        return { type: 'surplus', surplus };
-      }
+    // Estrategia 2: Concepto claro (sin centavos)
+    if (conceptResult.isHighConfidence()) {
+      return this.reconcileByConcept(transaction, conceptResult);
     }
 
-    // 2b. Si SOLO tenemos centavos válidos (sin concepto o concepto no concluyente)
-    if (houseNumberFromCents > 0 && houseNumberFromCents <= ReconciliationConfig.MAX_HOUSE_NUMBER) {
-      // ✅ Una fuente válida, pero limitada
-      this.logger.debug(
-        `Casa ${houseNumberFromCents} identificada SOLO por centavos. Requiere revisión por falta de concepto.`,
-      );
+    // Estrategia 3: Sin información suficiente
+    return this.createSurplusWithoutInfo(transaction);
+  }
 
-      const surplus = SurplusTransaction.fromTransaction(
-        transaction,
-        `No voucher found. House ${houseNumberFromCents} identified ONLY by cents. Requires manual review (no concept validation).`,
-        true, // requiresManualReview = true - UNA SOLA FUENTE
-        houseNumberFromCents,
-      );
-
-      return { type: 'surplus', surplus };
+  /**
+   * Concilia usando centavos como fuente principal
+   * REGLA: Los centavos son suficientes, excepto cuando hay conflicto con concepto
+   */
+  private reconcileByCents(
+    transaction: TransactionBank,
+    centsHouse: number,
+    conceptResult: ConceptResult,
+  ): MatchResult {
+    // Caso: Conflicto entre centavos y concepto
+    if (conceptResult.hasHouse() && conceptResult.house !== centsHouse) {
+      return this.createConflictSurplus(transaction, centsHouse, conceptResult.house!);
     }
 
-    // 2c. Si SOLO tenemos concepto (sin centavos válidos para validar cruzada)
-    if (houseNumberFromConcept && houseNumberFromCents === 0) {
-      // ❌ NO CONCILIABLE: Concepto sin validación cruzada
-      this.logger.warn(
-        `Casa ${houseNumberFromConcept} extraída del concepto, pero NO se concilia (sin centavos para validación cruzada).`,
-      );
+    // Caso: Centavos solos o centavos + concepto coinciden
+    const reason = conceptResult.hasHouse()
+      ? `Centavos + concepto coinciden (casa ${centsHouse}, confianza: ${conceptResult.confidence})`
+      : `Identificado por centavos (casa ${centsHouse})`;
 
-      const surplus = SurplusTransaction.fromTransaction(
-        transaction,
-        `No voucher found. House ${houseNumberFromConcept} identified by concept (${conceptConfidence} confidence) but NO cents validation. Cannot auto-reconcile. Requires manual review.`,
-        true, // requiresManualReview = true - SIN SEGUNDA FUENTE
-        houseNumberFromConcept,
-      );
+    return this.createAutoReconciled(transaction, centsHouse, reason);
+  }
 
-      return { type: 'surplus', surplus };
-    }
+  /**
+   * Concilia usando concepto cuando no hay centavos válidos
+   * REGLA: Solo si el concepto tiene alta confianza
+   */
+  private reconcileByConcept(
+    transaction: TransactionBank,
+    conceptResult: ConceptResult,
+  ): MatchResult {
+    return this.createAutoReconciled(
+      transaction,
+      conceptResult.house!,
+      `Concepto identifica claramente casa ${conceptResult.house} (confianza: ${conceptResult.confidence})`,
+    );
+  }
 
-    // 2d. Sin ninguna información confiable
-    const reason = ReconciliationConfig.REQUIRE_VOUCHER_FOR_NO_CENTS
-      ? 'No voucher found and no valid house identifier (voucher required). Concept analysis failed.'
-      : 'No voucher found and no house identifier available';
+  /**
+   * Crea surplus auto-conciliado (sin revisión manual)
+   */
+  private createAutoReconciled(
+    transaction: TransactionBank,
+    houseNumber: number,
+    reason: string,
+  ): MatchResult {
+    this.logger.log(`Casa ${houseNumber} conciliada automáticamente: ${reason}`);
 
-    const surplus = SurplusTransaction.fromTransaction(transaction, reason, true, 0);
+    const surplus = SurplusTransaction.fromTransaction(
+      transaction,
+      `No voucher found. ${reason}`,
+      false, // requiresManualReview = false
+      houseNumber,
+    );
 
     return { type: 'surplus', surplus };
+  }
+
+  /**
+   * Crea surplus por conflicto (requiere revisión manual)
+   */
+  private createConflictSurplus(
+    transaction: TransactionBank,
+    centsHouse: number,
+    conceptHouse: number,
+  ): MatchResult {
+    this.logger.warn(
+      `Conflicto detectado: concepto sugiere casa ${conceptHouse}, centavos sugieren casa ${centsHouse}`,
+    );
+
+    const surplus = SurplusTransaction.fromTransaction(
+      transaction,
+      `Conflicto: concepto sugiere casa ${conceptHouse}, centavos sugieren casa ${centsHouse}. Requiere validación manual.`,
+      true, // requiresManualReview = true
+      centsHouse, // Usar centavos como principal
+    );
+
+    return { type: 'surplus', surplus };
+  }
+
+  /**
+   * Crea surplus sin información suficiente
+   */
+  private createSurplusWithoutInfo(transaction: TransactionBank): MatchResult {
+    this.logger.debug('Sin información suficiente para conciliar automáticamente');
+
+    const surplus = SurplusTransaction.fromTransaction(
+      transaction,
+      'Sin voucher, sin centavos válidos, sin concepto identificable',
+      true, // requiresManualReview = true
+      0,
+    );
+
+    return { type: 'surplus', surplus };
+  }
+
+  /**
+   * Extrae número de casa del concepto con análisis completo
+   * Usa regex primero, fallback a IA si está habilitado
+   */
+  private async extractHouseFromConcept(concept: string | null): Promise<ConceptResult> {
+    if (!concept || !ReconciliationConfig.ENABLE_CONCEPT_MATCHING) {
+      return ConceptResult.none();
+    }
+
+    try {
+      // 1. Intentar con regex (rápido)
+      const regexResult = this.conceptExtractorService.extractHouseNumber(concept);
+
+      if (regexResult.confidence === 'high') {
+        return ConceptResult.from(regexResult);
+      }
+
+      // 2. Fallback a IA si está habilitado
+      if (ReconciliationConfig.ENABLE_AI_CONCEPT_ANALYSIS) {
+        try {
+          this.logger.debug(`Usando IA para analizar concepto: "${concept}"`);
+          const aiResult = await this.conceptAnalyzerService.analyzeConceptWithAI({
+            concept,
+            amount: 0,
+            houseNumberRange: {
+              min: 1,
+              max: ReconciliationConfig.MAX_HOUSE_NUMBER,
+            },
+          });
+
+          return ConceptResult.from(aiResult);
+        } catch (error) {
+          this.logger.warn(
+            `Error al analizar concepto con IA: ${error instanceof Error ? error.message : 'Unknown'}`,
+          );
+        }
+      }
+
+      return ConceptResult.from(regexResult);
+    } catch (error) {
+      this.logger.warn(
+        `Error al extraer número de concepto: ${error instanceof Error ? error.message : 'Unknown'}`,
+      );
+      return ConceptResult.none();
+    }
+  }
+
+  /**
+   * Valida si un número de casa es válido
+   */
+  private isValidHouseNumber(houseNumber: number): boolean {
+    return houseNumber >= 1 && houseNumber <= ReconciliationConfig.MAX_HOUSE_NUMBER;
   }
 }

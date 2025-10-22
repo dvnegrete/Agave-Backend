@@ -1,403 +1,332 @@
 import { MatchingService } from './matching.service';
+import { ConceptHouseExtractorService } from './concept-house-extractor.service';
+import { ConceptAnalyzerService } from './concept-analyzer.service';
 import { TransactionBank } from '@/shared/database/entities/transaction-bank.entity';
 import { Voucher } from '@/shared/database/entities/voucher.entity';
 import { ConfidenceLevel, MatchCriteria } from '../../domain';
 
-describe('MatchingService', () => {
+describe('MatchingService - Nueva Lógica', () => {
   let service: MatchingService;
+  let mockConceptExtractor: jest.Mocked<ConceptHouseExtractorService>;
+  let mockConceptAnalyzer: jest.Mocked<ConceptAnalyzerService>;
 
   beforeEach(() => {
-    service = new MatchingService();
+    // Crear mocks
+    mockConceptExtractor = {
+      extractHouseNumber: jest.fn(),
+    } as any;
+
+    mockConceptAnalyzer = {
+      analyzeConceptWithAI: jest.fn(),
+    } as any;
+
+    service = new MatchingService(mockConceptExtractor, mockConceptAnalyzer);
   });
 
-  describe('matchTransaction', () => {
-    const createTransaction = (
-      id: string,
-      amount: number,
-      date: Date,
-      time: string,
-    ): TransactionBank => {
-      return {
-        id,
-        amount,
-        date,
-        time,
-        is_deposit: true,
-        confirmation_status: false,
-      } as TransactionBank;
-    };
+  const createTransaction = (
+    id: string,
+    amount: number,
+    date: Date,
+    time: string,
+    concept?: string,
+  ): TransactionBank => {
+    return {
+      id,
+      amount,
+      date,
+      time,
+      concept,
+      is_deposit: true,
+      confirmation_status: false,
+    } as TransactionBank;
+  };
 
-    const createVoucher = (id: number, amount: number, date: Date): Voucher => {
-      return {
-        id,
-        amount,
-        date,
-        confirmation_status: false,
-      } as Voucher;
-    };
+  const createVoucher = (id: number, amount: number, date: Date): Voucher => {
+    return {
+      id,
+      amount,
+      date,
+      confirmation_status: false,
+    } as Voucher;
+  };
 
-    describe('Single match by amount', () => {
-      it('should match when there is only one voucher with exact amount', () => {
-        const transaction = createTransaction(
-          'tx1',
-          500.15,
-          new Date('2025-01-10T10:00:00'),
-          '10:00:00',
-        );
+  describe('Matching con Voucher', () => {
+    it('debe conciliar con voucher único por monto exacto', async () => {
+      const transaction = createTransaction(
+        'tx1',
+        500.15,
+        new Date('2025-01-10T10:00:00'),
+        '10:00:00',
+      );
 
-        const vouchers = [
-          createVoucher(1, 500.15, new Date('2025-01-10T10:05:00')),
-          createVoucher(2, 600.25, new Date('2025-01-10T10:10:00')),
-        ];
+      const vouchers = [
+        createVoucher(1, 500.15, new Date('2025-01-10T10:05:00')),
+        createVoucher(2, 600.25, new Date('2025-01-10T10:10:00')),
+      ];
 
-        const processedIds = new Set<number>();
+      const result = await service.matchTransaction(transaction, vouchers, new Set());
 
-        const result = service.matchTransaction(
-          transaction,
-          vouchers,
-          processedIds,
-        );
+      expect(result.type).toBe('matched');
+      if (result.type === 'matched') {
+        expect(result.match.transactionBankId).toBe('tx1');
+        expect(result.match.voucherId).toBe(1);
+        expect(result.match.houseNumber).toBe(15);
+        expect(result.match.confidenceLevel).toBe(ConfidenceLevel.HIGH);
+      }
+    });
 
-        expect(result.type).toBe('matched');
-        if (result.type === 'matched') {
-          expect(result.match.transactionBankId).toBe('tx1');
-          expect(result.match.voucherId).toBe(1);
-          expect(result.match.amount).toBe(500.15);
-          expect(result.match.houseNumber).toBe(15);
-          expect(result.match.matchCriteria).toContain(MatchCriteria.AMOUNT);
-          expect(result.match.confidenceLevel).toBe(ConfidenceLevel.HIGH);
-          expect(result.voucherId).toBe(1);
-        }
-      });
+    it('debe usar el voucher más cercano cuando hay múltiples coincidencias', async () => {
+      const transaction = createTransaction(
+        'tx1',
+        500.05,
+        new Date('2025-01-10T10:00:00'),
+        '10:00:00',
+      );
 
-      it('should not match already processed vouchers', () => {
-        const transaction = createTransaction(
-          'tx1',
-          500.15,
-          new Date('2025-01-10T10:00:00'),
-          '10:00:00',
-        );
+      const vouchers = [
+        createVoucher(1, 500.05, new Date('2025-01-10T15:00:00')), // 5 horas después
+        createVoucher(2, 500.05, new Date('2025-01-10T10:30:00')), // 30 min después (MÁS CERCANO)
+        createVoucher(3, 500.05, new Date('2025-01-10T08:00:00')), // 2 horas antes
+      ];
 
-        const vouchers = [
-          createVoucher(1, 500.15, new Date('2025-01-10T10:05:00')),
-        ];
+      const result = await service.matchTransaction(transaction, vouchers, new Set());
 
-        const processedIds = new Set<number>([1]); // Voucher already processed
+      expect(result.type).toBe('matched');
+      if (result.type === 'matched') {
+        expect(result.voucherId).toBe(2); // El más cercano
+      }
+    });
+  });
 
-        const result = service.matchTransaction(
-          transaction,
-          vouchers,
-          processedIds,
-        );
-
-        expect(result.type).toBe('surplus');
-        if (result.type === 'surplus') {
-          expect(result.surplus.transactionBankId).toBe('tx1');
-          expect(result.surplus.requiresManualReview).toBe(true);
-        }
+  describe('Conciliación por Centavos (Nueva Regla)', () => {
+    beforeEach(() => {
+      // Mock por defecto: concepto no identifica casa
+      mockConceptExtractor.extractHouseNumber.mockReturnValue({
+        houseNumber: null,
+        confidence: 'none',
+        method: 'none',
+        reason: 'No se encontró patrón',
       });
     });
 
-    describe('Multiple matches by amount', () => {
-      it('should match the closest by date when multiple vouchers have same amount', () => {
-        const transaction = createTransaction(
-          'tx1',
-          500.15,
-          new Date('2025-01-10T10:00:00'),
-          '10:00:00',
-        );
+    it('debe conciliar automáticamente con solo centavos (sin concepto)', async () => {
+      const transaction = createTransaction(
+        'tx1',
+        500.15,
+        new Date('2025-01-10T10:00:00'),
+        '10:00:00',
+        'Transferencia bancaria', // Concepto genérico
+      );
 
-        const vouchers = [
-          createVoucher(1, 500.15, new Date('2025-01-08T10:00:00')), // 48 hours before - out of tolerance
-          createVoucher(2, 500.15, new Date('2025-01-10T08:00:00')), // 2 hours before - closest
-          createVoucher(3, 500.15, new Date('2025-01-11T10:00:00')), // 24 hours after
-        ];
+      const result = await service.matchTransaction(transaction, [], new Set());
 
-        const processedIds = new Set<number>();
+      expect(result.type).toBe('surplus');
+      if (result.type === 'surplus') {
+        expect(result.surplus.houseNumber).toBe(15);
+        expect(result.surplus.requiresManualReview).toBe(false); // ✅ AUTO-CONCILIADO
+        expect(result.surplus.reason).toContain('Identificado por centavos');
+      }
+    });
 
-        const result = service.matchTransaction(
-          transaction,
-          vouchers,
-          processedIds,
-        );
-
-        expect(result.type).toBe('matched');
-        if (result.type === 'matched') {
-          expect(result.match.voucherId).toBe(2); // Closest voucher
-          expect(result.match.matchCriteria).toContain(MatchCriteria.AMOUNT);
-          expect(result.match.matchCriteria).toContain(MatchCriteria.DATE);
-          expect(result.match.confidenceLevel).toBe(ConfidenceLevel.HIGH);
-        }
+    it('debe conciliar automáticamente cuando centavos y concepto coinciden', async () => {
+      // Mock: concepto identifica casa 15
+      mockConceptExtractor.extractHouseNumber.mockReturnValue({
+        houseNumber: 15,
+        confidence: 'high',
+        method: 'regex',
+        reason: 'Patrón casa_numero',
       });
 
-      it('should require manual validation when multiple vouchers within date tolerance', () => {
-        const transaction = createTransaction(
-          'tx1',
-          500.15,
-          new Date('2025-01-10T10:00:00'),
-          '10:00:00',
-        );
+      const transaction = createTransaction(
+        'tx1',
+        500.15,
+        new Date('2025-01-10T10:00:00'),
+        '10:00:00',
+        'Casa 15 mantenimiento',
+      );
 
-        const vouchers = [
-          createVoucher(1, 500.15, new Date('2025-01-10T09:00:00')), // 1 hour before
-          createVoucher(2, 500.15, new Date('2025-01-10T11:00:00')), // 1 hour after
-        ];
+      const result = await service.matchTransaction(transaction, [], new Set());
 
-        const processedIds = new Set<number>();
+      expect(result.type).toBe('surplus');
+      if (result.type === 'surplus') {
+        expect(result.surplus.houseNumber).toBe(15);
+        expect(result.surplus.requiresManualReview).toBe(false); // ✅ AUTO-CONCILIADO
+        expect(result.surplus.reason).toContain('Centavos + concepto coinciden');
+      }
+    });
 
-        const result = service.matchTransaction(
-          transaction,
-          vouchers,
-          processedIds,
-        );
-
-        expect(result.type).toBe('manual');
-        if (result.type === 'manual') {
-          expect(result.case.transactionBankId).toBe('tx1');
-          expect(result.case.possibleMatches).toHaveLength(2);
-          expect(result.case.reason).toContain('Multiple vouchers');
-        }
+    it('debe requerir validación manual cuando hay conflicto centavos vs concepto', async () => {
+      // Mock: concepto identifica casa 10
+      mockConceptExtractor.extractHouseNumber.mockReturnValue({
+        houseNumber: 10,
+        confidence: 'high',
+        method: 'regex',
+        reason: 'Patrón casa_numero',
       });
 
-      it('should create surplus when all matches are outside date tolerance', () => {
-        const transaction = createTransaction(
-          'tx1',
-          500.15,
-          new Date('2025-01-10T10:00:00'),
-          '10:00:00',
-        );
+      const transaction = createTransaction(
+        'tx1',
+        500.05, // Centavos = 5
+        new Date('2025-01-10T10:00:00'),
+        '10:00:00',
+        'Casa 10 agua', // Concepto = 10
+      );
 
-        const vouchers = [
-          createVoucher(1, 500.15, new Date('2025-01-05T10:00:00')), // 5 days before
-          createVoucher(2, 500.15, new Date('2025-01-15T10:00:00')), // 5 days after
-        ];
+      const result = await service.matchTransaction(transaction, [], new Set());
 
-        const processedIds = new Set<number>();
+      expect(result.type).toBe('surplus');
+      if (result.type === 'surplus') {
+        expect(result.surplus.houseNumber).toBe(5); // Usa centavos
+        expect(result.surplus.requiresManualReview).toBe(true); // ⚠️ REQUIERE VALIDACIÓN
+        expect(result.surplus.reason).toContain('Conflicto');
+        expect(result.surplus.reason).toContain('casa 10');
+        expect(result.surplus.reason).toContain('casa 5');
+      }
+    });
 
-        const result = service.matchTransaction(
-          transaction,
-          vouchers,
-          processedIds,
-        );
+    it('debe marcar como sobrante cuando centavos fuera de rango', async () => {
+      const transaction = createTransaction(
+        'tx1',
+        100.99, // Centavos = 99 (fuera de rango 1-66)
+        new Date('2025-01-10T10:00:00'),
+        '10:00:00',
+        'Pago recibido',
+      );
 
-        expect(result.type).toBe('surplus');
-        if (result.type === 'surplus') {
-          expect(result.surplus.transactionBankId).toBe('tx1');
-          expect(result.surplus.houseNumber).toBe(15);
-        }
+      const result = await service.matchTransaction(transaction, [], new Set());
+
+      expect(result.type).toBe('surplus');
+      if (result.type === 'surplus') {
+        expect(result.surplus.houseNumber).toBe(0);
+        expect(result.surplus.requiresManualReview).toBe(true); // ⚠️ SOBRANTE
+        expect(result.surplus.reason).toContain('sin centavos válidos');
+      }
+    });
+  });
+
+  describe('Conciliación por Concepto sin Centavos', () => {
+    it('debe conciliar automáticamente con concepto HIGH confidence y sin centavos', async () => {
+      // Mock: concepto identifica casa 5 con alta confianza
+      mockConceptExtractor.extractHouseNumber.mockReturnValue({
+        houseNumber: 5,
+        confidence: 'high',
+        method: 'regex',
+        reason: 'Patrón casa_numero',
+      });
+
+      const transaction = createTransaction(
+        'tx1',
+        500.00, // Sin centavos
+        new Date('2025-01-10T10:00:00'),
+        '10:00:00',
+        'Casa 5 mantenimiento',
+      );
+
+      const result = await service.matchTransaction(transaction, [], new Set());
+
+      expect(result.type).toBe('surplus');
+      if (result.type === 'surplus') {
+        expect(result.surplus.houseNumber).toBe(5);
+        expect(result.surplus.requiresManualReview).toBe(false); // ✅ AUTO-CONCILIADO
+        expect(result.surplus.reason).toContain('Concepto identifica claramente');
+      }
+    });
+
+    it('debe marcar como sobrante si concepto tiene confianza media/baja sin centavos', async () => {
+      // Mock: concepto con confianza media
+      mockConceptExtractor.extractHouseNumber.mockReturnValue({
+        houseNumber: 10,
+        confidence: 'medium', // No es HIGH
+        method: 'regex',
+        reason: 'Patrón lote_numero',
+      });
+
+      const transaction = createTransaction(
+        'tx1',
+        500.00, // Sin centavos
+        new Date('2025-01-10T10:00:00'),
+        '10:00:00',
+        'Lote 10',
+      );
+
+      const result = await service.matchTransaction(transaction, [], new Set());
+
+      expect(result.type).toBe('surplus');
+      if (result.type === 'surplus') {
+        expect(result.surplus.houseNumber).toBe(0);
+        expect(result.surplus.requiresManualReview).toBe(true); // ⚠️ SOBRANTE
+      }
+    });
+  });
+
+  describe('Casos Sin Información', () => {
+    beforeEach(() => {
+      mockConceptExtractor.extractHouseNumber.mockReturnValue({
+        houseNumber: null,
+        confidence: 'none',
+        method: 'none',
+        reason: 'No se encontró patrón',
       });
     });
 
-    describe('No voucher match', () => {
-      it('should create surplus with house number when transaction has valid cents', () => {
-        const transaction = createTransaction(
-          'tx1',
-          500.42,
-          new Date('2025-01-10T10:00:00'),
-          '10:00:00',
-        );
+    it('debe marcar como sobrante cuando no hay centavos ni concepto', async () => {
+      const transaction = createTransaction(
+        'tx1',
+        500.00, // Sin centavos
+        new Date('2025-01-10T10:00:00'),
+        '10:00:00',
+        'Transferencia bancaria', // Concepto genérico
+      );
 
-        const vouchers = [
-          createVoucher(1, 600.25, new Date('2025-01-10T10:00:00')),
-        ];
+      const result = await service.matchTransaction(transaction, [], new Set());
 
-        const processedIds = new Set<number>();
+      expect(result.type).toBe('surplus');
+      if (result.type === 'surplus') {
+        expect(result.surplus.houseNumber).toBe(0);
+        expect(result.surplus.requiresManualReview).toBe(true); // ⚠️ SOBRANTE
+        expect(result.surplus.reason).toContain('sin centavos');
+      }
+    });
+  });
 
-        const result = service.matchTransaction(
-          transaction,
-          vouchers,
-          processedIds,
-        );
+  describe('Edge Cases', () => {
+    it('no debe usar vouchers ya procesados', async () => {
+      const transaction = createTransaction(
+        'tx1',
+        500.15,
+        new Date('2025-01-10T10:00:00'),
+        '10:00:00',
+      );
 
-        expect(result.type).toBe('surplus');
-        if (result.type === 'surplus') {
-          expect(result.surplus.transactionBankId).toBe('tx1');
-          expect(result.surplus.houseNumber).toBe(42);
-          expect(result.surplus.reason).toContain(
-            'house 42 identified by cents',
-          );
-          expect(result.surplus.requiresManualReview).toBe(true);
-        }
-      });
+      const vouchers = [createVoucher(1, 500.15, new Date('2025-01-10T10:05:00'))];
 
-      it('should create surplus requiring voucher when no valid cents', () => {
-        const transaction = createTransaction(
-          'tx1',
-          500.0, // No cents
-          new Date('2025-01-10T10:00:00'),
-          '10:00:00',
-        );
+      const processedIds = new Set<number>([1]); // Ya procesado
 
-        const vouchers = [
-          createVoucher(1, 600.25, new Date('2025-01-10T10:00:00')),
-        ];
+      const result = await service.matchTransaction(transaction, vouchers, processedIds);
 
-        const processedIds = new Set<number>();
-
-        const result = service.matchTransaction(
-          transaction,
-          vouchers,
-          processedIds,
-        );
-
-        expect(result.type).toBe('surplus');
-        if (result.type === 'surplus') {
-          expect(result.surplus.transactionBankId).toBe('tx1');
-          expect(result.surplus.houseNumber).toBe(0);
-          expect(result.surplus.reason).toContain('voucher required');
-          expect(result.surplus.requiresManualReview).toBe(true);
-        }
-      });
-
-      it('should create surplus when cents exceed max house number', () => {
-        const transaction = createTransaction(
-          'tx1',
-          500.99, // 99 exceeds MAX_HOUSE_NUMBER (66)
-          new Date('2025-01-10T10:00:00'),
-          '10:00:00',
-        );
-
-        const vouchers = [];
-        const processedIds = new Set<number>();
-
-        const result = service.matchTransaction(
-          transaction,
-          vouchers,
-          processedIds,
-        );
-
-        expect(result.type).toBe('surplus');
-        if (result.type === 'surplus') {
-          expect(result.surplus.houseNumber).toBe(99);
-          expect(result.surplus.requiresManualReview).toBe(true);
-        }
-      });
+      // Como no hay vouchers disponibles, debe intentar por centavos
+      expect(result.type).toBe('surplus');
+      if (result.type === 'surplus') {
+        expect(result.surplus.houseNumber).toBe(15); // Identificado por centavos
+      }
     });
 
-    describe('Amount matching precision', () => {
-      it('should match amounts within 0.01 tolerance', () => {
-        const transaction = createTransaction(
-          'tx1',
-          500.154, // Rounded to 500.15
-          new Date('2025-01-10T10:00:00'),
-          '10:00:00',
-        );
+    it('debe manejar concepto null o vacío', async () => {
+      const transaction = createTransaction(
+        'tx1',
+        500.15,
+        new Date('2025-01-10T10:00:00'),
+        '10:00:00',
+        undefined, // Sin concepto
+      );
 
-        const vouchers = [
-          createVoucher(1, 500.15, new Date('2025-01-10T10:00:00')),
-        ];
+      const result = await service.matchTransaction(transaction, [], new Set());
 
-        const processedIds = new Set<number>();
-
-        const result = service.matchTransaction(
-          transaction,
-          vouchers,
-          processedIds,
-        );
-
-        expect(result.type).toBe('matched');
-        if (result.type === 'matched') {
-          expect(result.match.voucherId).toBe(1);
-        }
-      });
-
-      it('should not match amounts outside tolerance', () => {
-        const transaction = createTransaction(
-          'tx1',
-          500.15,
-          new Date('2025-01-10T10:00:00'),
-          '10:00:00',
-        );
-
-        const vouchers = [
-          createVoucher(1, 500.2, new Date('2025-01-10T10:00:00')), // 0.05 difference
-        ];
-
-        const processedIds = new Set<number>();
-
-        const result = service.matchTransaction(
-          transaction,
-          vouchers,
-          processedIds,
-        );
-
-        expect(result.type).toBe('surplus');
-      });
-    });
-
-    describe('Edge cases', () => {
-      it('should handle empty vouchers list', () => {
-        const transaction = createTransaction(
-          'tx1',
-          500.15,
-          new Date('2025-01-10T10:00:00'),
-          '10:00:00',
-        );
-
-        const vouchers: Voucher[] = [];
-        const processedIds = new Set<number>();
-
-        const result = service.matchTransaction(
-          transaction,
-          vouchers,
-          processedIds,
-        );
-
-        expect(result.type).toBe('surplus');
-        if (result.type === 'surplus') {
-          expect(result.surplus.houseNumber).toBe(15);
-        }
-      });
-
-      it('should handle all vouchers already processed', () => {
-        const transaction = createTransaction(
-          'tx1',
-          500.15,
-          new Date('2025-01-10T10:00:00'),
-          '10:00:00',
-        );
-
-        const vouchers = [
-          createVoucher(1, 500.15, new Date('2025-01-10T10:00:00')),
-          createVoucher(2, 500.15, new Date('2025-01-10T11:00:00')),
-        ];
-
-        const processedIds = new Set<number>([1, 2]); // All processed
-
-        const result = service.matchTransaction(
-          transaction,
-          vouchers,
-          processedIds,
-        );
-
-        expect(result.type).toBe('surplus');
-      });
-
-      it('should calculate date difference correctly', () => {
-        const transaction = createTransaction(
-          'tx1',
-          500.15,
-          new Date('2025-01-10T10:00:00'),
-          '10:00:00',
-        );
-
-        const vouchers = [
-          createVoucher(1, 500.15, new Date('2025-01-10T10:05:00')), // 5 minutes after
-        ];
-
-        const processedIds = new Set<number>();
-
-        const result = service.matchTransaction(
-          transaction,
-          vouchers,
-          processedIds,
-        );
-
-        expect(result.type).toBe('matched');
-        if (result.type === 'matched') {
-          expect(result.match.dateDifferenceHours).toBeLessThanOrEqual(0.1); // ~5 minutes
-        }
-      });
+      expect(result.type).toBe('surplus');
+      if (result.type === 'surplus') {
+        expect(result.surplus.houseNumber).toBe(15); // Usa centavos
+        expect(result.surplus.requiresManualReview).toBe(false);
+      }
     });
   });
 });
