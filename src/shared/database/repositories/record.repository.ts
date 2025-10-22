@@ -4,7 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Record } from '../entities/record.entity';
 
 export interface CreateRecordDto {
-  vouchers_id: number;
+  vouchers_id?: number | null;
   transaction_status_id?: number | null;
   cta_extraordinary_fee_id?: number | null;
   cta_maintence_id?: number | null;
@@ -28,7 +28,7 @@ export class RecordRepository {
     queryRunner?: QueryRunner,
   ): Promise<Record> {
     const recordData: Partial<Record> = {
-      vouchers_id: data.vouchers_id,
+      vouchers_id: data.vouchers_id ?? undefined,
       transaction_status_id: data.transaction_status_id ?? undefined,
       cta_extraordinary_fee_id: data.cta_extraordinary_fee_id ?? undefined,
       cta_maintence_id: data.cta_maintence_id ?? undefined,

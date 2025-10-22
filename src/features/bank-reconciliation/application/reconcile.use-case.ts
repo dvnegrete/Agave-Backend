@@ -8,6 +8,8 @@ import {
   SurplusTransaction,
   ManualValidationCase,
   ReconciliationSummary,
+  MatchCriteria,
+  ConfidenceLevel,
 } from '../domain';
 import { extractHouseNumberFromCents } from '@/shared/common/utils';
 
@@ -72,18 +74,18 @@ export class ReconcileUseCase {
     const processedVoucherIds = new Set<number>();
 
     for (const transaction of pendingTransactions) {
-      const matchResult = this.matchingService.matchTransaction(
+      const matchResult = await this.matchingService.matchTransaction(
         transaction,
         pendingVouchers,
         processedVoucherIds,
       );
 
       if (matchResult.type === 'matched') {
-        // Persistir conciliación
+        // Persistir conciliación con voucher
         try {
           await this.persistenceService.persistReconciliation(
             matchResult.match.transactionBankId,
-            matchResult.voucherId,
+            matchResult.voucher,
             matchResult.match.houseNumber,
           );
 
@@ -104,10 +106,50 @@ export class ReconcileUseCase {
             ),
           );
         }
+      } else if (matchResult.type === 'surplus') {
+        // Distinguir entre surplus conciliados automáticamente vs sobrantes
+        if (!matchResult.surplus.requiresManualReview) {
+          // ✅ Conciliado automáticamente (sin voucher, por centavos/concepto)
+          try {
+            await this.persistenceService.persistReconciliation(
+              matchResult.surplus.transactionBankId,
+              null, // Sin voucher
+              matchResult.surplus.houseNumber!,
+            );
+
+            // Crear ReconciliationMatch para agregarlo a conciliados
+            const match = ReconciliationMatch.create({
+              transaction,
+              voucher: undefined,
+              houseNumber: matchResult.surplus.houseNumber!,
+              matchCriteria: [MatchCriteria.CONCEPT], // Identificado por centavos o concepto
+              confidenceLevel: ConfidenceLevel.MEDIUM,
+            });
+
+            conciliados.push(match);
+            this.logger.log(
+              `Conciliado automáticamente sin voucher: Transaction ${transaction.id} → Casa ${matchResult.surplus.houseNumber}`,
+            );
+          } catch (error) {
+            this.logger.error(
+              `Error al persistir conciliación automática para transaction ${matchResult.surplus.transactionBankId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            );
+            // En caso de error, marcar como sobrante que requiere revisión
+            sobrantes.push(
+              SurplusTransaction.fromTransaction(
+                transaction,
+                `Error durante persistencia automática: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                true,
+                matchResult.surplus.houseNumber,
+              ),
+            );
+          }
+        } else {
+          // ⚠️ Sobrante que requiere validación manual
+          sobrantes.push(matchResult.surplus);
+        }
       } else if (matchResult.type === 'manual') {
         manualValidationRequired.push(matchResult.case);
-      } else if (matchResult.type === 'surplus') {
-        sobrantes.push(matchResult.surplus);
       }
     }
 

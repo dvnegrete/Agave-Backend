@@ -9,6 +9,8 @@ import { ReconcileUseCase } from './application/reconcile.use-case';
 
 // Infrastructure Layer - Services
 import { MatchingService } from './infrastructure/matching/matching.service';
+import { ConceptHouseExtractorService } from './infrastructure/matching/concept-house-extractor.service';
+import { ConceptAnalyzerService } from './infrastructure/matching/concept-analyzer.service';
 import { ReconciliationPersistenceService } from './infrastructure/persistence/reconciliation-persistence.service';
 import { ReconciliationDataService } from './infrastructure/persistence/reconciliation-data.service';
 
@@ -28,6 +30,10 @@ import { RecordRepository } from '@/shared/database/repositories/record.reposito
 import { HouseRecordRepository } from '@/shared/database/repositories/house-record.repository';
 import { HouseRepository } from '@/shared/database/repositories/house.repository';
 
+// External modules for AI services
+import { OpenAIModule } from '@/shared/libs/openai/openai.module';
+import { VertexAIModule } from '@/shared/libs/vertex-ai/vertex-ai.module';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -38,6 +44,8 @@ import { HouseRepository } from '@/shared/database/repositories/house.repository
       HouseRecord,
       House,
     ]),
+    OpenAIModule,
+    VertexAIModule,
   ],
   controllers: [BankReconciliationController],
   providers: [
@@ -46,6 +54,8 @@ import { HouseRepository } from '@/shared/database/repositories/house.repository
 
     // Infrastructure Layer - Services
     MatchingService,
+    ConceptHouseExtractorService,
+    ConceptAnalyzerService,
     ReconciliationPersistenceService,
     ReconciliationDataService,
 

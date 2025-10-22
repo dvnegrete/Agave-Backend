@@ -114,15 +114,17 @@ describe('ReconcileUseCase', () => {
       dataService.getPendingVouchers.mockResolvedValue(mockVouchers);
 
       matchingService.matchTransaction
-        .mockReturnValueOnce({
+        .mockResolvedValueOnce({
           type: 'matched',
           match: mockMatch1,
           voucherId: 1,
+          voucher: mockVouchers[0],
         })
-        .mockReturnValueOnce({
+        .mockResolvedValueOnce({
           type: 'matched',
           match: mockMatch2,
           voucherId: 2,
+          voucher: mockVouchers[1],
         });
 
       persistenceService.persistReconciliation.mockResolvedValue(undefined);
@@ -143,13 +145,13 @@ describe('ReconcileUseCase', () => {
       expect(persistenceService.persistReconciliation).toHaveBeenNthCalledWith(
         1,
         'tx1',
-        1,
+        mockVouchers[0], // Ahora pasa el objeto voucher completo
         15,
       );
       expect(persistenceService.persistReconciliation).toHaveBeenNthCalledWith(
         2,
         'tx2',
-        2,
+        mockVouchers[1], // Ahora pasa el objeto voucher completo
         25,
       );
 
@@ -177,7 +179,7 @@ describe('ReconcileUseCase', () => {
       dataService.getPendingTransactions.mockResolvedValue(mockTransactions);
       dataService.getPendingVouchers.mockResolvedValue(mockVouchers);
 
-      matchingService.matchTransaction.mockReturnValue({
+      matchingService.matchTransaction.mockResolvedValue({
         type: 'surplus',
         surplus: mockSurplus,
       });
@@ -239,7 +241,7 @@ describe('ReconcileUseCase', () => {
       dataService.getPendingTransactions.mockResolvedValue([mockTransaction]);
       dataService.getPendingVouchers.mockResolvedValue(mockVouchers);
 
-      matchingService.matchTransaction.mockReturnValue({
+      matchingService.matchTransaction.mockResolvedValue({
         type: 'manual',
         case: mockManualCase,
       });
@@ -271,10 +273,11 @@ describe('ReconcileUseCase', () => {
       dataService.getPendingTransactions.mockResolvedValue(mockTransactions);
       dataService.getPendingVouchers.mockResolvedValue(mockVouchers);
 
-      matchingService.matchTransaction.mockReturnValue({
+      matchingService.matchTransaction.mockResolvedValue({
         type: 'matched',
         match: mockMatch,
         voucherId: 1,
+        voucher: mockVouchers[0],
       });
 
       persistenceService.persistReconciliation.mockRejectedValue(
@@ -336,12 +339,13 @@ describe('ReconcileUseCase', () => {
       dataService.getPendingVouchers.mockResolvedValue(mockVouchers);
 
       matchingService.matchTransaction
-        .mockReturnValueOnce({
+        .mockResolvedValueOnce({
           type: 'matched',
           match: mockMatch,
           voucherId: 1,
+          voucher: mockVouchers[0],
         })
-        .mockReturnValueOnce({
+        .mockResolvedValueOnce({
           type: 'surplus',
           surplus: mockSurplus,
         });
@@ -409,13 +413,14 @@ describe('ReconcileUseCase', () => {
       dataService.getPendingVouchers.mockResolvedValue(mockVouchers);
 
       matchingService.matchTransaction
-        .mockReturnValueOnce({
+        .mockResolvedValueOnce({
           type: 'matched',
           match: mockMatch,
           voucherId: 1,
+          voucher: mockVouchers[0],
         })
-        .mockReturnValueOnce({ type: 'surplus', surplus: mockSurplus })
-        .mockReturnValueOnce({ type: 'manual', case: mockManualCase });
+        .mockResolvedValueOnce({ type: 'surplus', surplus: mockSurplus })
+        .mockResolvedValueOnce({ type: 'manual', case: mockManualCase });
 
       persistenceService.persistReconciliation.mockResolvedValue(undefined);
 

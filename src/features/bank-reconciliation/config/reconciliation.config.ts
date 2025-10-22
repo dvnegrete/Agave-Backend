@@ -33,9 +33,65 @@ export const ReconciliationConfig = {
   AUTO_MATCH_SIMILARITY_THRESHOLD: 0.95,
 
   /**
-   * TODO: Implementar validación por concepto usando servicios de IA
-   * cuando se llegue a evaluar por concepto, usar IA para buscar
-   * palabras clave que indiquen a qué casa corresponde el pago
+   * Habilita matching por análisis de concepto
+   * Utiliza regex y servicios de IA para extraer número de casa
    */
-  ENABLE_CONCEPT_MATCHING: false, // Por ahora deshabilitado
+  ENABLE_CONCEPT_MATCHING: true,
+
+  /**
+   * Confianza mínima requerida para considerar un match por concepto como válido
+   * Valores: 'high' | 'medium' | 'low'
+   */
+  CONCEPT_MATCHING_MIN_CONFIDENCE: 'medium' as const,
+
+  /**
+   * Habilita análisis de concepto con IA cuando regex no es concluyente
+   */
+  ENABLE_AI_CONCEPT_ANALYSIS: true,
+
+  /**
+   * Meses del año en español (para identificar en conceptos)
+   */
+  MONTHS_ES: [
+    'enero',
+    'febrero',
+    'marzo',
+    'abril',
+    'mayo',
+    'junio',
+    'julio',
+    'agosto',
+    'septiembre',
+    'octubre',
+    'noviembre',
+    'diciembre',
+  ],
 };
+
+/**
+ * Patrones regex para extraer número de casa del concepto
+ * Ordenados por especificidad (más específicos primero)
+ */
+export const CONCEPT_HOUSE_PATTERNS = [
+  // Patrones con palabra "casa" explícita
+  { pattern: /casa\s*[#-]?\s*(\d{1,2})/gi, name: 'casa_numero', confidence: 'high' as const },
+  { pattern: /casa\s+(\d{1,2})/gi, name: 'casa_numero_espacio', confidence: 'high' as const },
+
+  // Abreviaturas: c5, c50, c64, c-1, cs02, etc.
+  { pattern: /\bc\s*-?(\d{1,2})(?:\b|[^0-9])/gi, name: 'c_abbreviation', confidence: 'high' as const },
+  { pattern: /\bc([0-9])/gi, name: 'c_single_digit', confidence: 'high' as const },
+  { pattern: /\bcs\s*-?(\d{1,2})/gi, name: 'cs_abbreviation', confidence: 'medium' as const },
+
+  // Apartamento
+  { pattern: /apto\s*[#.-]?\s*(\d{1,2})/gi, name: 'apto_numero', confidence: 'high' as const },
+  { pattern: /apt\s*[#.-]?\s*(\d{1,2})/gi, name: 'apt_numero', confidence: 'high' as const },
+  { pattern: /apart\s*[#.-]?\s*(\d{1,2})/gi, name: 'apart_numero', confidence: 'high' as const },
+
+  // Lote, Manzana, Propiedad
+  { pattern: /lote\s*[#.-]?\s*(\d{1,2})/gi, name: 'lote_numero', confidence: 'medium' as const },
+  { pattern: /manzana\s*[#.-]?\s*(\d{1,2})/gi, name: 'manzana_numero', confidence: 'medium' as const },
+  { pattern: /propiedad\s*[#.-]?\s*(\d{1,2})/gi, name: 'propiedad_numero', confidence: 'medium' as const },
+
+  // Número aislado al inicio (menos confiable)
+  { pattern: /^(\d{1,2})(?:\s|$)/i, name: 'leading_number', confidence: 'low' as const },
+];
