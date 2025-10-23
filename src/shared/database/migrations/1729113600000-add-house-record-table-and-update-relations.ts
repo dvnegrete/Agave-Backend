@@ -23,90 +23,140 @@ export class AddHouseRecordTableAndUpdateRelations1729113600000
   name = 'AddHouseRecordTableAndUpdateRelations1729113600000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // 1. Crear tabla house_records (tabla intermedia)
-    await queryRunner.query(`
-      CREATE TABLE "house_records" (
-        "id" SERIAL NOT NULL,
-        "house_id" integer NOT NULL,
-        "record_id" integer NOT NULL,
-        "created_at" TIMESTAMP NOT NULL DEFAULT now(),
-        "updated_at" TIMESTAMP NOT NULL DEFAULT now(),
-        CONSTRAINT "PK_house_records" PRIMARY KEY ("id")
-      )
+    // 1. Crear tabla house_records (tabla intermedia) - solo si no existe
+    const tableExists = await queryRunner.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables
+        WHERE table_name = 'house_records'
+      );
     `);
+
+    if (!tableExists[0].exists) {
+      console.log('Creando tabla house_records...');
+      await queryRunner.query(`
+        CREATE TABLE "house_records" (
+          "id" SERIAL NOT NULL,
+          "house_id" integer NOT NULL,
+          "record_id" integer NOT NULL,
+          "created_at" TIMESTAMP NOT NULL DEFAULT now(),
+          "updated_at" TIMESTAMP NOT NULL DEFAULT now(),
+          CONSTRAINT "PK_house_records" PRIMARY KEY ("id")
+        )
+      `);
+    } else {
+      console.log('⚠️  Tabla house_records ya existe, saltando creación...');
+    }
 
     // 2. Migrar datos existentes de houses a house_records antes de modificar la tabla
-    // IMPORTANTE: Solo si ya hay datos en la tabla houses
-    const hasData = await queryRunner.query(`
-      SELECT COUNT(*) as count FROM "houses"
+    // IMPORTANTE: Solo si ya hay datos en la tabla houses Y la columna record_id existe
+    const hasRecordIdColumn = await queryRunner.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.columns
+        WHERE table_name = 'houses' AND column_name = 'record_id'
+      );
     `);
 
-    if (hasData[0].count > 0) {
-      console.log(
-        `Migrando ${hasData[0].count} registros de houses a house_records...`,
-      );
-
-      // Insertar registros existentes en house_records
-      await queryRunner.query(`
-        INSERT INTO "house_records" ("house_id", "record_id", "created_at", "updated_at")
-        SELECT
-          "number_house" as house_id,
-          "record_id",
-          "created_at",
-          "updated_at"
-        FROM "houses"
-        WHERE "record_id" IS NOT NULL
+    if (hasRecordIdColumn[0].exists) {
+      const hasData = await queryRunner.query(`
+        SELECT COUNT(*) as count FROM "houses"
       `);
+
+      if (hasData[0].count > 0) {
+        console.log(
+          `Migrando ${hasData[0].count} registros de houses a house_records...`,
+        );
+
+        // Insertar registros existentes en house_records
+        await queryRunner.query(`
+          INSERT INTO "house_records" ("house_id", "record_id", "created_at", "updated_at")
+          SELECT
+            "number_house" as house_id,
+            "record_id",
+            "created_at",
+            "updated_at"
+          FROM "houses"
+          WHERE "record_id" IS NOT NULL
+        `);
+      }
+    } else {
+      console.log('⚠️  Columna record_id no existe en houses, saltando migración de datos...');
     }
 
     // 3. Modificar tabla houses
-    // 3.1. Eliminar constraint de FK de record_id (si existe)
-    await queryRunner.query(`
-      ALTER TABLE "houses"
-      DROP CONSTRAINT IF EXISTS "FK_houses_record_id"
+    // Verificar si la columna id ya existe
+    const hasIdColumn = await queryRunner.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.columns
+        WHERE table_name = 'houses' AND column_name = 'id'
+      );
     `);
 
-    // 3.2. Eliminar constraint de PK actual
-    await queryRunner.query(`
-      ALTER TABLE "houses"
-      DROP CONSTRAINT IF EXISTS "PK_houses"
-    `);
+    if (!hasIdColumn[0].exists) {
+      console.log('Modificando tabla houses...');
 
-    // 3.3. Agregar nueva columna id como serial
-    await queryRunner.query(`
-      ALTER TABLE "houses"
-      ADD COLUMN "id" SERIAL
-    `);
-
-    // 3.4. Establecer id como nueva PK
-    await queryRunner.query(`
-      ALTER TABLE "houses"
-      ADD CONSTRAINT "PK_houses" PRIMARY KEY ("id")
-    `);
-
-    // 3.5. Agregar unique constraint a number_house
-    await queryRunner.query(`
-      ALTER TABLE "houses"
-      ADD CONSTRAINT "UQ_houses_number_house" UNIQUE ("number_house")
-    `);
-
-    // 3.6. Eliminar columna record_id (ya no es necesaria)
-    await queryRunner.query(`
-      ALTER TABLE "houses"
-      DROP COLUMN IF EXISTS "record_id"
-    `);
-
-    // 4. Actualizar los house_id en house_records para usar los nuevos IDs generados
-    if (hasData[0].count > 0) {
+      // 3.1. Eliminar constraint de FK de record_id (si existe)
       await queryRunner.query(`
-        UPDATE "house_records" hr
-        SET "house_id" = h."id"
-        FROM "houses" h
-        WHERE hr."house_id" = h."number_house"
+        ALTER TABLE "houses"
+        DROP CONSTRAINT IF EXISTS "FK_houses_record_id"
       `);
+
+      // 3.2. Eliminar constraint de PK actual
+      await queryRunner.query(`
+        ALTER TABLE "houses"
+        DROP CONSTRAINT IF EXISTS "PK_houses"
+      `);
+
+      // 3.3. Agregar nueva columna id como serial
+      await queryRunner.query(`
+        ALTER TABLE "houses"
+        ADD COLUMN "id" SERIAL
+      `);
+
+      // 3.4. Establecer id como nueva PK
+      await queryRunner.query(`
+        ALTER TABLE "houses"
+        ADD CONSTRAINT "PK_houses" PRIMARY KEY ("id")
+      `);
+
+      // 3.5. Agregar unique constraint a number_house
+      await queryRunner.query(`
+        ALTER TABLE "houses"
+        ADD CONSTRAINT "UQ_houses_number_house" UNIQUE ("number_house")
+      `);
+
+      // 3.6. Eliminar columna record_id (ya no es necesaria)
+      await queryRunner.query(`
+        ALTER TABLE "houses"
+        DROP COLUMN IF EXISTS "record_id"
+      `);
+    } else {
+      console.log('⚠️  Tabla houses ya tiene columna id, saltando modificación...');
     }
 
-    // 5. Agregar foreign keys a house_records
+    // 4. Actualizar los house_id en house_records para usar los nuevos IDs generados
+    // Solo si se hizo la migración de datos
+    if (hasRecordIdColumn[0].exists) {
+      const hasData = await queryRunner.query(`
+        SELECT COUNT(*) as count FROM "houses"
+      `);
+
+      if (hasData[0].count > 0) {
+        console.log('Actualizando house_id en house_records...');
+        await queryRunner.query(`
+          UPDATE "house_records" hr
+          SET "house_id" = h."id"
+          FROM "houses" h
+          WHERE hr."house_id" = h."number_house"
+        `);
+      }
+    }
+
+    // 5. Agregar foreign keys a house_records (solo si no existen)
+    await queryRunner.query(`
+      ALTER TABLE "house_records"
+      DROP CONSTRAINT IF EXISTS "FK_house_records_house_id"
+    `);
+
     await queryRunner.query(`
       ALTER TABLE "house_records"
       ADD CONSTRAINT "FK_house_records_house_id"
@@ -118,6 +168,11 @@ export class AddHouseRecordTableAndUpdateRelations1729113600000
 
     await queryRunner.query(`
       ALTER TABLE "house_records"
+      DROP CONSTRAINT IF EXISTS "FK_house_records_record_id"
+    `);
+
+    await queryRunner.query(`
+      ALTER TABLE "house_records"
       ADD CONSTRAINT "FK_house_records_record_id"
       FOREIGN KEY ("record_id")
       REFERENCES "records"("id")
@@ -125,19 +180,19 @@ export class AddHouseRecordTableAndUpdateRelations1729113600000
       ON UPDATE CASCADE
     `);
 
-    // 6. Crear índices para mejorar performance
+    // 6. Crear índices para mejorar performance (solo si no existen)
     await queryRunner.query(`
-      CREATE INDEX "IDX_house_records_house_id"
+      CREATE INDEX IF NOT EXISTS "IDX_house_records_house_id"
       ON "house_records" ("house_id")
     `);
 
     await queryRunner.query(`
-      CREATE INDEX "IDX_house_records_record_id"
+      CREATE INDEX IF NOT EXISTS "IDX_house_records_record_id"
       ON "house_records" ("record_id")
     `);
 
     await queryRunner.query(`
-      CREATE INDEX "IDX_houses_number_house"
+      CREATE INDEX IF NOT EXISTS "IDX_houses_number_house"
       ON "houses" ("number_house")
     `);
 
