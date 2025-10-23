@@ -146,9 +146,39 @@ export class ReconcileUseCase {
           }
         } else {
           // ⚠️ Sobrante que requiere validación manual
+          // ✅ NUEVO: Persistir sobrantes en BD
+          try {
+            await this.persistenceService.persistSurplus(
+              matchResult.surplus.transactionBankId,
+              matchResult.surplus,
+            );
+            this.logger.log(
+              `Sobrante persistido: Transaction ${matchResult.surplus.transactionBankId}, Razón: ${matchResult.surplus.reason}`,
+            );
+          } catch (error) {
+            this.logger.error(
+              `Error al persistir sobrante para transaction ${matchResult.surplus.transactionBankId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            );
+            // Continuar de todos modos, agregar a lista de sobrantes
+          }
           sobrantes.push(matchResult.surplus);
         }
       } else if (matchResult.type === 'manual') {
+        // ✅ NUEVO: Persistir casos manuales en BD
+        try {
+          await this.persistenceService.persistManualValidationCase(
+            matchResult.case.transactionBankId,
+            matchResult.case,
+          );
+          this.logger.log(
+            `Caso manual persistido: Transaction ${matchResult.case.transactionBankId}, Candidatos: ${matchResult.case.possibleMatches.length}`,
+          );
+        } catch (error) {
+          this.logger.error(
+            `Error al persistir caso manual para transaction ${matchResult.case.transactionBankId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          );
+          // Continuar de todos modos, agregar a lista de manuales
+        }
         manualValidationRequired.push(matchResult.case);
       }
     }

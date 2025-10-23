@@ -14,4 +14,6 @@ export enum ValidationStatus {
   NOT_FOUND = 'not-found',
   PENDING = 'pending',
   CONFIRMED = 'confirmed',
+  REQUIRES_MANUAL = 'requires-manual',
+  CONFLICT = 'conflict',
 }
