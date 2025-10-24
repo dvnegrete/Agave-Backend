@@ -449,4 +449,208 @@ describe('VoucherProcessorService', () => {
       ).rejects.toThrow(BadRequestException);
     });
   });
+
+  describe('Asignación automática de hora 12:00:00 (Nueva funcionalidad 2025-10-23)', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('debe asignar hora 12:00:00 cuando OCR no extrae hora y centavos son válidos (casa 25)', async () => {
+      const mockStructuredData: StructuredData = {
+        monto: '1500.25',
+        fecha_pago: '2025-01-15',
+        referencia: 'REF123',
+        hora_transaccion: '', // Hora vacía
+      };
+
+      (ocrService.validateImageFormat as jest.Mock).mockResolvedValue(undefined);
+      (ocrService.extractTextFromImage as jest.Mock).mockResolvedValue({
+        structuredData: mockStructuredData,
+        originalFilename: 'test.jpg',
+        gcsFilename: 'vouchers/test.jpg',
+      });
+
+      const result = await service.processVoucher(
+        Buffer.from('fake-image'),
+        'test.jpg',
+        'es',
+        '+5215512345678',
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.structuredData.casa).toBe(25); // Extraído de centavos .25
+      expect(result.structuredData.hora_transaccion).toBe('12:00:00'); // Asignada automáticamente
+      expect(result.structuredData.hora_asignada_automaticamente).toBe(true);
+    });
+
+    it('debe asignar hora 12:00:00 cuando hora_transaccion es null y centavos válidos', async () => {
+      const mockStructuredData: StructuredData = {
+        monto: '2000.10',
+        fecha_pago: '2025-01-15',
+        referencia: 'REF456',
+        hora_transaccion: null as any, // Hora null
+      };
+
+      (ocrService.validateImageFormat as jest.Mock).mockResolvedValue(undefined);
+      (ocrService.extractTextFromImage as jest.Mock).mockResolvedValue({
+        structuredData: mockStructuredData,
+        originalFilename: 'test2.jpg',
+        gcsFilename: 'vouchers/test2.jpg',
+      });
+
+      const result = await service.processVoucher(
+        Buffer.from('fake-image'),
+        'test2.jpg',
+        'es',
+        '+5215512345678',
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.structuredData.casa).toBe(10); // .10 normalizado
+      expect(result.structuredData.hora_transaccion).toBe('12:00:00');
+      expect(result.structuredData.hora_asignada_automaticamente).toBe(true);
+    });
+
+    it('NO debe asignar hora automática cuando OCR extrae hora correctamente', async () => {
+      const mockStructuredData: StructuredData = {
+        monto: '1500.25',
+        fecha_pago: '2025-01-15',
+        referencia: 'REF789',
+        hora_transaccion: '14:30:00', // Hora extraída por OCR
+      };
+
+      (ocrService.validateImageFormat as jest.Mock).mockResolvedValue(undefined);
+      (ocrService.extractTextFromImage as jest.Mock).mockResolvedValue({
+        structuredData: mockStructuredData,
+        originalFilename: 'test3.jpg',
+        gcsFilename: 'vouchers/test3.jpg',
+      });
+
+      const result = await service.processVoucher(
+        Buffer.from('fake-image'),
+        'test3.jpg',
+        'es',
+        '+5215512345678',
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.structuredData.casa).toBe(25);
+      expect(result.structuredData.hora_transaccion).toBe('14:30:00'); // Mantiene hora original
+      expect(result.structuredData.hora_asignada_automaticamente).toBeUndefined();
+    });
+
+    it('NO debe asignar hora automática cuando centavos NO son válidos (centavos = 0)', async () => {
+      const mockStructuredData: StructuredData = {
+        monto: '1500.00', // Sin centavos válidos
+        fecha_pago: '2025-01-15',
+        referencia: 'REF000',
+        hora_transaccion: '', // Hora vacía
+      };
+
+      (ocrService.validateImageFormat as jest.Mock).mockResolvedValue(undefined);
+      (ocrService.extractTextFromImage as jest.Mock).mockResolvedValue({
+        structuredData: mockStructuredData,
+        originalFilename: 'test4.jpg',
+        gcsFilename: 'vouchers/test4.jpg',
+      });
+
+      const result = await service.processVoucher(
+        Buffer.from('fake-image'),
+        'test4.jpg',
+        'es',
+        '+5215512345678',
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.structuredData.casa).toBeNull(); // No se pudo extraer casa
+      expect(result.structuredData.hora_transaccion).toBe(''); // Hora sigue vacía
+      expect(result.structuredData.hora_asignada_automaticamente).toBeUndefined();
+    });
+
+    it('NO debe asignar hora automática cuando centavos exceden máximo (casa > 66)', async () => {
+      const mockStructuredData: StructuredData = {
+        monto: '1500.99', // Casa 99 excede máximo (66)
+        fecha_pago: '2025-01-15',
+        referencia: 'REF999',
+        hora_transaccion: '', // Hora vacía
+      };
+
+      (ocrService.validateImageFormat as jest.Mock).mockResolvedValue(undefined);
+      (ocrService.extractTextFromImage as jest.Mock).mockResolvedValue({
+        structuredData: mockStructuredData,
+        originalFilename: 'test5.jpg',
+        gcsFilename: 'vouchers/test5.jpg',
+      });
+
+      const result = await service.processVoucher(
+        Buffer.from('fake-image'),
+        'test5.jpg',
+        'es',
+        '+5215512345678',
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.structuredData.casa).toBeNull(); // Centavos inválidos
+      expect(result.structuredData.hora_transaccion).toBe(''); // Hora sigue vacía
+      expect(result.structuredData.hora_asignada_automaticamente).toBeUndefined();
+    });
+
+    it('debe incluir nota en mensaje cuando hora fue asignada automáticamente', async () => {
+      const mockStructuredData: StructuredData = {
+        monto: '1500.25',
+        fecha_pago: '2025-01-15',
+        referencia: 'REF123',
+        hora_transaccion: '', // Hora vacía → se asignará 12:00:00
+      };
+
+      (ocrService.validateImageFormat as jest.Mock).mockResolvedValue(undefined);
+      (ocrService.extractTextFromImage as jest.Mock).mockResolvedValue({
+        structuredData: mockStructuredData,
+        originalFilename: 'test.jpg',
+        gcsFilename: 'vouchers/test.jpg',
+      });
+
+      const result = await service.processVoucher(
+        Buffer.from('fake-image'),
+        'test.jpg',
+        'es',
+        '+5215512345678',
+      );
+
+      expect(result.whatsappMessage).toContain('⏰ Hora: *12:00:00* ⚠️');
+      expect(result.whatsappMessage).toContain('⚠️ *Nota:*');
+      expect(result.whatsappMessage).toContain('No se pudo extraer la hora');
+      expect(result.whatsappMessage).toContain('Se asignó 12:00 hrs por defecto');
+      expect(result.whatsappMessage).toContain('Tu pago se conciliará usando los centavos (casa 25)');
+      expect(result.whatsappMessage).toContain('selecciona "❌ No. Editar datos ✏️"');
+    });
+
+    it('NO debe incluir nota cuando hora fue extraída por OCR', async () => {
+      const mockStructuredData: StructuredData = {
+        monto: '1500.25',
+        fecha_pago: '2025-01-15',
+        referencia: 'REF123',
+        hora_transaccion: '14:30:00', // Hora extraída correctamente
+      };
+
+      (ocrService.validateImageFormat as jest.Mock).mockResolvedValue(undefined);
+      (ocrService.extractTextFromImage as jest.Mock).mockResolvedValue({
+        structuredData: mockStructuredData,
+        originalFilename: 'test.jpg',
+        gcsFilename: 'vouchers/test.jpg',
+      });
+
+      const result = await service.processVoucher(
+        Buffer.from('fake-image'),
+        'test.jpg',
+        'es',
+        '+5215512345678',
+      );
+
+      expect(result.whatsappMessage).toContain('⏰ Hora: *14:30:00*');
+      expect(result.whatsappMessage).not.toContain('⏰ Hora: *14:30:00* ⚠️'); // Sin icono de advertencia
+      expect(result.whatsappMessage).not.toContain('⚠️ *Nota:*');
+      expect(result.whatsappMessage).not.toContain('No se pudo extraer la hora');
+    });
+  });
 });

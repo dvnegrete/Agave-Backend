@@ -14,6 +14,7 @@ export interface StructuredDataWithCasa extends StructuredData {
   casa: number | null;
   faltan_datos?: boolean;
   pregunta?: string;
+  hora_asignada_automaticamente?: boolean; // Indica si hora fue asignada como 12:00:00
 }
 
 export interface VoucherProcessingResult {
@@ -106,6 +107,8 @@ export class VoucherProcessorService {
 
   /**
    * Extrae el número de casa desde los centavos del monto
+   * Y asigna hora automática 12:00:00 si no se extrajo hora pero los centavos son válidos
+   *
    * Regla de negocio:
    * - .1 → casa 10, .2 → casa 20, .3 → casa 30, .4 → casa 40, etc.
    * - .01 → casa 1, .04 → casa 4, .05 → casa 5, etc.
@@ -118,6 +121,9 @@ export class VoucherProcessorService {
    * - 1000.04 → 4 (dos dígitos se interpretan como está)
    * - 1000.05 → 5
    * - 1000.00 → null
+   *
+   * - Si hora_transaccion no existe o está vacía Y centavos válidos (1-66):
+   *   → Asigna hora automática 12:00:00
    */
   private extractCentavos(
     structuredData: StructuredData,
@@ -153,6 +159,14 @@ export class VoucherProcessorService {
           normalizedCentavos <= businessRules.maxCasas
         ) {
           modifiedData.casa = normalizedCentavos;
+
+          if (!modifiedData.hora_transaccion || modifiedData.hora_transaccion.trim() === '') {
+            modifiedData.hora_transaccion = '12:00:00';
+            modifiedData.hora_asignada_automaticamente = true;
+            this.logger.log(
+              `Hora asignada automáticamente (12:00:00) para casa ${normalizedCentavos} identificada por centavos`,
+            );
+          }
         } else {
           modifiedData.casa = null;
         }
@@ -183,14 +197,25 @@ export class VoucherProcessorService {
 
     // Caso 1: faltan_datos = false y casa es un valor numérico
     if (!data.faltan_datos && typeof data.casa === 'number') {
-      return `Voy a registrar tu pago con el estatus "pendiente verificación en banco" con los siguientes datos que he encontrado en el comprobante:
+      // Construir mensaje base
+      let message = `Voy a registrar tu pago con el estatus "pendiente verificación en banco" con los siguientes datos que he encontrado en el comprobante:
       💰 Monto: *$${data.monto}*
       📅 Fecha: *${formatFecha(data.fecha_pago)}*
       🏠 Casa: *${data.casa}*
       🔢 Referencia: *${data.referencia || 'No disponible'}*
-      ⏰ Hora: *${data.hora_transaccion}*
+      ⏰ Hora: *${data.hora_transaccion}*${data.hora_asignada_automaticamente ? ' ⚠️' : ''}`;
 
-      ¿Los datos son correctos?`;
+      // Agregar nota si la hora fue asignada automáticamente
+      if (data.hora_asignada_automaticamente) {
+        message += `\n\n⚠️ *Nota:* No se pudo extraer la hora de la transacción del comprobante.
+Se asignó 12:00 hrs por defecto. Tu pago se conciliará usando los centavos (casa ${data.casa}).
+
+Si deseas especificar la hora exacta, selecciona "❌ No. Editar datos ✏️".`;
+      }
+
+      message += `\n\n¿Los datos son correctos?`;
+
+      return message;
     }
 
     // Fallback
