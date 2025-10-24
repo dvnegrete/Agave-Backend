@@ -160,9 +160,25 @@ export class VoucherProcessorService {
         ) {
           modifiedData.casa = normalizedCentavos;
 
-          if (!modifiedData.hora_transaccion || modifiedData.hora_transaccion.trim() === '') {
+          if (
+            !modifiedData.hora_transaccion ||
+            modifiedData.hora_transaccion.trim() === ''
+          ) {
             modifiedData.hora_transaccion = '12:00:00';
             modifiedData.hora_asignada_automaticamente = true;
+
+            // CRÍTICO: Si faltan_datos era true solo por la hora, marcarlo como false ahora
+            if (modifiedData.faltan_datos) {
+              // Verificar si SOLO faltaba la hora (monto y fecha existen)
+              const hasOtherMissingData =
+                !modifiedData.monto || !modifiedData.fecha_pago;
+
+              if (!hasOtherMissingData) {
+                modifiedData.faltan_datos = false;
+                delete modifiedData.pregunta;
+              }
+            }
+
             this.logger.log(
               `Hora asignada automáticamente (12:00:00) para casa ${normalizedCentavos} identificada por centavos`,
             );

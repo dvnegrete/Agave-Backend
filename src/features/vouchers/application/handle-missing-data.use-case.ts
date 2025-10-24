@@ -20,6 +20,7 @@ import {
 import { StructuredDataWithCasa } from '../infrastructure/ocr/voucher-processor.service';
 import { ErrorMessages } from '@/shared/content';
 import { CONFIRM_CANCEL_BUTTONS } from '../shared/constants/whatsapp-buttons.const';
+import { GcsCleanupService } from '@/shared/libs/google-cloud';
 
 export interface HandleMissingDataInput {
   phoneNumber: string;
@@ -46,6 +47,7 @@ export class HandleMissingDataUseCase {
   constructor(
     private readonly conversationState: ConversationStateService,
     private readonly whatsappMessaging: WhatsAppMessagingService,
+    private readonly gcsCleanupService: GcsCleanupService,
   ) {}
 
   async execute(
@@ -68,7 +70,7 @@ export class HandleMissingDataUseCase {
       context.data;
 
     if (!missingFields || missingFields.length === 0) {
-      return await this.handleNoMoreMissingFields(phoneNumber);
+      return await this.handleNoMoreMissingFields(phoneNumber, gcsFilename);
     }
 
     // 2. Obtener el campo actual que se está solicitando
@@ -176,16 +178,26 @@ export class HandleMissingDataUseCase {
 
   /**
    * Maneja el caso cuando no hay más campos faltantes
+   * BUGFIX: Limpia archivo GCS temporal para evitar archivos huérfanos
    */
   private async handleNoMoreMissingFields(
     phoneNumber: string,
+    gcsFilename?: string,
   ): Promise<HandleMissingDataOutput> {
+    // Limpiar archivo GCS temporal (prevenir archivos huérfanos)
+    if (gcsFilename) {
+      await this.gcsCleanupService.deleteTemporaryProcessingFile(
+        gcsFilename,
+        'flujo-incompleto-sin-campos-faltantes',
+      );
+    }
+
     await this.sendWhatsAppMessage(
       phoneNumber,
-      'Ya tengo todos los datos. Procesando...',
+      'Ocurrió un error en el flujo. Por favor envía nuevamente el comprobante.',
     );
     this.conversationState.clearContext(phoneNumber);
-    return { success: true };
+    return { success: false, message: 'No missing fields but unexpected state' };
   }
 
   /**
