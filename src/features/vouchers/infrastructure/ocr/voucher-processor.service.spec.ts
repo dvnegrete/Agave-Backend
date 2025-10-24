@@ -652,5 +652,40 @@ describe('VoucherProcessorService', () => {
       expect(result.whatsappMessage).not.toContain('⚠️ *Nota:*');
       expect(result.whatsappMessage).not.toContain('No se pudo extraer la hora');
     });
+
+    it('NO debe pedir hora manualmente cuando se asigna automáticamente', async () => {
+      const mockStructuredData: StructuredData = {
+        monto: '1500.25',
+        fecha_pago: '2025-01-15',
+        referencia: 'REF123',
+        hora_transaccion: '', // Hora vacía → se asignará 12:00:00
+      };
+
+      (ocrService.validateImageFormat as jest.Mock).mockResolvedValue(undefined);
+      (ocrService.extractTextFromImage as jest.Mock).mockResolvedValue({
+        structuredData: mockStructuredData,
+        originalFilename: 'test.jpg',
+        gcsFilename: 'vouchers/test.jpg',
+      });
+
+      const result = await service.processVoucher(
+        Buffer.from('fake-image'),
+        'test.jpg',
+        'es',
+        '+5215512345678',
+      );
+
+      // Verificar que datos están completos (no faltantes)
+      expect(result.success).toBe(true);
+      expect(result.structuredData.faltan_datos).toBeFalsy();
+      expect(result.structuredData.casa).toBe(25);
+      expect(result.structuredData.hora_transaccion).toBe('12:00:00');
+      expect(result.structuredData.hora_asignada_automaticamente).toBe(true);
+
+      // El mensaje debe ser de confirmación (no de datos faltantes)
+      expect(result.whatsappMessage).toContain('¿Los datos son correctos?');
+      expect(result.whatsappMessage).not.toContain('No pude extraer');
+      expect(result.whatsappMessage).not.toContain('Por favor proporciona');
+    });
   });
 });

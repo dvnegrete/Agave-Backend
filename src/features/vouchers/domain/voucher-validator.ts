@@ -21,6 +21,8 @@ export class VoucherValidator {
    * Identifica qué campos están faltantes en los datos del voucher
    * @param voucherData - Datos del voucher a validar
    * @returns Array de campos faltantes
+   *
+   * NOTA: Si hora fue asignada automáticamente (12:00:00), NO se marca como faltante
    */
   static identifyMissingFields(voucherData: VoucherData): string[] {
     const missingFields: string[] = [];
@@ -31,7 +33,9 @@ export class VoucherValidator {
     if (!this.toSafeString(voucherData.fecha_pago)) {
       missingFields.push('fecha_pago');
     }
-    if (!this.toSafeString(voucherData.hora_transaccion)) {
+    // NO marcar hora como faltante si fue asignada automáticamente
+    const horaAsignadaAutomaticamente = (voucherData as any).hora_asignada_automaticamente;
+    if (!this.toSafeString(voucherData.hora_transaccion) && !horaAsignadaAutomaticamente) {
       missingFields.push('hora_transaccion');
     }
     if (!voucherData.casa) {
