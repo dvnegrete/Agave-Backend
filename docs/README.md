@@ -40,6 +40,8 @@ Documentación completa del backend de Agave, incluyendo arquitectura, features,
 - [Business Logic](features/bank-reconciliation/README.md#business-logic) - Algoritmo de matching y reglas
 - [Configuration](features/bank-reconciliation/README.md#configuration) - Configuración de tolerancias y umbrales
 
+<<<<<<< Updated upstream
+=======
 #### Payment Management
 - [**Feature Overview**](features/payment-management/README.md) - Sistema de gestión de períodos de facturación y distribución de pagos
 - [API Endpoints](features/payment-management/README.md#api-endpoints) - Endpoints de períodos y configuración
@@ -47,6 +49,10 @@ Documentación completa del backend de Agave, incluyendo arquitectura, features,
 - [Migrations Guide](features/payment-management/MIGRATIONS.md) - Guía de migraciones de base de datos
 - [Integration](features/payment-management/README.md#integration-with-bank-reconciliation) - Integración con conciliación bancaria
 
+### 📋 Pending Features
+- [**Pending Features**](PENDING_FEATURES.md) - Funcionalidades planificadas para implementación futura
+
+>>>>>>> Stashed changes
 ### 📦 Shared Modules
 
 #### Google Cloud Platform
