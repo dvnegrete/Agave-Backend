@@ -374,14 +374,38 @@ bash -c 'set -a && source .env && psql "$DATABASE_URL" -c "SELECT * FROM pg_stat
 bash -c 'set -a && source .env && psql "$DATABASE_URL" -c "SELECT * FROM pg_stat_user_functions WHERE funcname = '\''check_transaction_duplicate'\'';"'
 ```
 
-## bd_initial.sql - Complete Schema Script
+## Database Schema Files
 
-### Overview
+### bd_initial.sql - Complete Schema Script
 
 El archivo `bd_initial.sql` en la raíz del proyecto contiene el **esquema completo de la base de datos**.
 
 **Ubicación**: `/bd_initial.sql`
 **Versión actual**: 3.0.0 (Octubre 30, 2025)
+
+### agave-database.dbml - Visual Schema Design
+
+El archivo `agave-database.dbml` contiene el esquema en formato DBML para visualización.
+
+**Ubicación**: `/agave-database.dbml`
+**Versión**: 3.0.0 (Octubre 30, 2025)
+**Herramienta**: Compatible con [DrawDB](https://www.drawdb.app/)
+
+**Cómo usar**:
+1. Abre https://www.drawdb.app/
+2. Click en "Import" → "DBML"
+3. Copia el contenido de `agave-database.dbml`
+4. Visualiza el diagrama completo de la base de datos
+
+**Incluye**:
+- 18 tablas con todas sus columnas
+- 6 ENUMs
+- 27 relaciones (foreign keys)
+- Índices documentados
+- Comentarios y notas en cada tabla
+- Agrupación por funcionalidad (Core, Banking, Records, Billing, Charges)
+
+### Overview de bd_initial.sql
 
 ### ¿Cuándo usar bd_initial.sql?
 

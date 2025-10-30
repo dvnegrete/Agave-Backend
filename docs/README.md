@@ -14,6 +14,7 @@ Documentación completa del backend de Agave, incluyendo arquitectura, features,
 
 ### 💾 Database
 - [**Schema & Tables**](database/schema.md) - Estructura completa de tablas (Transactions Bank + Vouchers/Houses)
+- [**Schema Visualization**](database/schema-visualization.md) - Diagrama visual con DBML (DrawDB/dbdiagram.io)
 - [**Triggers & Functions**](database/triggers.md) - Lógica automática de duplicados
 - [**Indexes & Optimization**](database/indexes.md) - Optimización de performance
 - [**Setup & Commands**](database/setup.md) - Comandos npm y configuración

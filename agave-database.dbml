@@ -1,0 +1,411 @@
+// =====================================================
+// AGAVE BACKEND - DATABASE SCHEMA (DBML)
+// =====================================================
+// Version: 3.0.0
+// Last Updated: Octubre 30, 2025
+// Compatible with: https://www.drawdb.app/
+// =====================================================
+
+Project agave_backend {
+  database_type: 'PostgreSQL'
+  Note: '''
+    Sistema de gestión de propiedades con:
+    - Conciliación bancaria automática
+    - Procesamiento de vouchers con OCR
+    - Gestión de períodos de facturación
+    - Sistema de pagos con montos personalizados
+  '''
+}
+
+// =====================================================
+// ENUMS
+// =====================================================
+
+Enum role_t {
+  admin
+  owner
+  tenant
+}
+
+Enum status_t {
+  active
+  suspend
+  inactive
+}
+
+Enum validation_status_t {
+  "not-found"
+  pending
+  confirmed
+  "requires-manual"
+  conflict
+}
+
+Enum record_allocations_concept_type_enum {
+  maintenance
+  water
+  extraordinary_fee
+  penalties
+  other
+}
+
+Enum record_allocations_payment_status_enum {
+  complete
+  partial
+  overpaid
+}
+
+Enum house_period_overrides_concept_type_enum {
+  maintenance
+  water
+  extraordinary_fee
+}
+
+// =====================================================
+// CORE TABLES - USERS & HOUSES
+// =====================================================
+
+Table users {
+  id uuid [pk, not null, note: 'UUID from Supabase Auth']
+  role role_t [not null, default: 'tenant']
+  status status_t [not null, default: 'active']
+  name varchar(255)
+  mail varchar(255)
+  cel_phone numeric [note: 'Número telefónico internacional']
+  avatar text
+  last_login timestamptz
+  observations text
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  Note: 'Usuarios del sistema (administradores, propietarios, inquilinos)'
+}
+
+Table houses {
+  id serial [pk, not null]
+  number_house int [not null, unique, note: 'Número de casa (1-66)']
+  user_id uuid [not null, ref: > users.id]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  Note: 'Casas/lotes del fraccionamiento'
+
+  indexes {
+    number_house [name: 'idx_houses_number_house']
+    user_id [name: 'idx_houses_user_id']
+  }
+}
+
+// =====================================================
+// TRANSACTIONS & VOUCHERS
+// =====================================================
+
+Table transactions_bank {
+  id bigserial [pk, not null]
+  date date [not null]
+  time time [not null]
+  concept varchar(225)
+  amount float [not null]
+  is_deposit boolean [not null, note: 'true = depósito, false = retiro']
+  currency varchar(255)
+  bank_name text
+  confirmation_status boolean [not null, default: false, note: 'true = conciliado con voucher/casa']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  Note: 'Transacciones bancarias importadas de estados de cuenta'
+
+  indexes {
+    date [name: 'idx_transactions_bank_date']
+    confirmation_status [name: 'idx_transactions_bank_confirmation']
+    amount [name: 'idx_transactions_bank_amount']
+  }
+}
+
+Table vouchers {
+  id serial [pk, not null]
+  date timestamptz [not null]
+  authorization_number varchar(255)
+  confirmation_code varchar(20) [unique, note: 'Código único de confirmación generado']
+  amount float [not null]
+  confirmation_status boolean [not null, default: false]
+  url text [note: 'Nombre del archivo en Google Cloud Storage (se elimina tras conciliación)']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  Note: 'Comprobantes de pago enviados por usuarios (OCR extraído)'
+
+  indexes {
+    date [name: 'idx_vouchers_date']
+    confirmation_status [name: 'idx_vouchers_confirmation']
+    confirmation_code [name: 'idx_vouchers_confirmation_code']
+  }
+}
+
+Table transactions_status {
+  id serial [pk, not null]
+  validation_status validation_status_t [not null, default: 'pending']
+  transactions_bank_id bigint [ref: > transactions_bank.id]
+  vouchers_id int [ref: > vouchers.id]
+  reason text [note: 'Descripción del resultado de conciliación']
+  identified_house_number int [note: 'Número de casa identificado (por centavos o concepto)']
+  processed_at timestamptz [note: 'Fecha/hora de procesamiento de conciliación']
+  metadata jsonb [note: 'Datos adicionales (ej: candidatos para validación manual)']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  Note: 'Estado de validación de transacciones bancarias con tracking completo'
+
+  indexes {
+    transactions_bank_id [name: 'idx_transactions_status_bank_id']
+    vouchers_id [name: 'idx_transactions_status_voucher_id']
+    validation_status [name: 'idx_transactions_status_validation_status']
+    processed_at [name: 'idx_transactions_status_processed_at']
+    (validation_status, processed_at) [name: 'idx_transactions_status_validation_processed']
+  }
+}
+
+Table last_transaction_bank {
+  id serial [pk, not null]
+  transactions_bank_id bigint [ref: > transactions_bank.id]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  Note: 'Referencia a la última transacción procesada'
+}
+
+// =====================================================
+// RECORDS & RELATIONSHIPS
+// =====================================================
+
+Table records {
+  id serial [pk, not null]
+  transaction_status_id int [ref: > transactions_status.id]
+  vouchers_id int [ref: > vouchers.id, note: 'Voucher asociado (nullable para conciliaciones automáticas)']
+  cta_extraordinary_fee_id int [ref: > cta_extraordinary_fee.id]
+  cta_maintence_id int [ref: > cta_maintenance.id]
+  cta_penalities_id int [ref: > cta_penalties.id]
+  cta_water_id int [ref: > cta_water.id]
+  cta_other_payments_id int [ref: > cta_other_payments.id]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  Note: 'Registros de pagos (pueden estar asociados a vouchers, cargos, etc.)'
+
+  indexes {
+    transaction_status_id [name: 'idx_records_transaction_status_id']
+    vouchers_id [name: 'idx_records_vouchers_id']
+  }
+}
+
+Table house_records {
+  id serial [pk, not null]
+  house_id int [not null, ref: > houses.id]
+  record_id int [not null, ref: > records.id]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  Note: 'Relación muchos-a-muchos entre casas y registros de pago'
+
+  indexes {
+    house_id [name: 'idx_house_records_house_id']
+    record_id [name: 'idx_house_records_record_id']
+  }
+}
+
+// =====================================================
+// BILLING PERIODS & PAYMENT MANAGEMENT
+// =====================================================
+
+Table period_config {
+  id serial [pk, not null]
+  default_maintenance_amount float [not null, default: 800]
+  default_water_amount float [default: 200]
+  default_extraordinary_fee_amount float [default: 1000]
+  payment_due_day int [not null, default: 10, note: 'Día límite de pago del mes']
+  late_payment_penalty_amount float [not null, default: 100, note: 'Monto fijo de penalidad por pago tardío']
+  effective_from date [not null, note: 'Fecha desde la cual esta configuración es válida']
+  effective_until date [note: 'Fecha hasta la cual es válida (null = indefinido)']
+  is_active boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  Note: 'Configuración versionada de períodos con montos default y reglas de pago'
+
+  indexes {
+    (effective_from, effective_until) [name: 'idx_period_config_effective_dates']
+    is_active [name: 'idx_period_config_active']
+  }
+}
+
+Table periods {
+  id serial [pk, not null]
+  year int [not null]
+  month int [not null]
+  period_config_id int [ref: > period_config.id, note: 'Configuración de montos para este período']
+  start_date date [note: 'Primer día del mes (generado automáticamente)']
+  end_date date [note: 'Último día del mes (generado automáticamente)']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  Note: 'Períodos de facturación mensuales'
+
+  indexes {
+    (year, month) [unique, name: 'idx_periods_year_month']
+    period_config_id [name: 'idx_periods_config_id']
+  }
+}
+
+Table house_balances {
+  id serial [pk, not null]
+  house_id int [not null, unique, ref: > houses.id]
+  accumulated_cents float [not null, default: 0, note: 'Centavos acumulados (0.00-0.99). Pendiente definir aplicación']
+  credit_balance float [not null, default: 0, note: 'Saldo a favor por pagos adelantados']
+  debit_balance float [not null, default: 0, note: 'Deuda acumulada por pagos incompletos']
+  updated_at timestamptz [not null, default: `now()`]
+
+  Note: 'Balance financiero y centavos acumulados por casa'
+
+  indexes {
+    house_id [name: 'idx_house_balances_house_id']
+  }
+}
+
+Table house_period_overrides {
+  id serial [pk, not null]
+  house_id int [not null, ref: > houses.id]
+  period_id int [not null, ref: > periods.id]
+  concept_type house_period_overrides_concept_type_enum [not null, note: 'Tipo de concepto sobrescrito']
+  custom_amount float [not null, note: 'Monto personalizado para esta casa']
+  reason text [note: 'Razón del ajuste (convenio, descuento, etc.)']
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  Note: 'Montos personalizados por casa/período (convenios de pago)'
+
+  indexes {
+    (house_id, period_id, concept_type) [unique, name: 'idx_house_period_overrides_unique']
+    house_id [name: 'idx_house_period_overrides_house_id']
+    period_id [name: 'idx_house_period_overrides_period_id']
+  }
+}
+
+Table record_allocations {
+  id serial [pk, not null]
+  record_id int [not null, ref: > records.id]
+  house_id int [not null, ref: > houses.id]
+  period_id int [not null, ref: > periods.id]
+  concept_type record_allocations_concept_type_enum [not null, note: 'Tipo de concepto del pago']
+  concept_id int [not null, note: 'ID del concepto (cta_maintenance_id, cta_water_id, etc.)']
+  allocated_amount float [not null, note: 'Monto aplicado a este concepto']
+  expected_amount float [not null, note: 'Monto esperado del concepto']
+  payment_status record_allocations_payment_status_enum [not null, note: 'complete, partial, overpaid']
+  created_at timestamptz [not null, default: `now()`]
+
+  Note: 'Distribución detallada de pagos entre conceptos'
+
+  indexes {
+    record_id [name: 'idx_record_allocations_record_id']
+    house_id [name: 'idx_record_allocations_house_id']
+    period_id [name: 'idx_record_allocations_period_id']
+    payment_status [name: 'idx_record_allocations_payment_status']
+  }
+}
+
+// =====================================================
+// CHARGE TRACKING TABLES (CTA)
+// =====================================================
+
+Table cta_extraordinary_fee {
+  id serial [pk, not null]
+  amount float [not null]
+  period_id int [not null, ref: > periods.id]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  Note: 'Cuotas extraordinarias por período'
+}
+
+Table cta_maintenance {
+  id serial [pk, not null]
+  amount float [not null]
+  period_id int [not null, ref: > periods.id]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  Note: 'Cuotas de mantenimiento por período'
+}
+
+Table cta_penalties {
+  id serial [pk, not null]
+  amount float [not null]
+  period_id int [ref: > periods.id]
+  description text
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  Note: 'Penalizaciones y multas'
+}
+
+Table cta_water {
+  id serial [pk, not null]
+  amount float [not null]
+  period_id int [not null, ref: > periods.id]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  Note: 'Cargos por consumo de agua'
+}
+
+Table cta_other_payments {
+  id serial [pk, not null]
+  amount float [not null]
+  pending_confirmation boolean
+  description text
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  Note: 'Otros pagos diversos'
+}
+
+// =====================================================
+// TABLE GROUPS (para mejor visualización)
+// =====================================================
+
+TableGroup core_users {
+  users
+  houses
+  Note: 'Usuarios y casas del sistema'
+}
+
+TableGroup banking {
+  transactions_bank
+  vouchers
+  transactions_status
+  last_transaction_bank
+  Note: 'Transacciones bancarias y vouchers'
+}
+
+TableGroup records_system {
+  records
+  house_records
+  record_allocations
+  Note: 'Sistema de registros de pagos'
+}
+
+TableGroup billing_periods {
+  periods
+  period_config
+  house_balances
+  house_period_overrides
+  Note: 'Gestión de períodos y configuración de pagos'
+}
+
+TableGroup charges {
+  cta_maintenance
+  cta_water
+  cta_extraordinary_fee
+  cta_penalties
+  cta_other_payments
+  Note: 'Cuentas y cargos por concepto'
+}
