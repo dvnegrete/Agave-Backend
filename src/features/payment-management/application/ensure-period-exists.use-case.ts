@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { PeriodDomain } from '../domain';
 import { IPeriodRepository } from '../interfaces';
 import { IPeriodConfigRepository } from '../interfaces';
@@ -11,7 +11,9 @@ import { IPeriodConfigRepository } from '../interfaces';
 @Injectable()
 export class EnsurePeriodExistsUseCase {
   constructor(
+    @Inject('IPeriodRepository')
     private readonly periodRepository: IPeriodRepository,
+    @Inject('IPeriodConfigRepository')
     private readonly periodConfigRepository: IPeriodConfigRepository,
   ) {}
 

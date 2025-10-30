@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { PeriodConfigDomain } from '../domain';
 import { CreatePeriodConfigDto } from '../dto';
 import { IPeriodConfigRepository } from '../interfaces';
@@ -10,6 +10,7 @@ import { IPeriodConfigRepository } from '../interfaces';
 @Injectable()
 export class CreatePeriodConfigUseCase {
   constructor(
+    @Inject('IPeriodConfigRepository')
     private readonly periodConfigRepository: IPeriodConfigRepository,
   ) {}
 

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { PeriodDomain } from '../domain';
 import { IPeriodRepository } from '../interfaces';
 
@@ -7,7 +7,10 @@ import { IPeriodRepository } from '../interfaces';
  */
 @Injectable()
 export class GetPeriodsUseCase {
-  constructor(private readonly periodRepository: IPeriodRepository) {}
+  constructor(
+    @Inject('IPeriodRepository')
+    private readonly periodRepository: IPeriodRepository,
+  ) {}
 
   async execute(): Promise<PeriodDomain[]> {
     const periods = await this.periodRepository.findAll();
