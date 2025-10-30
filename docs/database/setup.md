@@ -48,12 +48,28 @@ npm run db:generate
 # Ejecuta: npm run typeorm migration:generate -- -d src/shared/config/datasource.ts
 ```
 
-#### `npm run db:push`
-Ejecuta script SQL directo en la base de datos.
+#### `npm run db:push` ⭐
+Ejecuta script SQL completo para **crear base de datos desde cero**.
 ```bash
 npm run db:push
 # Ejecuta: psql $DATABASE_URL -f bd_initial.sql
 ```
+
+**⚠️ IMPORTANTE**: Este comando crea **todas las tablas desde cero**. Solo úsalo para:
+- Base de datos completamente nueva
+- Reset completo de base de datos de desarrollo
+- Primera instalación del proyecto
+
+**Incluye**:
+- 18 tablas del sistema (users, houses, vouchers, transactions, periods, etc.)
+- Tablas de payment management (period_config, house_balances, etc.)
+- ENUMs (role_t, status_t, validation_status_t, payment_enums)
+- Foreign keys y constraints
+- Índices de performance
+- Usuario del sistema (00000000-0000-0000-0000-000000000000)
+- Configuración inicial de períodos
+
+**Para bases de datos existentes, usa**: `npm run db:deploy` (migraciones)
 
 ### Triggers Management
 
@@ -185,7 +201,10 @@ echo $DATABASE_URL
 
 ## Development Workflow
 
-### Initial Setup
+### Initial Setup - New Database
+
+Si estás configurando una **base de datos nueva desde cero**:
+
 ```bash
 # 1. Clonar proyecto
 git clone <repo>
@@ -198,11 +217,46 @@ npm install
 cp .env.example .env
 # Editar .env con credenciales de BD
 
-# 4. Configurar base de datos
+# 4. Ejecutar script de BD inicial (crea todas las tablas)
+npm run db:push
+# Ejecuta: psql $DATABASE_URL -f bd_initial.sql
+# Esto crea:
+#   - Todas las tablas (users, houses, transactions_bank, vouchers, etc.)
+#   - ENUMs (role_t, status_t, validation_status_t, payment_management_enums)
+#   - Foreign keys y constraints
+#   - Índices de performance
+#   - Usuario del sistema (requerido)
+#   - Configuración inicial de períodos
+
+# 5. Configurar triggers e índices adicionales
 npm run db:setup
 
-# 5. Ejecutar migraciones (si existen)
+# 6. Verificar configuración
+npm run db:check-transactions
+psql $DATABASE_URL -c "SELECT * FROM period_config WHERE is_active = true;"
+```
+
+### Initial Setup - Existing Database
+
+Si ya tienes una base de datos y solo necesitas aplicar nuevas migraciones:
+
+```bash
+# 1. Clonar proyecto
+git clone <repo>
+cd agave-backend
+
+# 2. Instalar dependencias
+npm install
+
+# 3. Configurar entorno
+cp .env.example .env
+# Editar .env con credenciales de BD
+
+# 4. Ejecutar migraciones pendientes
 npm run db:deploy
+
+# 5. Configurar triggers e índices
+npm run db:setup
 
 # 6. Verificar configuración
 npm run db:check-transactions
@@ -320,10 +374,165 @@ bash -c 'set -a && source .env && psql "$DATABASE_URL" -c "SELECT * FROM pg_stat
 bash -c 'set -a && source .env && psql "$DATABASE_URL" -c "SELECT * FROM pg_stat_user_functions WHERE funcname = '\''check_transaction_duplicate'\'';"'
 ```
 
+## bd_initial.sql - Complete Schema Script
+
+### Overview
+
+El archivo `bd_initial.sql` en la raíz del proyecto contiene el **esquema completo de la base de datos**.
+
+**Ubicación**: `/bd_initial.sql`
+**Versión actual**: 3.0.0 (Octubre 30, 2025)
+
+### ¿Cuándo usar bd_initial.sql?
+
+**✅ Úsalo para**:
+- Configurar una base de datos completamente nueva
+- Reset de base de datos de desarrollo
+- Crear un entorno de pruebas desde cero
+- Entender la estructura completa del sistema
+
+**❌ NO lo uses para**:
+- Actualizar base de datos existente → usa `npm run db:deploy`
+- Agregar nuevas tablas → crea migraciones con `npm run db:generate`
+- Base de datos en producción con datos → usa migraciones
+
+### Contenido del Script
+
+El script incluye **en orden**:
+
+1. **ENUMs** (6 tipos)
+   - role_t, status_t, validation_status_t
+   - record_allocations_concept_type_enum
+   - record_allocations_payment_status_enum
+   - house_period_overrides_concept_type_enum
+
+2. **Tablas Core** (4 tablas)
+   - users, houses
+
+3. **Transacciones y Vouchers** (4 tablas)
+   - transactions_bank, vouchers, transactions_status, last_transaction_bank
+
+4. **Registros y Relaciones** (2 tablas)
+   - records, house_records
+
+5. **Períodos y Payment Management** (8 tablas)
+   - periods, period_config
+   - house_balances, house_period_overrides, record_allocations
+   - cta_maintenance, cta_water, cta_extraordinary_fee, cta_penalties, cta_other_payments
+
+6. **Foreign Keys** (~27 relaciones)
+
+7. **Índices de Performance** (~26 índices)
+
+8. **Datos Iniciales**
+   - Usuario del sistema (required for bank reconciliation)
+   - Configuración inicial de período
+
+### Ejecución
+
+**Método 1: Con npm (recomendado)**
+```bash
+npm run db:push
+```
+
+**Método 2: Directamente con psql**
+```bash
+# Cargar variables de entorno
+source .env
+
+# Ejecutar script
+psql "$DATABASE_URL" -f bd_initial.sql
+```
+
+**Método 3: Con bash (carga automática de .env)**
+```bash
+bash -c 'set -a && source .env && psql "$DATABASE_URL" -f bd_initial.sql'
+```
+
+### Verificación Post-Ejecución
+
+Después de ejecutar el script, verifica:
+
+```bash
+# 1. Contar tablas creadas (debe ser 18)
+psql $DATABASE_URL -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';"
+
+# 2. Verificar usuario del sistema
+psql $DATABASE_URL -c "SELECT id, mail, role FROM users WHERE id = '00000000-0000-0000-0000-000000000000';"
+
+# 3. Verificar configuración de período inicial
+psql $DATABASE_URL -c "SELECT * FROM period_config WHERE is_active = true;"
+
+# 4. Listar todas las tablas
+psql $DATABASE_URL -c "\dt"
+
+# 5. Verificar ENUMs
+psql $DATABASE_URL -c "SELECT typname FROM pg_type WHERE typcategory = 'E' ORDER BY typname;"
+```
+
+### Changelog
+
+**v3.0.0 (Octubre 30, 2025)**
+- ✅ Agregadas 4 tablas de payment management
+- ✅ Agregados 3 ENUMs para payment management
+- ✅ Modificada tabla periods (columna period_config_id)
+- ✅ Agregados 11 índices de performance
+- ✅ Agregada configuración inicial de período
+
+**v2.1.0 (Octubre 22, 2025)**
+- Soporte para conciliación bancaria
+- Persistencia de estados de reconciliación
+
+### Troubleshooting
+
+**Error: relation "X" already exists**
+```bash
+# La tabla ya existe. Opciones:
+# 1. Dropear la tabla existente (⚠️ perderás datos)
+psql $DATABASE_URL -c "DROP TABLE IF EXISTS nombre_tabla CASCADE;"
+
+# 2. Usar migraciones en lugar de bd_initial.sql
+npm run db:deploy
+```
+
+**Error: type "X" already exists**
+```bash
+# El ENUM ya existe. Opciones:
+# 1. Dropear el tipo
+psql $DATABASE_URL -c "DROP TYPE IF EXISTS nombre_tipo CASCADE;"
+
+# 2. Skipear y continuar con las tablas
+```
+
+**Error: constraint "X" already exists**
+```bash
+# La constraint ya existe, skipear o recrear tabla
+```
+
+### Reset Completo de Base de Datos
+
+Si necesitas empezar desde cero (⚠️ DESTRUYE TODOS LOS DATOS):
+
+```bash
+# 1. Backup (opcional pero recomendado)
+pg_dump $DATABASE_URL > backup_$(date +%Y%m%d_%H%M%S).sql
+
+# 2. Drop todas las tablas
+psql $DATABASE_URL -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+
+# 3. Re-ejecutar script
+npm run db:push
+
+# 4. Configurar triggers e índices
+npm run db:setup
+```
+
 ## Script Files Reference
 
 ### Locations
 ```
+bd_initial.sql                           # ⭐ Schema completo (v3.0.0)
+
 scripts/
 ├── init-db.sh                           # Inicialización de BD
 └── install-triggers.sh                  # Instalación manual de triggers
@@ -335,6 +544,9 @@ src/shared/database/functions/
 
 src/shared/database/indexes/
 └── deposits_unconfirmed_index.sql      # Índice parcial principal
+
+src/shared/database/migrations/
+└── *.ts                                 # Migraciones TypeORM generadas
 ```
 
 ### Manual Execution

@@ -16,6 +16,7 @@ import { CtaPenalties } from './cta-penalties.entity';
 import { CtaWater } from './cta-water.entity';
 import { CtaOtherPayments } from './cta-other-payments.entity';
 import { HouseRecord } from './house-record.entity';
+import { RecordAllocation } from './record-allocation.entity';
 
 @Entity('records')
 export class Record {
@@ -111,4 +112,7 @@ export class Record {
 
   @OneToMany(() => HouseRecord, (houseRecord) => houseRecord.record)
   houseRecords: HouseRecord[];
+
+  @OneToMany(() => RecordAllocation, (allocation) => allocation.record)
+  allocations: RecordAllocation[];
 }

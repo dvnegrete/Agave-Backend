@@ -28,8 +28,11 @@ docs/
 │   │   └── README.md                     # Feature de transacciones bancarias
 │   ├── bank-reconciliation/
 │   │   └── README.md                     # Feature de conciliación bancaria
-│   └── vouchers/
-│       └── README.md                     # Feature de procesamiento de vouchers
+│   ├── vouchers/
+│   │   └── README.md                     # Feature de procesamiento de vouchers
+│   └── payment-management/
+│       ├── README.md                     # Feature de gestión de pagos
+│       └── MIGRATIONS.md                 # Guía de migraciones de BD
 │
 ├── modules/                               # Documentación de módulos compartidos
 │   ├── README.md                         # Índice de módulos
@@ -103,6 +106,18 @@ Módulo de conciliación bancaria automática con:
 - Identificación de casa por centavos
 - Tres grupos de resultados (conciliados, pendientes, sobrantes)
 - Niveles de confianza y validación manual
+
+#### Payment Management
+- **Ubicación en código**: `src/features/payment-management/`
+- **Documentación**: [features/payment-management/README.md](features/payment-management/README.md)
+- **Migraciones**: [features/payment-management/MIGRATIONS.md](features/payment-management/MIGRATIONS.md)
+
+Módulo de gestión de períodos de facturación con:
+- Creación automática de períodos durante conciliación
+- Configuración versionada de montos y reglas de pago
+- Montos personalizados por casa (convenios de pago)
+- Distribución detallada de pagos entre conceptos
+- Sistema de acumulación de centavos y balances
 
 #### Vouchers & OCR
 - **Ubicación en código**: `src/features/vouchers/`

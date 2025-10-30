@@ -6,6 +6,7 @@ import { AuthModule } from './shared/auth/auth.module';
 import { VouchersModule } from './features/vouchers/vouchers.module';
 import { TransactionsBankModule } from './features/transactions-bank/transactions-bank.module';
 import { BankReconciliationModule } from './features/bank-reconciliation/bank-reconciliation.module';
+import { PaymentManagementModule } from './features/payment-management/payment-management.module';
 import { AppConfigService } from './shared/config/config.service';
 import { DatabaseModule } from './shared/database/database.module';
 import { GoogleCloudModule } from './shared/libs/google-cloud';
@@ -26,6 +27,7 @@ import { VertexAIModule } from './shared/libs/vertex-ai/vertex-ai.module';
     VouchersModule,
     TransactionsBankModule,
     BankReconciliationModule,
+    PaymentManagementModule,
     VertexAIModule,
   ],
   controllers: [AppController],
