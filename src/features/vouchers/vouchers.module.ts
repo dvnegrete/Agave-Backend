@@ -13,6 +13,11 @@ import { WhatsAppMediaService } from './infrastructure/whatsapp/whatsapp-media.s
 import { WhatsAppApiService } from './infrastructure/whatsapp/whatsapp-api.service';
 import { WhatsAppMessagingService } from './infrastructure/whatsapp/whatsapp-messaging.service';
 import { WhatsAppDeduplicationService } from './infrastructure/whatsapp/whatsapp-deduplication.service';
+// Infrastructure - Email (SendGrid)
+import { EmailApiService } from './infrastructure/email/email-api.service';
+import { EmailMediaService } from './infrastructure/email/email-media.service';
+import { EmailMessagingService } from './infrastructure/email/email-messaging.service';
+import { EmailParserService } from './infrastructure/email/email-parser.service';
 // External Modules
 import { GoogleCloudModule } from '@/shared/libs/google-cloud';
 import { VertexAIModule } from '@/shared/libs/vertex-ai/vertex-ai.module';
@@ -22,6 +27,7 @@ import { ProcessVoucherUseCase } from './application/process-voucher.use-case';
 import { ConfirmVoucherUseCase } from './application/confirm-voucher.use-case';
 import { HandleWhatsAppMessageUseCase } from './application/handle-whatsapp-message.use-case';
 import { HandleWhatsAppWebhookUseCase } from './application/handle-whatsapp-webhook.use-case';
+import { HandleEmailWebhookUseCase } from './application/handle-email-webhook.use-case';
 import { HandleMissingDataUseCase } from './application/handle-missing-data.use-case';
 import { HandleHouseNumberUseCase } from './application/handle-house-number.use-case';
 import { CorrectVoucherDataUseCase } from './application/correct-voucher-data.use-case';
@@ -43,11 +49,17 @@ import { CorrectVoucherDataUseCase } from './application/correct-voucher-data.us
     WhatsAppApiService,
     WhatsAppMessagingService,
     WhatsAppDeduplicationService,
+    // Infrastructure - Email (SendGrid)
+    EmailApiService,
+    EmailMediaService,
+    EmailMessagingService,
+    EmailParserService,
     // Use Cases
     ProcessVoucherUseCase,
     ConfirmVoucherUseCase,
     HandleWhatsAppMessageUseCase,
     HandleWhatsAppWebhookUseCase,
+    HandleEmailWebhookUseCase,
     HandleMissingDataUseCase,
     HandleHouseNumberUseCase,
     CorrectVoucherDataUseCase,

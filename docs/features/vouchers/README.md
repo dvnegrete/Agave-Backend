@@ -5,9 +5,19 @@
 El módulo de vouchers permite el procesamiento automatizado de comprobantes de pago mediante:
 - **OCR (Reconocimiento Óptico de Caracteres)** con Google Cloud Vision API
 - **Integración con WhatsApp Business API** para recepción de comprobantes
+- **Integración con Email** (SendGrid) para procesar vouchers desde correo electrónico
 - **Procesamiento inteligente con IA** (OpenAI/Vertex AI) para estructuración de datos
 - **Gestión de conversaciones** con manejo de contexto y estados
 - **Inserción automática en base de datos** con códigos de confirmación únicos
+
+## 📋 Canales de Recepción
+
+| Canal | Estado | Descripción | Configuración |
+|-------|--------|-------------|---------------|
+| **HTTP Upload** | ✅ Implementado | Endpoint POST `/vouchers/ocr-service` | - |
+| **WhatsApp** | ✅ Implementado | Webhook para WhatsApp Business API | Meta Business |
+| **Email (SendGrid)** | ✅ Implementado | Webhook en tiempo real | Ver sección Email |
+| **Telegram** | 📋 Pendiente | Ver `docs/PENDING_FEATURES.md` | - |
 
 ## Architecture
 
@@ -116,7 +126,146 @@ enum MessageIntent {
 }
 ```
 
-### 3. Conversation State Management
+### 3. Email Integration 🚧
+
+**Estado**: En Desarrollo
+
+El módulo permite recibir comprobantes por correo electrónico usando **SendGrid Inbound Parse**.
+
+#### Configuración SendGrid
+
+1. **Configurar Inbound Parse** en SendGrid:
+   - Domain: `vouchers.your-domain.com`
+   - Webhook URL: `https://your-api-domain.com/vouchers/webhook/email`
+   - POST raw email data: ✅
+
+2. **Variables de entorno**:
+```env
+SENDGRID_API_KEY=your_sendgrid_api_key
+SENDGRID_FROM_EMAIL=noreply@agave.com
+```
+
+#### Webhook Endpoint
+```http
+POST /vouchers/webhook/email
+Content-Type: application/x-www-form-urlencoded
+```
+
+**Datos recibidos de SendGrid**:
+- `from`: Email del remitente
+- `to`: Email destino (ej: vouchers@agave.com)
+- `subject`: Asunto del correo
+- `text`: Contenido en texto plano
+- `attachments`: Número de adjuntos
+- `attachment-info`: JSON con metadata de adjuntos
+- `attachment1`, `attachment2`, etc.: Contenido base64 de cada adjunto
+
+#### Flujo de Procesamiento Email
+
+1. **Recepción**: SendGrid envía webhook con email y adjuntos
+2. **Validación**: Verificar que tenga adjuntos válidos (imagen/PDF)
+3. **OCR**: Procesar primer adjunto válido con Google Cloud Vision
+4. **Análisis**: Extraer datos estructurados (monto, fecha, casa, referencia, hora)
+5. **Decisión**:
+   - ✅ **Datos completos** → Insertar en BD y enviar confirmación
+   - ⚠️ **Falta casa** → Solicitar número de casa por email
+   - ❌ **Faltan datos** → Solicitar datos faltantes por email
+
+#### Tipos de Respuesta Email
+
+**Confirmación (datos completos)**:
+```
+Asunto: ✅ Comprobante Procesado - Confirmación
+
+💰 Monto: $1,500.15
+📅 Fecha: 03 de octubre de 2024
+🏠 Casa: 15
+🔢 Referencia: REF123456
+⏰ Hora: 14:30:45
+
+El registro ha sido guardado con estatus "pendiente verificación en banco".
+```
+
+**Solicitud de casa**:
+```
+Asunto: Número de Casa Requerido
+
+No pude identificar el número de casa desde el comprobante.
+Por favor responde indicando el número de casa (1-66).
+```
+
+**Solicitud de datos faltantes**:
+```
+Asunto: Datos Faltantes - Comprobante
+
+No pude extraer todos los datos:
+- Monto
+- Fecha
+- Referencia
+```
+
+**Error de procesamiento**:
+```
+Asunto: ❌ Error al Procesar Comprobante
+
+Hubo un problema al procesar tu comprobante:
+[mensaje de error]
+```
+
+#### Servicios de Email
+
+**EmailApiService**:
+- Envío de emails via SendGrid API
+- Soporte para texto plano y HTML
+- Verificación de configuración
+
+**EmailMediaService**:
+- Procesar adjuntos base64
+- Validar tipos MIME soportados
+- Filtrar archivos válidos (imagen/PDF)
+- Límite: 10MB por archivo
+
+**EmailMessagingService**:
+- `sendConfirmationRequest()`: Confirmar voucher procesado
+- `sendHouseNumberRequest()`: Solicitar número de casa
+- `sendMissingDataRequest()`: Solicitar datos faltantes
+- `sendErrorMessage()`: Notificar errores
+- `sendNoAttachmentMessage()`: Solicitar adjunto
+
+**EmailParserService**:
+- Parsear webhook de SendGrid
+- Extraer email limpio (remover nombre)
+- Procesar JSON de `attachment-info`
+- Decodificar adjuntos base64
+
+#### Diferencias vs WhatsApp
+
+| Aspecto | WhatsApp | Email |
+|---------|----------|-------|
+| **Conversación** | Multi-turno interactiva | Single-shot (una respuesta) |
+| **Estado** | Gestión de contexto compleja | Sin estado conversacional |
+| **Confirmación** | Botones interactivos | Auto-inserción si datos completos |
+| **Respuesta** | Inmediata por WhatsApp | Respuesta por email |
+| **Reintentos** | Usuario puede corregir | Requiere nuevo email |
+
+#### Limitaciones Actuales
+
+- ⚠️ No hay gestión de estado conversacional (single-shot processing)
+- ⚠️ Si faltan datos, usuario debe enviar nuevo email con datos completos
+- ⚠️ No hay flujo de corrección interactivo como en WhatsApp
+- ⚠️ Solo procesa el primer adjunto válido
+
+#### Mejoras Futuras
+
+- [ ] Gestión de estado por email (reply tracking)
+- [ ] Parsing de respuestas del usuario con datos faltantes
+- [ ] Procesamiento de múltiples adjuntos en un email
+- [ ] Notificaciones HTML con mejor formato
+- [ ] Detección de hilos de conversación (In-Reply-To header)
+
+---
+
+### 4. Conversation State Management (WhatsApp)
 
 **Estados de Conversación:**
 ```typescript

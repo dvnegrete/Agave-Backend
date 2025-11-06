@@ -23,6 +23,8 @@ import { VoucherRepository } from '@/shared/database/repositories/voucher.reposi
 import { CloudStorageService } from '@/shared/libs/google-cloud';
 // Use Cases
 import { HandleWhatsAppWebhookUseCase } from '../application/handle-whatsapp-webhook.use-case';
+import { HandleEmailWebhookUseCase } from '../application/handle-email-webhook.use-case';
+import { EmailParserService } from '../infrastructure/email/email-parser.service';
 
 @Controller('vouchers')
 export class VouchersController {
@@ -34,6 +36,9 @@ export class VouchersController {
     private readonly cloudStorageService: CloudStorageService,
     // Use Cases
     private readonly handleWhatsAppWebhookUseCase: HandleWhatsAppWebhookUseCase,
+    private readonly handleEmailWebhookUseCase: HandleEmailWebhookUseCase,
+    // Email Services
+    private readonly emailParserService: EmailParserService,
   ) {}
 
   @Post('ocr-service')
@@ -182,5 +187,42 @@ export class VouchersController {
 
     // Responder inmediatamente a WhatsApp para evitar timeout
     return { success: true };
+  }
+
+  /**
+   * Webhook de Email - Recibe y procesa emails con comprobantes adjuntos
+   *
+   * Configurar en SendGrid Inbound Parse:
+   * - URL: https://your-domain.com/vouchers/webhook/email
+   * - POST raw email data
+   *
+   * SendGrid envía los datos como application/x-www-form-urlencoded
+   * o multipart/form-data
+   */
+  @Post('webhook/email')
+  async receiveEmail(@Body() body: any) {
+    try {
+      // Parsear datos de SendGrid
+      const processedEmail = this.emailParserService.parseInboundEmail(body);
+
+      // Validar datos mínimos
+      if (!this.emailParserService.validateInboundEmail(processedEmail)) {
+        return { success: false, message: 'Invalid email data' };
+      }
+
+      // Procesar de forma asíncrona (fire-and-forget)
+      this.handleEmailWebhookUseCase
+        .execute(processedEmail)
+        .catch((error) => {
+          console.error('❌ Error procesando email:', error);
+        });
+
+      // Responder inmediatamente a SendGrid
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Error en webhook de email:', error);
+      // Siempre responder 200 para evitar reintentos de SendGrid
+      return { success: false, message: error.message };
+    }
   }
 }
