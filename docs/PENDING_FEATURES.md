@@ -208,14 +208,17 @@ Este archivo registra features y funcionalidades planificadas pero no implementa
 
 **Prioridad**: Baja
 **Fecha registro**: 2025-11-03
-**Contexto**: El feature de vouchers actualmente procesa comprobantes desde WhatsApp Business API y uploads HTTP directos. Se planea agregar Telegram como canal adicional de recepción de vouchers.
+**Fecha completado**: 2025-11-06
+**Estado**: ✅ COMPLETADO
+
+**Contexto**: El feature de vouchers ahora procesa comprobantes desde múltiples canales: WhatsApp Business API, Telegram Bot API, y uploads HTTP directos.
 
 ### Estado Actual
 - ✅ Vouchers funciona con WhatsApp Business API
 - ✅ VoucherProcessorService es agnóstico al canal (puede procesar desde cualquier origen)
 - ✅ Infraestructura OCR está lista y reutilizable
-- 🚧 EN DESARROLLO: Integración con Email (correo electrónico)
-- ❌ No existe integración con Telegram Bot API
+- ✅ Integración con Telegram Bot API completada
+- 🚧 EN DESARROLLO: Integración con Email (correo electrónico) - en rama separada
 
 ### Tareas Pendientes
 
@@ -320,9 +323,36 @@ Este archivo registra features y funcionalidades planificadas pero no implementa
 - WhatsApp implementation: `src/features/vouchers/infrastructure/whatsapp/`
 - ProcessVoucherUseCase: `src/features/vouchers/application/process-voucher.use-case.ts`
 
-### Notas Técnicas
-- El `VoucherProcessorService` ya está diseñado para ser agnóstico al canal
-- Solo se necesita adaptar la capa de infraestructura (descarga de media y envío de mensajes)
-- Los use cases de negocio se reutilizan sin cambios
-- Considerar rate limits de Telegram Bot API
+### Implementación Completada
+
+**Archivos Creados:**
+1. `src/features/vouchers/infrastructure/telegram/telegram-api.service.ts` - Cliente Telegram Bot API
+2. `src/features/vouchers/infrastructure/telegram/telegram-media.service.ts` - Descarga de archivos
+3. `src/features/vouchers/infrastructure/telegram/telegram-messaging.service.ts` - Envío de mensajes
+4. `src/features/vouchers/dto/telegram-webhook.dto.ts` - DTOs para webhook
+5. `src/features/vouchers/application/handle-telegram-webhook.use-case.ts` - Procesamiento de updates
+
+**Archivos Modificados:**
+1. `src/features/vouchers/controllers/vouchers.controller.ts` - Agregado endpoint `POST /vouchers/webhook/telegram`
+2. `src/features/vouchers/vouchers.module.ts` - Registrados servicios y use case de Telegram
+3. `env.example` - Agregadas variables `TELEGRAM_BOT_TOKEN` y `TELEGRAM_WEBHOOK_URL`
+4. `docs/features/vouchers/README.md` - Documentación de Telegram Integration
+
+**Funcionalidad Implementada:**
+- ✅ Recepción de fotos y documentos (PDFs)
+- ✅ Procesamiento con OCR reutilizando VoucherProcessorService
+- ✅ Comandos: /start, /ayuda
+- ✅ Botones inline para confirmación
+- ✅ Manejo de estados de conversación (casa faltante, datos faltantes)
+- ✅ Mensajes con formato Markdown
+
+**Pendientes (TODOs en código):**
+- Confirmación completa de voucher con inserción en BD (similar a confirm-voucher.use-case.ts)
+- Parseo de datos faltantes cuando usuario responde con texto
 - Implementar retry logic para envío de mensajes
+
+### Notas Técnicas
+- El `VoucherProcessorService` se reutiliza exitosamente entre todos los canales
+- Solo fue necesario adaptar la capa de infraestructura (descarga de media y envío de mensajes)
+- Los use cases de negocio se reutilizan sin cambios
+- Considerar rate limits de Telegram Bot API en producción

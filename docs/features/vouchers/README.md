@@ -4,7 +4,7 @@
 
 El módulo de vouchers permite el procesamiento automatizado de comprobantes de pago mediante:
 - **OCR (Reconocimiento Óptico de Caracteres)** con Google Cloud Vision API
-- **Integración con WhatsApp Business API** para recepción de comprobantes
+- **Múltiples canales de recepción**: WhatsApp Business API, Telegram Bot API, HTTP uploads
 - **Procesamiento inteligente con IA** (OpenAI/Vertex AI) para estructuración de datos
 - **Gestión de conversaciones** con manejo de contexto y estados
 - **Inserción automática en base de datos** con códigos de confirmación únicos
@@ -116,7 +116,110 @@ enum MessageIntent {
 }
 ```
 
-### 3. Conversation State Management
+### 3. Telegram Integration
+
+El módulo de vouchers ahora soporta recepción de comprobantes mediante Telegram Bot API.
+
+#### Setup del Bot
+
+1. **Crear Bot con BotFather**
+   ```
+   1. Abrir Telegram y buscar @BotFather
+   2. Enviar comando /newbot
+   3. Seguir instrucciones para nombre del bot
+   4. Copiar el Bot Token proporcionado
+   ```
+
+2. **Configurar Variables de Entorno**
+   ```bash
+   # .env
+   TELEGRAM_BOT_TOKEN=1234567890:ABCdefGHIjklMNOpqrsTUVwxyz
+   TELEGRAM_WEBHOOK_URL=https://your-domain.com/vouchers/webhook/telegram
+   ```
+
+3. **Configurar Webhook** (ejecutar una vez después del deploy)
+   ```bash
+   # Usando TelegramApiService.setWebhook()
+   # O manualmente:
+   curl -X POST "https://api.telegram.org/bot<BOT_TOKEN>/setWebhook" \
+     -d "url=https://your-domain.com/vouchers/webhook/telegram"
+   ```
+
+#### Endpoint del Webhook
+```http
+POST /vouchers/webhook/telegram
+Content-Type: application/json
+
+{
+  "update_id": 123456789,
+  "message": {
+    "message_id": 1,
+    "from": { "id": 123456, "username": "user123" },
+    "chat": { "id": 123456, "type": "private" },
+    "photo": [...],  // O document, text
+    "date": 1634567890
+  }
+}
+```
+
+#### Tipos de Mensajes Soportados
+
+- **Comandos**:
+  - `/start` - Mensaje de bienvenida
+  - `/ayuda` - Ayuda e instrucciones
+
+- **Fotos**: Procesamiento automático con OCR (formato JPEG)
+
+- **Documentos**: PDFs de comprobantes (hasta 20MB)
+
+- **Botones Inline**: Confirmación de datos (✅ Sí / ❌ No)
+
+#### Flujo de Conversación
+
+1. Usuario envía foto o PDF del comprobante
+2. Bot descarga archivo y procesa con OCR
+3. Bot extrae datos y responde con solicitud de confirmación:
+   ```
+   ✅ Datos extraídos del comprobante:
+
+   💰 Monto: $1,500.15
+   📅 Fecha: 2024-10-03
+   🏠 Casa: 15
+   🔢 Referencia: REF123456
+   ⏰ Hora: 14:30:45
+
+   ¿Los datos son correctos?
+   [✅ Sí, confirmar] [❌ No, corregir]
+   ```
+
+4. Usuario presiona botón inline para confirmar o corregir
+
+#### Características de Telegram vs WhatsApp
+
+| Aspecto | WhatsApp | Telegram |
+|---------|----------|----------|
+| Identificador | phoneNumber | chat_id |
+| Botones | Interactive buttons | InlineKeyboardMarkup |
+| Formato mensajes | WhatsApp formatting | Markdown/HTML |
+| Límite archivos | 16MB | 20MB (descarga via bot) |
+| Webhook | Requiere verificación | POST directo |
+
+#### Arquitectura
+
+**Servicios de Infraestructura:**
+- `TelegramApiService` - Cliente de Telegram Bot API
+- `TelegramMediaService` - Descarga de fotos y documentos
+- `TelegramMessagingService` - Envío de mensajes con formato Markdown y botones inline
+
+**Use Case:**
+- `HandleTelegramWebhookUseCase` - Procesamiento de updates (mensajes, fotos, comandos, callbacks)
+
+**Reutilización:**
+- `VoucherProcessorService` - Compartido entre WhatsApp, Telegram, HTTP y Email
+- `ConversationStateService` - Manejo de estado usando `chat_id` como identificador
+- `VoucherValidator` - Validaciones de negocio compartidas
+
+### 4. Conversation State Management
 
 **Estados de Conversación:**
 ```typescript

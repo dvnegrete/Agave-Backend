@@ -23,6 +23,8 @@ import { VoucherRepository } from '@/shared/database/repositories/voucher.reposi
 import { CloudStorageService } from '@/shared/libs/google-cloud';
 // Use Cases
 import { HandleWhatsAppWebhookUseCase } from '../application/handle-whatsapp-webhook.use-case';
+import { HandleTelegramWebhookUseCase } from '../application/handle-telegram-webhook.use-case';
+import { TelegramWebhookDto } from '../dto/telegram-webhook.dto';
 
 @Controller('vouchers')
 export class VouchersController {
@@ -34,6 +36,7 @@ export class VouchersController {
     private readonly cloudStorageService: CloudStorageService,
     // Use Cases
     private readonly handleWhatsAppWebhookUseCase: HandleWhatsAppWebhookUseCase,
+    private readonly handleTelegramWebhookUseCase: HandleTelegramWebhookUseCase,
   ) {}
 
   @Post('ocr-service')
@@ -182,5 +185,36 @@ export class VouchersController {
 
     // Responder inmediatamente a WhatsApp para evitar timeout
     return { success: true };
+  }
+
+  /**
+   * Webhook de Telegram - Recibe y procesa updates del bot
+   *
+   * IMPORTANTE: Este endpoint debe responder rápidamente o Telegram
+   * puede considerar que el webhook no está funcionando.
+   * Procesamos el mensaje de forma asíncrona y respondemos inmediatamente.
+   *
+   * Los updates de Telegram incluyen:
+   * - Mensajes de texto
+   * - Fotos y documentos
+   * - Callback queries (botones inline presionados)
+   * - Comandos (/start, /ayuda, etc.)
+   */
+  @Post('webhook/telegram')
+  receiveTelegramUpdate(@Body() body: TelegramWebhookDto) {
+    // Validación básica de la estructura del webhook
+    if (!body || !body.update_id) {
+      return { success: true };
+    }
+
+    // Procesar el update de forma asíncrona (fire-and-forget)
+    this.handleTelegramWebhookUseCase.execute(body).catch((error) => {
+      console.error('❌ Error procesando update de Telegram:', error);
+      // IMPORTANTE: No re-lanzamos el error para que el controlador
+      // siempre responda 200 a Telegram
+    });
+
+    // Responder inmediatamente a Telegram
+    return { ok: true };
   }
 }
