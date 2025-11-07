@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { TelegramApiService } from './telegram-api.service';
-import TelegramBot from 'node-telegram-bot-api';
+import * as TelegramBot from 'node-telegram-bot-api';
 
 export interface InlineButtonOption {
   text: string;

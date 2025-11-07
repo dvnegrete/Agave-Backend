@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import TelegramBot from 'node-telegram-bot-api';
+import * as TelegramBot from 'node-telegram-bot-api';
 
 /**
  * Servicio para interactuar con Telegram Bot API
