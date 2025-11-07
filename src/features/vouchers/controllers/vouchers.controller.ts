@@ -25,6 +25,9 @@ import { CloudStorageService } from '@/shared/libs/google-cloud';
 import { HandleWhatsAppWebhookUseCase } from '../application/handle-whatsapp-webhook.use-case';
 import { HandleTelegramWebhookUseCase } from '../application/handle-telegram-webhook.use-case';
 import { TelegramWebhookDto } from '../dto/telegram-webhook.dto';
+// Infrastructure
+import { TelegramMessagingService } from '../infrastructure/telegram/telegram-messaging.service';
+import { TelegramApiService } from '../infrastructure/telegram/telegram-api.service';
 
 @Controller('vouchers')
 export class VouchersController {
@@ -37,6 +40,9 @@ export class VouchersController {
     // Use Cases
     private readonly handleWhatsAppWebhookUseCase: HandleWhatsAppWebhookUseCase,
     private readonly handleTelegramWebhookUseCase: HandleTelegramWebhookUseCase,
+    // Telegram Services
+    private readonly telegramMessaging: TelegramMessagingService,
+    private readonly telegramApi: TelegramApiService,
   ) {}
 
   @Post('ocr-service')
@@ -216,5 +222,105 @@ export class VouchersController {
 
     // Responder inmediatamente a Telegram
     return { ok: true };
+  }
+
+  /**
+   * ENDPOINT TEMPORAL DE PRUEBA - Verificar configuración de Telegram
+   * Eliminar después de verificar que funciona
+   */
+  @Get('telegram/test')
+  async testTelegram(@Query('chat_id') chatId?: string) {
+    try {
+      // 1. Verificar que el servicio está configurado
+      if (!this.telegramApi.isConfigured()) {
+        return {
+          error: 'TELEGRAM_BOT_TOKEN no está configurado en las variables de entorno',
+          configured: false,
+        };
+      }
+
+      // 2. Obtener información del bot
+      const botInfo = await this.telegramApi.getMe();
+
+      // 3. Obtener información del webhook
+      const webhookInfo = await this.telegramApi.getWebhookInfo();
+
+      // 4. Si se proporciona chat_id, enviar mensaje de prueba
+      let testMessageSent = false;
+      if (chatId) {
+        await this.telegramMessaging.sendTextMessage(
+          chatId,
+          '✅ ¡Prueba exitosa! El bot de Telegram está funcionando correctamente.',
+        );
+        testMessageSent = true;
+      }
+
+      return {
+        success: true,
+        bot: {
+          id: botInfo.id,
+          username: botInfo.username,
+          first_name: botInfo.first_name,
+        },
+        webhook: {
+          url: webhookInfo.url,
+          has_custom_certificate: webhookInfo.has_custom_certificate,
+          pending_update_count: webhookInfo.pending_update_count,
+          last_error_date: webhookInfo.last_error_date,
+          last_error_message: webhookInfo.last_error_message,
+        },
+        testMessage: testMessageSent
+          ? `Mensaje enviado al chat_id: ${chatId}`
+          : 'No se envió mensaje de prueba (proporciona ?chat_id=TU_CHAT_ID para enviar)',
+      };
+    } catch (error) {
+      return {
+        error: error.message,
+        stack: error.stack,
+      };
+    }
+  }
+
+  /**
+   * ENDPOINT TEMPORAL - Configurar webhook de Telegram
+   * Eliminar después de configurar
+   */
+  @Post('telegram/setup-webhook')
+  async setupTelegramWebhook(@Body('webhook_url') webhookUrl?: string) {
+    try {
+      if (!this.telegramApi.isConfigured()) {
+        return {
+          error: 'TELEGRAM_BOT_TOKEN no está configurado',
+        };
+      }
+
+      // Usar TELEGRAM_WEBHOOK_URL del .env si no se proporciona
+      const url =
+        webhookUrl || process.env.TELEGRAM_WEBHOOK_URL || '';
+
+      if (!url) {
+        return {
+          error: 'Proporciona webhook_url en el body o configura TELEGRAM_WEBHOOK_URL en .env',
+          example: {
+            webhook_url: 'https://tu-dominio.com/vouchers/webhook/telegram',
+          },
+        };
+      }
+
+      const result = await this.telegramApi.setWebhook(url);
+
+      return {
+        success: result,
+        webhook_url: url,
+        message: result
+          ? 'Webhook configurado exitosamente'
+          : 'Error al configurar webhook',
+      };
+    } catch (error) {
+      return {
+        error: error.message,
+        stack: error.stack,
+      };
+    }
   }
 }
