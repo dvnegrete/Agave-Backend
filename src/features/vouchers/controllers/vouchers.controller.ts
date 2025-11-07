@@ -282,6 +282,60 @@ export class VouchersController {
   }
 
   /**
+   * ENDPOINT TEMPORAL - Obtener updates recientes (últimos mensajes)
+   * Úsalo para obtener tu chat_id
+   */
+  @Get('telegram/get-updates')
+  async getTelegramUpdates() {
+    try {
+      if (!this.telegramApi.isConfigured()) {
+        return {
+          error: 'TELEGRAM_BOT_TOKEN no está configurado',
+        };
+      }
+
+      const botToken = process.env.TELEGRAM_BOT_TOKEN;
+
+      // Llamar directamente a la API de Telegram para obtener updates
+      const response = await fetch(
+        `https://api.telegram.org/bot${botToken}/getUpdates`,
+      );
+      const data = await response.json();
+
+      if (!data.ok) {
+        return {
+          error: 'Error al obtener updates',
+          details: data,
+        };
+      }
+
+      // Extraer chat_ids de los updates
+      const chatIds = data.result
+        .map((update: any) => ({
+          chat_id: update.message?.chat?.id || update.callback_query?.message?.chat?.id,
+          username: update.message?.from?.username || update.callback_query?.from?.username,
+          first_name: update.message?.from?.first_name || update.callback_query?.from?.first_name,
+          message_text: update.message?.text,
+          date: update.message?.date,
+        }))
+        .filter((item: any) => item.chat_id);
+
+      return {
+        success: true,
+        total_updates: data.result.length,
+        chat_ids: chatIds,
+        instruction: 'Si no ves tu chat_id, envía /start al bot y vuelve a consultar este endpoint',
+        raw_updates: data.result,
+      };
+    } catch (error) {
+      return {
+        error: error.message,
+        stack: error.stack,
+      };
+    }
+  }
+
+  /**
    * ENDPOINT TEMPORAL - Configurar webhook de Telegram
    * Eliminar después de configurar
    */
