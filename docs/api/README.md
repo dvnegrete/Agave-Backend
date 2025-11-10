@@ -409,6 +409,44 @@ curl -X POST http://localhost:3000/bank-reconciliation/reconcile \
 
 ---
 
+## 📘 Documentación Interactiva con Swagger
+
+### Acceso a Swagger UI
+
+**Desarrollo**:
+- Swagger UI: http://localhost:3000/api/docs
+- OpenAPI JSON: http://localhost:3000/api/docs-json
+
+**Producción**:
+- Swagger UI: https://api.elagave.com/api/docs
+- OpenAPI JSON: https://api.elagave.com/api/docs-json
+
+### Endpoints Documentados
+
+✅ **11 endpoints documentados con Swagger/OpenAPI**:
+- **Bank Reconciliation**: 1 endpoint (POST /reconcile)
+- **Transactions Bank**: 8 endpoints (upload, CRUD, summary, reconcile legacy)
+- **Vouchers**: 2 endpoints (GET lista, GET por ID)
+
+### Generación de Cliente TypeScript
+
+Para integrar con frontends React/Angular/Vue:
+
+```bash
+# Instalar generador
+npm install --save-dev openapi-typescript-codegen
+
+# Generar cliente TypeScript
+npx openapi-typescript-codegen \
+  --input http://localhost:3000/api/docs-json \
+  --output ./src/api \
+  --client axios
+```
+
+📖 **Documentación completa**: [Swagger Integration Guide](./swagger-integration.md)
+
+---
+
 ## ⚠️ Funcionalidades Pendientes (TODOs)
 
 ### Auth Module
@@ -435,7 +473,7 @@ curl -X POST http://localhost:3000/bank-reconciliation/reconcile \
 - [ ] API de webhooks para eventos de conciliación
 
 ### General
-- [ ] Documentación con Swagger/OpenAPI
+- [x] ~~Documentación con Swagger/OpenAPI~~ ✅ **COMPLETADO**
 - [ ] Versionado de API (v1, v2, etc.)
 - [ ] GraphQL endpoint alternativo
 - [ ] Health check endpoint
@@ -444,6 +482,7 @@ curl -X POST http://localhost:3000/bank-reconciliation/reconcile \
 
 ## 📚 Referencias y Documentación
 
+- **[Swagger Integration Guide](./swagger-integration.md)** - Documentación completa de Swagger/OpenAPI
 - [Documentación de Features - Vouchers](../features/vouchers/README.md)
 - [Documentación de Features - Transactions Bank](../features/transactions-bank/README.md)
 - [Documentación de Features - Bank Reconciliation](../features/bank-reconciliation/README.md)

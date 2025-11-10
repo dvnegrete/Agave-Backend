@@ -14,6 +14,7 @@ import {
   FileTypeValidator,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { VouchersService } from '../infrastructure/persistence/vouchers.service';
 import { OcrService } from '../infrastructure/ocr/ocr.service';
@@ -28,7 +29,13 @@ import { TelegramWebhookDto } from '../dto/telegram-webhook.dto';
 // Infrastructure
 import { TelegramMessagingService } from '../infrastructure/telegram/telegram-messaging.service';
 import { TelegramApiService } from '../infrastructure/telegram/telegram-api.service';
+// Swagger Decorators
+import {
+  ApiGetAllVouchers,
+  ApiGetVoucherById,
+} from '../decorators/swagger.decorators';
 
+@ApiTags('vouchers')
 @Controller('vouchers')
 export class VouchersController {
   constructor(
@@ -80,6 +87,7 @@ export class VouchersController {
   }
 
   @Get()
+  @ApiGetAllVouchers()
   async getAllTransactions(
     @Query('confirmation_status') confirmationStatus?: string,
     @Query('startDate') startDate?: string,
@@ -100,6 +108,7 @@ export class VouchersController {
   }
 
   @Get(':id')
+  @ApiGetVoucherById()
   async getTransactionById(@Param('id') id: string) {
     const voucher = await this.voucherRepository.findById(parseInt(id));
 
@@ -312,9 +321,11 @@ export class VouchersController {
       // Extraer chat_ids de los updates
       const chatIds = data.result
         .map((update: any) => ({
-          chat_id: update.message?.chat?.id || update.callback_query?.message?.chat?.id,
+          chat_id:
+            update.message?.chat?.id || update.callback_query?.message?.chat?.id,
           username: update.message?.from?.username || update.callback_query?.from?.username,
-          first_name: update.message?.from?.first_name || update.callback_query?.from?.first_name,
+          first_name: 
+            update.message?.from?.first_name || update.callback_query?.from?.first_name,
           message_text: update.message?.text,
           date: update.message?.date,
         }))
@@ -324,7 +335,8 @@ export class VouchersController {
         success: true,
         total_updates: data.result.length,
         chat_ids: chatIds,
-        instruction: 'Si no ves tu chat_id, envía /start al bot y vuelve a consultar este endpoint',
+        instruction:
+          'Si no ves tu chat_id, envía /start al bot y vuelve a consultar este endpoint',
         raw_updates: data.result,
       };
     } catch (error) {
@@ -349,12 +361,12 @@ export class VouchersController {
       }
 
       // Usar TELEGRAM_WEBHOOK_URL del .env si no se proporciona
-      const url =
-        webhookUrl || process.env.TELEGRAM_WEBHOOK_URL || '';
+      const url = webhookUrl || process.env.TELEGRAM_WEBHOOK_URL || '';
 
       if (!url) {
         return {
-          error: 'Proporciona webhook_url en el body o configura TELEGRAM_WEBHOOK_URL en .env',
+          error:
+            'Proporciona webhook_url en el body o configura TELEGRAM_WEBHOOK_URL en .env',
           example: {
             webhook_url: 'https://tu-dominio.com/vouchers/webhook/telegram',
           },

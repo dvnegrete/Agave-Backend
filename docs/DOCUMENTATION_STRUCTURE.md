@@ -15,7 +15,8 @@ docs/
 ├── DOCUMENTATION_STRUCTURE.md            # Este archivo
 │
 ├── api/                                   # Documentación de API
-│   └── README.md
+│   ├── README.md                          # Índice de endpoints
+│   └── swagger-integration.md             # Guía de Swagger/OpenAPI
 │
 ├── database/                              # Documentación de base de datos
 │   ├── schema.md                         # Esquema de tablas
@@ -159,6 +160,8 @@ Los siguientes archivos fueron migrados a la estructura centralizada:
 - [Code Quality](README.md#code-quality)
 
 **API**:
+- [API Documentation](api/README.md)
+- [Swagger/OpenAPI Integration](api/swagger-integration.md)
 - [Transactions Bank API](README.md#transactions-bank-endpoints)
 - [Vouchers & OCR API](README.md#vouchers--ocr-endpoints)
 
@@ -210,6 +213,7 @@ find docs/ -name "*keyword*.md"
 ### Por Categoría
 
 - **Arquitectura**: `docs/README.md`, `CLAUDE.md`
+- **API**: `docs/api/README.md`, `docs/api/swagger-integration.md`
 - **Features**: `docs/features/`
 - **Módulos Compartidos**: `docs/modules/`
 - **Base de Datos**: `docs/database/`
@@ -254,5 +258,15 @@ Si tienes dudas sobre dónde ubicar documentación:
 
 ---
 
+## 📝 Actualizaciones Recientes
+
+### Noviembre 2025
+- ✅ Agregada documentación de Swagger/OpenAPI Integration
+- ✅ Implementada arquitectura híbrida de decoradores para Swagger
+- ✅ Documentados 11 endpoints con Swagger (bank-reconciliation: 1, transactions-bank: 8, vouchers: 2)
+- ✅ Actualizada estructura de directorios en `docs/api/`
+
+---
+
 **Mantenido por**: Equipo de Desarrollo Agave
-**Última actualización**: Octubre 2025
+**Última actualización**: Noviembre 2025

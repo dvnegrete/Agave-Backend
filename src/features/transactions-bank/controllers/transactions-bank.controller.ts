@@ -13,6 +13,7 @@ import {
   ParseFilePipe,
   MaxFileSizeValidator,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { TransactionsBankService } from '../services/transactions-bank.service';
 import {
@@ -28,7 +29,18 @@ import {
   TransactionsBankErrorMessages,
   BusinessValues,
 } from '@/shared/content';
+import {
+  ApiUploadBankFile,
+  ApiGetAllTransactions,
+  ApiGetTransactionSummary,
+  ApiGetTransactionById,
+  ApiCreateTransaction,
+  ApiUpdateTransaction,
+  ApiDeleteTransaction,
+  ApiReconcileTransactionsLegacy,
+} from '../decorators/swagger.decorators';
 
+@ApiTags('transactions-bank')
 @Controller('transactions-bank')
 export class TransactionsBankController {
   constructor(
@@ -37,6 +49,7 @@ export class TransactionsBankController {
 
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
+  @ApiUploadBankFile()
   async uploadFile(
     @UploadedFile(
       new ParseFilePipe({
@@ -89,6 +102,7 @@ export class TransactionsBankController {
   }
 
   @Get()
+  @ApiGetAllTransactions()
   async getAllTransactions(
     @Query('status') status?: 'pending' | 'processed' | 'failed' | 'reconciled',
     @Query('startDate') startDate?: string,
@@ -111,11 +125,13 @@ export class TransactionsBankController {
   }
 
   @Get('summary')
+  @ApiGetTransactionSummary()
   async getTransactionSummary() {
     return await this.transactionsBankService.getTransactionSummary();
   }
 
   @Get(':id')
+  @ApiGetTransactionById()
   async getTransactionById(
     @Param('id') id: string,
   ): Promise<ProcessedBankTransaction> {
@@ -123,6 +139,7 @@ export class TransactionsBankController {
   }
 
   @Post()
+  @ApiCreateTransaction()
   async createTransaction(
     @Body() createTransactionDto: CreateTransactionBankDto,
   ): Promise<ProcessedBankTransaction> {
@@ -132,6 +149,7 @@ export class TransactionsBankController {
   }
 
   @Put(':id')
+  @ApiUpdateTransaction()
   async updateTransaction(
     @Param('id') id: string,
     @Body() updateTransactionDto: UpdateTransactionBankDto,
@@ -143,6 +161,7 @@ export class TransactionsBankController {
   }
 
   @Delete(':id')
+  @ApiDeleteTransaction()
   async deleteTransaction(
     @Param('id') id: string,
   ): Promise<{ message: string }> {
@@ -183,6 +202,7 @@ export class TransactionsBankController {
   }
 
   @Post('reconcile')
+  @ApiReconcileTransactionsLegacy()
   async reconcileTransactions(@Body() reconciliationDto: ReconciliationDto) {
     try {
       const result =

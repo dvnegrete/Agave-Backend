@@ -6,38 +6,21 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { ReconcileUseCase } from '../application/reconcile.use-case';
 import { ReconcileRequestDto, ReconciliationResponseDto } from '../dto';
+import { ApiReconcileTransactions } from '../decorators/swagger.decorators';
 
+@ApiTags('bank-reconciliation')
 @Controller('bank-reconciliation')
 export class BankReconciliationController {
   private readonly logger = new Logger(BankReconciliationController.name);
 
   constructor(private readonly reconcileUseCase: ReconcileUseCase) {}
 
-  /**
-   * Endpoint para ejecutar el proceso de conciliación bancaria
-   *
-   * POST /bank-reconciliation/reconcile
-   *
-   * @param dto Parámetros opcionales de fecha
-   * @returns Resultado de la conciliación con grupos: conciliados, pendientes, sobrantes
-   *
-   * @example
-   * // Conciliar TODOS los registros pendientes
-   * POST /bank-reconciliation/reconcile
-   * Body: {}
-   *
-   * @example
-   * // Conciliar solo registros de un rango de fechas
-   * POST /bank-reconciliation/reconcile
-   * Body: {
-   *   "startDate": "2025-01-01",
-   *   "endDate": "2025-01-31"
-   * }
-   */
   @Post('reconcile')
   @HttpCode(HttpStatus.OK)
+  @ApiReconcileTransactions()
   async reconcile(
     @Body() dto: ReconcileRequestDto,
   ): Promise<ReconciliationResponseDto> {
