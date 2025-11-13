@@ -8,10 +8,7 @@ import { VoucherRepository } from '@/shared/database/repositories/voucher.reposi
 import { Voucher } from '@/shared/database/entities/voucher.entity';
 import { ValidationStatus } from '@/shared/database/entities/enums';
 import { GcsCleanupService } from '@/shared/libs/google-cloud/gcs-cleanup.service';
-import {
-  SurplusTransaction,
-  ManualValidationCase,
-} from '../../domain';
+import { SurplusTransaction, ManualValidationCase } from '../../domain';
 
 /**
  * UUID del usuario "Sistema" para casas creadas automáticamente por conciliación bancaria
@@ -106,10 +103,23 @@ export class ReconciliationPersistenceService {
 
       await queryRunner.commitTransaction();
 
-      const voucherInfo = voucher ? `Voucher ${voucher.id}` : 'Sin voucher (conciliación automática)';
+      const voucherInfo = voucher
+        ? `Voucher ${voucher.id}`
+        : 'Sin voucher (conciliación automática)';
       this.logger.log(
         `Conciliación exitosa: TransactionBank ${transactionBankId} <-> ${voucherInfo} -> Casa ${houseNumber}`,
       );
+
+      // 6. Eliminar archivo del bucket si el voucher tiene URL (fire-and-forget)
+      if (voucher?.url) {
+        this.deleteVoucherFileFromBucket(voucher.id, voucher.url).catch(
+          (error) => {
+            this.logger.warn(
+              `No se pudo eliminar archivo del bucket para voucher ${voucher.id}: ${error.message}`,
+            );
+          },
+        );
+      }
     } catch (error) {
       await queryRunner.rollbackTransaction();
       const errorMessage =
@@ -378,6 +388,38 @@ export class ReconciliationPersistenceService {
       throw error;
     } finally {
       await queryRunner.release();
+    }
+  }
+
+  /**
+   * Elimina voucher del bucket y actualiza campo url a null en BD
+   *
+   * @param voucherId - ID del voucher
+   * @param fileUrl - URL del archivo a eliminar (path relativo en el bucket)
+   * @private
+   */
+  private async deleteVoucherFileFromBucket(
+    voucherId: number,
+    fileUrl: string,
+  ): Promise<void> {
+    // Con blocking: false, no lanza excepción si falla, solo loguea
+    const deleted = await this.gcsCleanupService.deleteFile(fileUrl, {
+      reason: 'voucher-conciliado',
+      fileType: 'permanente',
+      blocking: false,
+    });
+
+    // Solo actualizar BD si el archivo fue eliminado exitosamente
+    if (deleted) {
+      // Actualizar voucher.url a null en la base de datos
+      await this.dataSource.query(
+        'UPDATE vouchers SET url = NULL WHERE id = $1',
+        [voucherId],
+      );
+
+      this.logger.log(
+        `✅ Voucher ${voucherId}: archivo eliminado del bucket y URL actualizada a null`,
+      );
     }
   }
 }
