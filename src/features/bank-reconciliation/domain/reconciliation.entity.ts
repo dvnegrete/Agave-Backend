@@ -62,9 +62,10 @@ export class ReconciliationMatch {
 }
 
 /**
- * Entidad que representa un voucher pendiente sin conciliar
+ * Entidad que representa un voucher sin fondos correspondientes
+ * (Voucher exists but matching bank transaction does not)
  */
-export class PendingVoucher {
+export class UnfundedVoucher {
   constructor(
     public readonly voucherId: number,
     public readonly amount: number,
@@ -72,15 +73,19 @@ export class PendingVoucher {
     public readonly reason: string,
   ) {}
 
-  static fromVoucher(voucher: Voucher, reason: string): PendingVoucher {
-    return new PendingVoucher(voucher.id, voucher.amount, voucher.date, reason);
+  static fromVoucher(voucher: Voucher, reason: string): UnfundedVoucher {
+    return new UnfundedVoucher(voucher.id, voucher.amount, voucher.date, reason);
   }
 }
 
+// Legacy alias for backwards compatibility
+export const PendingVoucher = UnfundedVoucher;
+
 /**
- * Entidad que representa una transacción bancaria sobrante
+ * Entidad que representa un depósito bancario no reclamado
+ * (Bank transaction exists but matching voucher does not)
  */
-export class SurplusTransaction {
+export class UnclaimedDeposit {
   constructor(
     public readonly transactionBankId: string,
     public readonly amount: number,
@@ -95,8 +100,8 @@ export class SurplusTransaction {
     reason: string,
     requiresManualReview = true,
     houseNumber?: number,
-  ): SurplusTransaction {
-    return new SurplusTransaction(
+  ): UnclaimedDeposit {
+    return new UnclaimedDeposit(
       transaction.id,
       transaction.amount,
       transaction.date,
@@ -106,6 +111,9 @@ export class SurplusTransaction {
     );
   }
 }
+
+// Legacy alias for backwards compatibility
+export const SurplusTransaction = UnclaimedDeposit;
 
 /**
  * Entidad que representa un caso que requiere validación manual
@@ -153,23 +161,23 @@ export class ReconciliationSummary {
   constructor(
     public readonly totalProcessed: number,
     public readonly conciliados: number,
-    public readonly pendientes: number,
-    public readonly sobrantes: number,
+    public readonly unfundedVouchers: number,
+    public readonly unclaimedDeposits: number,
     public readonly requiresManualValidation: number,
   ) {}
 
   static create(params: {
     totalProcessed: number;
     conciliados: number;
-    pendientes: number;
-    sobrantes: number;
+    unfundedVouchers: number;
+    unclaimedDeposits: number;
     requiresManualValidation: number;
   }): ReconciliationSummary {
     return new ReconciliationSummary(
       params.totalProcessed,
       params.conciliados,
-      params.pendientes,
-      params.sobrantes,
+      params.unfundedVouchers,
+      params.unclaimedDeposits,
       params.requiresManualValidation,
     );
   }

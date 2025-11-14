@@ -1,8 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
   ReconciliationMatch,
-  PendingVoucher,
-  SurplusTransaction,
+  UnfundedVoucher,
+  UnclaimedDeposit,
   ManualValidationCase,
   ReconciliationSummary,
 } from '../interfaces/reconciliation.interface';
@@ -35,28 +35,33 @@ export class ReconciliationResponseDto {
   conciliados: ReconciliationMatch[];
 
   @ApiProperty({
-    description: 'Lista de vouchers sin transacción bancaria asociada',
+    description: 'Vouchers sin fondos: comprobantes que existen pero la transacción bancaria no',
     type: 'array',
     example: [
       {
-        voucher: { id: 2, monto: 2000.0, casa: 20 },
-        reason: 'No se encontró transacción bancaria coincidente',
+        voucherId: 2,
+        amount: 2000.0,
+        date: '2025-01-10',
+        reason: 'No matching bank transaction found',
       },
     ],
   })
-  pendientes: PendingVoucher[];
+  unfundedVouchers: UnfundedVoucher[];
 
   @ApiProperty({
-    description: 'Lista de transacciones bancarias sin voucher asociado',
+    description: 'Depósitos no reclamados: transacciones bancarias que existen pero el voucher no',
     type: 'array',
     example: [
       {
-        transaction: { id: 101, monto: 3000.0, fecha: '2025-01-10' },
-        reason: 'No se encontró voucher coincidente',
+        transactionBankId: '101',
+        amount: 3000.0,
+        date: '2025-01-10',
+        reason: 'Sin voucher, sin centavos válidos, sin concepto identificable',
+        requiresManualReview: true,
       },
     ],
   })
-  sobrantes: SurplusTransaction[];
+  unclaimedDeposits: UnclaimedDeposit[];
 
   @ApiProperty({
     description: 'Casos ambiguos que requieren revisión y validación manual',

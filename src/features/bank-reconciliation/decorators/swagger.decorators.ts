@@ -18,8 +18,8 @@ export function ApiReconcileTransactions() {
 
 **Grupos de resultado:**
 - **Conciliados**: Transacciones que coincidieron automáticamente con vouchers
-- **Pendientes**: Vouchers sin transacción bancaria asociada
-- **Sobrantes**: Transacciones bancarias sin voucher asociado
+- **Unfunded Vouchers**: Vouchers sin transacción bancaria asociada (comprobante sin dinero)
+- **Unclaimed Deposits**: Transacciones bancarias sin voucher asociado (dinero sin comprobante)
 - **Validación Manual**: Casos ambiguos que requieren revisión humana
 
 Si no se proporcionan fechas, procesa TODOS los registros pendientes.`,
@@ -48,40 +48,48 @@ Si no se proporcionan fechas, procesa TODOS los registros pendientes.`,
       type: ReconciliationResponseDto,
       example: {
         summary: {
-          totalVouchers: 50,
-          totalTransactions: 48,
-          matched: 45,
-          pendingVouchers: 5,
-          surplusTransactions: 3,
-          manualValidationRequired: 2,
+          totalProcessed: 48,
+          conciliados: 43,
+          unfundedVouchers: 5,
+          unclaimedDeposits: 3,
+          requiresManualValidation: 2,
         },
         conciliados: [
           {
-            voucher: { id: 1, monto: 1500.15, casa: 15 },
-            transaction: { id: 100, monto: 1500.15, fecha: '2025-01-05' },
-            matchConfidence: 1.0,
+            transactionBankId: '100',
+            voucherId: 1,
+            houseNumber: 15,
+            amount: 1500.15,
+            matchCriteria: ['AMOUNT', 'DATE'],
+            confidenceLevel: 'HIGH',
           },
         ],
-        pendientes: [
+        unfundedVouchers: [
           {
-            voucher: { id: 2, monto: 2000.0, casa: 20 },
-            reason: 'No se encontró transacción bancaria coincidente',
+            voucherId: 2,
+            amount: 2000.0,
+            date: '2025-01-10',
+            reason: 'No matching bank transaction found',
           },
         ],
-        sobrantes: [
+        unclaimedDeposits: [
           {
-            transaction: { id: 101, monto: 3000.0, fecha: '2025-01-10' },
-            reason: 'No se encontró voucher coincidente',
+            transactionBankId: '101',
+            amount: 3000.0,
+            date: '2025-01-10',
+            reason: 'Sin voucher, sin centavos válidos, sin concepto identificable',
+            requiresManualReview: true,
+            houseNumber: 0,
           },
         ],
         manualValidationRequired: [
           {
-            voucher: { id: 3, monto: 1000.0 },
+            transactionBankId: '102',
             possibleMatches: [
-              { transaction: { id: 102 }, matchScore: 0.85 },
-              { transaction: { id: 103 }, matchScore: 0.8 },
+              { voucherId: 3, similarity: 0.85, dateDifferenceHours: 12 },
+              { voucherId: 4, similarity: 0.80, dateDifferenceHours: 18 },
             ],
-            reason: 'Múltiples transacciones candidatas',
+            reason: 'Multiple vouchers with same amount',
           },
         ],
       },

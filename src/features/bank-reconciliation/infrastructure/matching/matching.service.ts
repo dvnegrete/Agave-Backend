@@ -8,7 +8,7 @@ import {
 } from '@/shared/common/utils';
 import {
   ReconciliationMatch,
-  SurplusTransaction,
+  UnclaimedDeposit,
   ManualValidationCase,
   ConfidenceLevel,
   MatchCriteria,
@@ -19,7 +19,7 @@ import { ConceptAnalyzerService } from './concept-analyzer.service';
 
 export type MatchResult =
   | { type: 'matched'; match: ReconciliationMatch; voucherId: number; voucher: Voucher }
-  | { type: 'surplus'; surplus: SurplusTransaction }
+  | { type: 'surplus'; surplus: UnclaimedDeposit }
   | { type: 'manual'; case: ManualValidationCase };
 
 /**
@@ -168,7 +168,7 @@ export class MatchingService {
    * Nueva estrategia simplificada:
    * 1. Centavos válidos → conciliar (excepto si hay conflicto con concepto)
    * 2. Concepto claro sin centavos → conciliar
-   * 3. Sin información → sobrante con revisión manual
+   * 3. Sin información → depósito no reclamado con revisión manual
    */
   private async handleNoVoucherMatch(transaction: TransactionBank): Promise<MatchResult> {
     const centsHouse = extractHouseNumberFromCents(transaction.amount);
@@ -185,7 +185,7 @@ export class MatchingService {
     }
 
     // Estrategia 3: Sin información suficiente
-    return this.createSurplusWithoutInfo(transaction);
+    return this.createUnclaimedDepositWithoutInfo(transaction);
   }
 
   /**
@@ -199,7 +199,7 @@ export class MatchingService {
   ): MatchResult {
     // Caso: Conflicto entre centavos y concepto
     if (conceptResult.hasHouse() && conceptResult.house !== centsHouse) {
-      return this.createConflictSurplus(transaction, centsHouse, conceptResult.house!);
+      return this.createConflictUnclaimedDeposit(transaction, centsHouse, conceptResult.house!);
     }
 
     // Caso: Centavos solos o centavos + concepto coinciden
@@ -226,7 +226,7 @@ export class MatchingService {
   }
 
   /**
-   * Crea surplus auto-conciliado (sin revisión manual)
+   * Crea depósito no reclamado auto-conciliado (sin revisión manual)
    */
   private createAutoReconciled(
     transaction: TransactionBank,
@@ -235,20 +235,20 @@ export class MatchingService {
   ): MatchResult {
     this.logger.log(`Casa ${houseNumber} conciliada automáticamente: ${reason}`);
 
-    const surplus = SurplusTransaction.fromTransaction(
+    const unclaimedDeposit = UnclaimedDeposit.fromTransaction(
       transaction,
       `No voucher found. ${reason}`,
       false, // requiresManualReview = false
       houseNumber,
     );
 
-    return { type: 'surplus', surplus };
+    return { type: 'surplus', surplus: unclaimedDeposit };
   }
 
   /**
-   * Crea surplus por conflicto (requiere revisión manual)
+   * Crea depósito no reclamado por conflicto (requiere revisión manual)
    */
-  private createConflictSurplus(
+  private createConflictUnclaimedDeposit(
     transaction: TransactionBank,
     centsHouse: number,
     conceptHouse: number,
@@ -257,30 +257,30 @@ export class MatchingService {
       `Conflicto detectado: concepto sugiere casa ${conceptHouse}, centavos sugieren casa ${centsHouse}`,
     );
 
-    const surplus = SurplusTransaction.fromTransaction(
+    const unclaimedDeposit = UnclaimedDeposit.fromTransaction(
       transaction,
       `Conflicto: concepto sugiere casa ${conceptHouse}, centavos sugieren casa ${centsHouse}. Requiere validación manual.`,
       true, // requiresManualReview = true
       centsHouse, // Usar centavos como principal
     );
 
-    return { type: 'surplus', surplus };
+    return { type: 'surplus', surplus: unclaimedDeposit };
   }
 
   /**
-   * Crea surplus sin información suficiente
+   * Crea depósito no reclamado sin información suficiente
    */
-  private createSurplusWithoutInfo(transaction: TransactionBank): MatchResult {
+  private createUnclaimedDepositWithoutInfo(transaction: TransactionBank): MatchResult {
     this.logger.debug('Sin información suficiente para conciliar automáticamente');
 
-    const surplus = SurplusTransaction.fromTransaction(
+    const unclaimedDeposit = UnclaimedDeposit.fromTransaction(
       transaction,
       'Sin voucher, sin centavos válidos, sin concepto identificable',
       true, // requiresManualReview = true
       0,
     );
 
-    return { type: 'surplus', surplus };
+    return { type: 'surplus', surplus: unclaimedDeposit };
   }
 
   /**

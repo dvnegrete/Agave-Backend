@@ -3,8 +3,10 @@ export {
   ConfidenceLevel,
   MatchCriteria,
   ReconciliationMatch,
-  PendingVoucher,
-  SurplusTransaction,
+  UnfundedVoucher,
+  UnclaimedDeposit,
+  PendingVoucher, // Legacy alias
+  SurplusTransaction, // Legacy alias
   ManualValidationCase,
   ReconciliationSummary,
 } from '../domain/reconciliation.entity';

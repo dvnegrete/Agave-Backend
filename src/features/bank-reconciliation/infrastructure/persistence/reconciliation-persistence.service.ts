@@ -8,7 +8,7 @@ import { VoucherRepository } from '@/shared/database/repositories/voucher.reposi
 import { Voucher } from '@/shared/database/entities/voucher.entity';
 import { ValidationStatus } from '@/shared/database/entities/enums';
 import { GcsCleanupService } from '@/shared/libs/google-cloud/gcs-cleanup.service';
-import { SurplusTransaction, ManualValidationCase } from '../../domain';
+import { UnclaimedDeposit, ManualValidationCase } from '../../domain';
 
 /**
  * UUID del usuario "Sistema" para casas creadas automáticamente por conciliación bancaria
@@ -285,15 +285,15 @@ export class ReconciliationPersistenceService {
   }
 
   /**
-   * Persiste una transacción sobrante en la base de datos
+   * Persiste un depósito no reclamado en la base de datos
    * Crea un TransactionStatus con estado NOT_FOUND o CONFLICT
    *
    * @param transactionBankId - ID de la transacción bancaria
-   * @param surplus - Objeto SurplusTransaction con información del sobrante
+   * @param surplus - Objeto UnclaimedDeposit con información del depósito no reclamado
    */
   async persistSurplus(
     transactionBankId: string,
-    surplus: SurplusTransaction,
+    surplus: UnclaimedDeposit,
   ): Promise<void> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();

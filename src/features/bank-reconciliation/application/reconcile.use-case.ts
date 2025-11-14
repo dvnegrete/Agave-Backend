@@ -4,8 +4,8 @@ import { ReconciliationPersistenceService } from '../infrastructure/persistence/
 import { ReconciliationDataService } from '../infrastructure/persistence/reconciliation-data.service';
 import {
   ReconciliationMatch,
-  PendingVoucher,
-  SurplusTransaction,
+  UnfundedVoucher,
+  UnclaimedDeposit,
   ManualValidationCase,
   ReconciliationSummary,
   MatchCriteria,
@@ -21,8 +21,8 @@ export interface ReconcileInput {
 export interface ReconcileOutput {
   summary: ReconciliationSummary;
   conciliados: ReconciliationMatch[];
-  pendientes: PendingVoucher[];
-  sobrantes: SurplusTransaction[];
+  unfundedVouchers: UnfundedVoucher[];
+  unclaimedDeposits: UnclaimedDeposit[];
   manualValidationRequired: ManualValidationCase[];
 }
 
@@ -69,7 +69,7 @@ export class ReconcileUseCase {
 
     // 2. Realizar proceso de matching
     const conciliados: ReconciliationMatch[] = [];
-    const sobrantes: SurplusTransaction[] = [];
+    const unclaimedDeposits: UnclaimedDeposit[] = [];
     const manualValidationRequired: ManualValidationCase[] = [];
     const processedVoucherIds = new Set<number>();
 
@@ -95,10 +95,10 @@ export class ReconcileUseCase {
           this.logger.error(
             `Error al persistir conciliación para transaction ${matchResult.match.transactionBankId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
           );
-          // En caso de error, marcar como sobrante
+          // En caso de error, marcar como depósito no reclamado
           const houseNumber = extractHouseNumberFromCents(transaction.amount);
-          sobrantes.push(
-            SurplusTransaction.fromTransaction(
+          unclaimedDeposits.push(
+            UnclaimedDeposit.fromTransaction(
               transaction,
               `Error durante persistencia: ${error instanceof Error ? error.message : 'Unknown error'}`,
               true,
@@ -134,9 +134,9 @@ export class ReconcileUseCase {
             this.logger.error(
               `Error al persistir conciliación automática para transaction ${matchResult.surplus.transactionBankId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
             );
-            // En caso de error, marcar como sobrante que requiere revisión
-            sobrantes.push(
-              SurplusTransaction.fromTransaction(
+            // En caso de error, marcar como depósito no reclamado que requiere revisión
+            unclaimedDeposits.push(
+              UnclaimedDeposit.fromTransaction(
                 transaction,
                 `Error durante persistencia automática: ${error instanceof Error ? error.message : 'Unknown error'}`,
                 true,
@@ -145,23 +145,23 @@ export class ReconcileUseCase {
             );
           }
         } else {
-          // ⚠️ Sobrante que requiere validación manual
-          // ✅ NUEVO: Persistir sobrantes en BD
+          // ⚠️ Depósito no reclamado que requiere validación manual
+          // ✅ Persistir en BD para tracking
           try {
             await this.persistenceService.persistSurplus(
               matchResult.surplus.transactionBankId,
               matchResult.surplus,
             );
             this.logger.log(
-              `Sobrante persistido: Transaction ${matchResult.surplus.transactionBankId}, Razón: ${matchResult.surplus.reason}`,
+              `Depósito no reclamado persistido: Transaction ${matchResult.surplus.transactionBankId}, Razón: ${matchResult.surplus.reason}`,
             );
           } catch (error) {
             this.logger.error(
-              `Error al persistir sobrante para transaction ${matchResult.surplus.transactionBankId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+              `Error al persistir depósito no reclamado para transaction ${matchResult.surplus.transactionBankId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
             );
-            // Continuar de todos modos, agregar a lista de sobrantes
+            // Continuar de todos modos, agregar a lista de depósitos no reclamados
           }
-          sobrantes.push(matchResult.surplus);
+          unclaimedDeposits.push(matchResult.surplus);
         }
       } else if (matchResult.type === 'manual') {
         // ✅ NUEVO: Persistir casos manuales en BD
@@ -183,11 +183,11 @@ export class ReconcileUseCase {
       }
     }
 
-    // 3. Identificar vouchers pendientes sin conciliar
-    const pendientesList = pendingVouchers
+    // 3. Identificar vouchers sin fondos (sin conciliar)
+    const unfundedVouchersList = pendingVouchers
       .filter((voucher) => !processedVoucherIds.has(voucher.id))
       .map((voucher) =>
-        PendingVoucher.fromVoucher(
+        UnfundedVoucher.fromVoucher(
           voucher,
           'No matching bank transaction found',
         ),
@@ -197,15 +197,15 @@ export class ReconcileUseCase {
     const summary = ReconciliationSummary.create({
       totalProcessed: pendingTransactions.length,
       conciliados: conciliados.length,
-      pendientes: pendientesList.length,
-      sobrantes: sobrantes.length,
+      unfundedVouchers: unfundedVouchersList.length,
+      unclaimedDeposits: unclaimedDeposits.length,
       requiresManualValidation: manualValidationRequired.length,
     });
 
     this.logger.log(`Conciliación completada. Resumen:`);
     this.logger.log(`  - Conciliados: ${conciliados.length}`);
-    this.logger.log(`  - Pendientes: ${pendientesList.length}`);
-    this.logger.log(`  - Sobrantes: ${sobrantes.length}`);
+    this.logger.log(`  - Vouchers sin fondos: ${unfundedVouchersList.length}`);
+    this.logger.log(`  - Depósitos no reclamados: ${unclaimedDeposits.length}`);
     this.logger.log(
       `  - Requieren validación manual: ${manualValidationRequired.length}`,
     );
@@ -213,8 +213,8 @@ export class ReconcileUseCase {
     return {
       summary,
       conciliados,
-      pendientes: pendientesList,
-      sobrantes,
+      unfundedVouchers: unfundedVouchersList,
+      unclaimedDeposits,
       manualValidationRequired,
     };
   }
