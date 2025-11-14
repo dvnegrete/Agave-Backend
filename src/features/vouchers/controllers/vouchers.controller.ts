@@ -93,24 +93,34 @@ export class VouchersController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
+    let vouchers;
+
     if (confirmationStatus !== undefined) {
       const isConfirmed = confirmationStatus === 'true';
-      return await this.vouchersService.getTransactionsByStatus(isConfirmed);
-    }
-
-    if (startDate && endDate) {
+      vouchers = await this.vouchersService.getTransactionsByStatus(
+        isConfirmed,
+      );
+    } else if (startDate && endDate) {
       const start = new Date(startDate);
       const end = new Date(endDate);
-      return await this.vouchersService.getTransactionsByDateRange(start, end);
+      vouchers = await this.vouchersService.getTransactionsByDateRange(
+        start,
+        end,
+      );
+    } else {
+      vouchers = await this.vouchersService.getAllTransactions();
     }
 
-    return await this.vouchersService.getAllTransactions();
+    // Transformar respuesta para incluir number_house
+    return vouchers.map((voucher) => this.transformVoucherResponse(voucher));
   }
 
   @Get(':id')
   @ApiGetVoucherById()
   async getTransactionById(@Param('id') id: string) {
-    const voucher = await this.voucherRepository.findById(parseInt(id));
+    const voucher = await this.voucherRepository.findByIdWithHouse(
+      parseInt(id),
+    );
 
     if (!voucher) {
       throw new NotFoundException(`Voucher con ID ${id} no encontrado`);
@@ -131,10 +141,14 @@ export class VouchersController {
       }
     }
 
+    // Extraer número de casa de las relaciones
+    const numberHouse = this.extractHouseNumber(voucher);
+
     return {
       confirmation_status: voucher.confirmation_status,
       url: voucher.url,
       viewUrl,
+      number_house: numberHouse,
     };
   }
 
@@ -388,5 +402,44 @@ export class VouchersController {
         stack: error.stack,
       };
     }
+  }
+
+  /**
+   * Extrae el número de casa de un voucher con relaciones cargadas
+   * @param voucher - Voucher con relaciones records -> house_records -> house
+   * @returns Número de casa o null si no está asociado
+   * @private
+   */
+  private extractHouseNumber(voucher: any): number | null {
+    // Navegar por las relaciones: voucher -> records -> house_records -> house
+    if (voucher.records && voucher.records.length > 0) {
+      const record = voucher.records[0]; // Tomar el primer record
+      if (record.houseRecords && record.houseRecords.length > 0) {
+        const houseRecord = record.houseRecords[0]; // Tomar el primer house_record
+        if (houseRecord.house && houseRecord.house.number_house) {
+          return houseRecord.house.number_house;
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Transforma un voucher para incluir number_house en la respuesta
+   * @param voucher - Voucher con relaciones cargadas
+   * @returns Objeto voucher con number_house agregado, sin relaciones anidadas
+   * @private
+   */
+  private transformVoucherResponse(voucher: any) {
+    const numberHouse = this.extractHouseNumber(voucher);
+
+    // Desestructurar para eliminar 'records' de la respuesta
+    const { records, ...cleanVoucher } = voucher;
+
+    // Retornar voucher limpio con number_house agregado
+    return {
+      ...cleanVoucher,
+      number_house: numberHouse,
+    };
   }
 }

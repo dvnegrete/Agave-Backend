@@ -67,6 +67,22 @@ export class VoucherRepository {
   }
 
   /**
+   * Busca un voucher por su ID con información de casa asociada
+   */
+  async findByIdWithHouse(id: number): Promise<Voucher | null> {
+    return this.voucherRepository.findOne({
+      where: { id },
+      relations: {
+        records: {
+          houseRecords: {
+            house: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
    * Busca un voucher por su código de confirmación
    */
   async findByConfirmationCode(
@@ -87,11 +103,47 @@ export class VoucherRepository {
   }
 
   /**
+   * Obtiene todos los vouchers con información de casa asociada
+   * Incluye las relaciones: voucher -> records -> house_records -> house
+   */
+  async findAllWithHouse(): Promise<Voucher[]> {
+    return this.voucherRepository.find({
+      relations: {
+        records: {
+          houseRecords: {
+            house: true,
+          },
+        },
+      },
+      order: { created_at: 'DESC' },
+    });
+  }
+
+  /**
    * Obtiene vouchers por estado de confirmación
    */
   async findByConfirmationStatus(confirmed: boolean): Promise<Voucher[]> {
     return this.voucherRepository.find({
       where: { confirmation_status: confirmed },
+      order: { created_at: 'DESC' },
+    });
+  }
+
+  /**
+   * Obtiene vouchers por estado de confirmación con información de casa asociada
+   */
+  async findByConfirmationStatusWithHouse(
+    confirmed: boolean,
+  ): Promise<Voucher[]> {
+    return this.voucherRepository.find({
+      where: { confirmation_status: confirmed },
+      relations: {
+        records: {
+          houseRecords: {
+            house: true,
+          },
+        },
+      },
       order: { created_at: 'DESC' },
     });
   }
@@ -103,6 +155,28 @@ export class VoucherRepository {
     return this.voucherRepository.find({
       where: {
         date: Between(startDate, endDate),
+      },
+      order: { date: 'DESC' },
+    });
+  }
+
+  /**
+   * Obtiene vouchers en un rango de fechas con información de casa asociada
+   */
+  async findByDateRangeWithHouse(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<Voucher[]> {
+    return this.voucherRepository.find({
+      where: {
+        date: Between(startDate, endDate),
+      },
+      relations: {
+        records: {
+          houseRecords: {
+            house: true,
+          },
+        },
       },
       order: { date: 'DESC' },
     });
