@@ -1,3 +1,9 @@
+/**
+ * ⚠️ IMPORTANTE: Constantes centralizadas para número de casa del sistema
+ */
+export const MIN_HOUSE_NUMBER = 1;
+export const MAX_HOUSE_NUMBER = 66;
+
 export interface VouchersBusinessRules {
   maxCasas: number;
   minCasas: number;
@@ -9,8 +15,8 @@ export interface BusinessRulesConfig {
 
 export const businessRulesConfig: BusinessRulesConfig = {
   vouchers: {
-    maxCasas: 66,
-    minCasas: 1,
+    maxCasas: MAX_HOUSE_NUMBER,
+    minCasas: MIN_HOUSE_NUMBER,
   },
 };
 

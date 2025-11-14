@@ -1,4 +1,8 @@
 import { VoucherData } from './voucher.entity';
+import {
+  MIN_HOUSE_NUMBER,
+  MAX_HOUSE_NUMBER,
+} from '@/shared/config/business-rules.config';
 
 /**
  * Servicio de dominio para validar reglas de negocio de vouchers
@@ -58,14 +62,14 @@ export class VoucherValidator {
    * Extrae el número de casa desde los centavos del monto
    * Regla de negocio: los centavos indican el número de casa (ej: 123.05 → casa 5)
    * @param monto - Monto como string
-   * @param minCasas - Número mínimo de casas (default: 1)
-   * @param maxCasas - Número máximo de casas (default: 66)
+   * @param minCasas - Número mínimo de casas
+   * @param maxCasas - Número máximo de casas
    * @returns Número de casa o null si no es válido
    */
   static extractHouseNumberFromAmount(
     monto: string,
-    minCasas: number = 1,
-    maxCasas: number = 66,
+    minCasas: number = MIN_HOUSE_NUMBER,
+    maxCasas: number = MAX_HOUSE_NUMBER,
   ): number | null {
     if (!monto) return null;
 

@@ -3,6 +3,11 @@
  * Este test no depende de servicios externos, solo prueba la lógica pura
  */
 
+import {
+  MIN_HOUSE_NUMBER,
+  MAX_HOUSE_NUMBER,
+} from '@/shared/config/business-rules.config';
+
 /**
  * Simula la regla de negocio para extraer el número de casa desde los centavos
  * Regla: .1 → 10, .2 → 20, .04 → 4, .05 → 5, etc.
@@ -15,8 +20,8 @@ function extractCentavosLogic(montoStr: string): number | null {
   }
 
   const centavosStr = parts[1];
-  const maxCasas = 66;
-  const minCasas = 1;
+  const maxCasas = MAX_HOUSE_NUMBER;
+  const minCasas = MIN_HOUSE_NUMBER;
 
   // Normalizar: si tiene un solo dígito, multiplicar por 10
   const normalizedCentavos = centavosStr.length === 1
@@ -31,10 +36,7 @@ function extractCentavosLogic(montoStr: string): number | null {
     return null;
   }
 
-  if (
-    normalizedCentavos >= minCasas &&
-    normalizedCentavos <= maxCasas
-  ) {
+  if (normalizedCentavos >= minCasas && normalizedCentavos <= maxCasas) {
     return normalizedCentavos;
   }
 

@@ -2,6 +2,11 @@
  * Utilidades para validar campos de formularios
  */
 
+import {
+  MIN_HOUSE_NUMBER,
+  MAX_HOUSE_NUMBER,
+} from '@/shared/config/business-rules.config';
+
 export interface ValidationResult {
   isValid: boolean;
   value?: string;
@@ -73,16 +78,16 @@ export function validateTime(value: string): ValidationResult {
 }
 
 /**
- * Valida un número de casa (rango 1-66)
+ * Valida un número de casa
  * @param value - Valor a validar
- * @param min - Número mínimo de casa (default: 1)
- * @param max - Número máximo de casa (default: 66)
+ * @param min - Número mínimo de casa
+ * @param max - Número máximo de casa
  * @returns Resultado de validación
  */
 export function validateHouseNumber(
   value: string,
-  min: number = 1,
-  max: number = 66,
+  min: number = MIN_HOUSE_NUMBER,
+  max: number = MAX_HOUSE_NUMBER,
 ): ValidationResult {
   const casaNumber = parseInt(value, 10);
   if (isNaN(casaNumber) || casaNumber < min || casaNumber > max) {

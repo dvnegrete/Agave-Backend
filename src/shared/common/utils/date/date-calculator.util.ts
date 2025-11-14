@@ -78,12 +78,12 @@ export function getDateDifferenceInHours(
 /**
  * Extrae el número de casa de los centavos de un monto
  * @param amount Monto numérico (ej: 500.15)
- * @returns Número de casa (15) o 0 si no hay centavos
+ * @returns Número de centavos extraído (0-99), requiere validación posterior
  *
  * @example
- * extractHouseNumberFromCents(500.15) // returns 15
- * extractHouseNumberFromCents(500.00) // returns 0
- * extractHouseNumberFromCents(500.05) // returns 5
+ * extractHouseNumberFromCents(500.15) // returns 15 (✅ válido si está en rango)
+ * extractHouseNumberFromCents(500.00) // returns 0 (❌ inválido - requiere validación) 
+ * @see isValidHouseNumber() - usar para validar el resultado
  */
 export function extractHouseNumberFromCents(amount: number): number {
   const cents = Math.round((amount % 1) * 100);

@@ -8,6 +8,10 @@ import { VoucherRepository } from '@/shared/database/repositories/voucher.reposi
 import { Voucher } from '@/shared/database/entities/voucher.entity';
 import { ValidationStatus } from '@/shared/database/entities/enums';
 import { GcsCleanupService } from '@/shared/libs/google-cloud/gcs-cleanup.service';
+import {
+  MIN_HOUSE_NUMBER,
+  MAX_HOUSE_NUMBER,
+} from '@/shared/config/business-rules.config';
 import { UnclaimedDeposit, ManualValidationCase } from '../../domain';
 
 /**
@@ -79,12 +83,20 @@ export class ReconciliationPersistenceService implements OnModuleInit {
    * @param transactionBankId - ID de la transacción bancaria
    * @param voucher - Objeto completo del voucher (puede ser null si conciliación automática sin voucher)
    * @param houseNumber - Número de casa
+   * @throws Error si houseNumber no está en rango válido
    */
   async persistReconciliation(
     transactionBankId: string,
     voucher: Voucher | null,
     houseNumber: number,
   ): Promise<void> {
+    if (!this.isValidHouseNumber(houseNumber)) {
+      throw new Error(
+        `❌ Número de casa inválido: ${houseNumber}. Debe estar en rango ${MIN_HOUSE_NUMBER}-${MAX_HOUSE_NUMBER}. ` +
+          `Transacción ${transactionBankId} rechazada para persistencia.`,
+      );
+    }
+
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -94,6 +106,7 @@ export class ReconciliationPersistenceService implements OnModuleInit {
       const transactionStatus = await this.createTransactionStatus(
         transactionBankId,
         voucher?.id ?? null,
+        houseNumber,
         queryRunner,
       );
 
@@ -172,12 +185,17 @@ export class ReconciliationPersistenceService implements OnModuleInit {
 
   /**
    * Crea un TransactionStatus con validation_status = CONFIRMED
+   *
+   * @param transactionBankId - ID de la transacción bancaria
    * @param voucherId - ID del voucher (puede ser null si conciliación automática)
+   * @param houseNumber - Número de casa identificado
+   * @param queryRunner - QueryRunner para transacción
    * @param metadata - Información adicional de la conciliación (matchCriteria, confidenceLevel)
    */
   private async createTransactionStatus(
     transactionBankId: string,
     voucherId: number | null,
+    houseNumber: number,
     queryRunner: QueryRunner,
     metadata?: {
       matchCriteria?: string[];
@@ -192,6 +210,7 @@ export class ReconciliationPersistenceService implements OnModuleInit {
         reason: voucherId
           ? 'Conciliado con voucher'
           : 'Conciliado automáticamente por centavos/concepto',
+        identified_house_number: houseNumber,
         processed_at: new Date(),
         metadata: metadata,
       },
@@ -242,6 +261,13 @@ export class ReconciliationPersistenceService implements OnModuleInit {
     recordId: number,
     queryRunner: QueryRunner,
   ): Promise<void> {
+    if (!this.isValidHouseNumber(houseNumber)) {
+      throw new Error(
+        `❌ No se puede crear asociación HouseRecord con número de casa inválido: ${houseNumber}. ` +
+          `Rango válido: ${MIN_HOUSE_NUMBER}-${MAX_HOUSE_NUMBER}.`,
+      );
+    }
+
     // Buscar casa existente por número
     let house = await this.houseRepository.findByNumberHouse(houseNumber);
 
@@ -455,5 +481,20 @@ export class ReconciliationPersistenceService implements OnModuleInit {
         `✅ Voucher ${voucherId}: archivo eliminado del bucket y URL actualizada a null`,
       );
     }
+  }
+
+  /**
+   * Valida que un número de casa esté dentro del rango válido
+   * @param houseNumber - Número de casa a validar
+   * @returns boolean
+   * @private
+   */
+  private isValidHouseNumber(houseNumber: number | undefined | null): boolean {
+    return (
+      houseNumber !== undefined &&
+      houseNumber !== null &&
+      houseNumber >= MIN_HOUSE_NUMBER &&
+      houseNumber <= MAX_HOUSE_NUMBER
+    );
   }
 }

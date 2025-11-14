@@ -140,6 +140,8 @@ export class ConceptHouseExtractorService {
     conceptLower: string,
   ): { type: string; reason: string } | undefined {
     // Palabras clave comunes para tipos de pago
+
+    // TODO: Corregir descripciones según necesidades locales
     const paymentKeywords: Record<string, string> = {
       mantenimiento: 'Pago de mantenimiento',
       agua: 'Pago de agua',

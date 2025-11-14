@@ -63,14 +63,16 @@ export class ReconciliationDataService {
   }
 
   /**
-   * Obtiene vouchers pendientes de conciliar
+   * Obtiene vouchers pendientes de conciliar CON información de casa asociada
    * Filtra por: confirmation_status = FALSE
+   * Carga las relaciones: vouchers -> records -> house_records -> house
    */
   async getPendingVouchers(
     startDate?: Date,
     endDate?: Date,
   ): Promise<Voucher[]> {
-    let vouchers = await this.voucherRepository.findByConfirmationStatus(false);
+    let vouchers =
+      await this.voucherRepository.findByConfirmationStatusWithHouse(false);
 
     // Filtrar por rango de fechas si se especifica
     if (startDate && endDate) {

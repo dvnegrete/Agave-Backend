@@ -7,6 +7,10 @@ import {
   extractHouseNumberFromCents,
 } from '@/shared/common/utils';
 import {
+  MIN_HOUSE_NUMBER,
+  MAX_HOUSE_NUMBER,
+} from '@/shared/config/business-rules.config';
+import {
   ReconciliationMatch,
   UnclaimedDeposit,
   ManualValidationCase,
@@ -18,7 +22,12 @@ import { ConceptHouseExtractorService } from './concept-house-extractor.service'
 import { ConceptAnalyzerService } from './concept-analyzer.service';
 
 export type MatchResult =
-  | { type: 'matched'; match: ReconciliationMatch; voucherId: number; voucher: Voucher }
+  | {
+      type: 'matched';
+      match: ReconciliationMatch;
+      voucherId: number;
+      voucher: Voucher;
+    }
   | { type: 'surplus'; surplus: UnclaimedDeposit }
   | { type: 'manual'; case: ManualValidationCase };
 
@@ -101,7 +110,17 @@ export class MatchingService {
       voucher.date,
     );
 
-    const houseNumber = extractHouseNumberFromCents(transaction.amount);
+    // ✅ CAMBIO: PRIMERO intentar extraer casa del voucher (mayor prioridad)
+    let houseNumber = this.extractHouseNumberFromVoucher(voucher);
+
+    // Si el voucher no tiene casa, usar centavos de la transaction
+    if (!houseNumber) {
+      houseNumber = extractHouseNumberFromCents(transaction.amount);
+    }
+
+    if (!this.isValidHouseNumber(houseNumber)) {
+      return this.createUnclaimedDepositWithoutInfo(transaction);
+    }
 
     const match = ReconciliationMatch.create({
       transaction,
@@ -117,7 +136,7 @@ export class MatchingService {
 
   /**
    * Resuelve el caso de múltiples coincidencias por monto
-   * NUEVO: Usa el voucher más cercano en fecha en lugar de marcar para validación manual
+   * Prioriza casa del voucher y usa el más cercano en fecha
    */
   private async resolveMultipleMatches(
     transaction: TransactionBank,
@@ -137,10 +156,20 @@ export class MatchingService {
       .sort((a, b) => a.dateDiff - b.dateDiff);
 
     // Si hay al menos una coincidencia dentro de tolerancia
-    // NUEVO: Usar el más cercano (antes requería validación manual si había múltiples)
     if (matchesWithDateDiff.length >= 1) {
       const { voucher, dateDiff } = matchesWithDateDiff[0];
-      const houseNumber = extractHouseNumberFromCents(transaction.amount);
+
+      let houseNumber = this.extractHouseNumberFromVoucher(voucher);
+      let matchSource = 'VOUCHER_HOUSE';
+
+      if (!houseNumber) {
+        houseNumber = extractHouseNumberFromCents(transaction.amount);
+        matchSource = 'TRANSACTION_CENTS';
+      }
+
+      if (!this.isValidHouseNumber(houseNumber)) {
+        return this.createUnclaimedDepositWithoutInfo(transaction);
+      }
 
       const match = ReconciliationMatch.create({
         transaction,
@@ -152,7 +181,7 @@ export class MatchingService {
       });
 
       this.logger.log(
-        `Múltiples vouchers encontrados, usando el más cercano: Voucher ${voucher.id} (diferencia: ${dateDiff}h)`,
+        `Múltiples vouchers encontrados, usando el más cercano: Voucher ${voucher.id} (diferencia: ${dateDiff}h) → Casa ${houseNumber} (fuente: ${matchSource})`,
       );
 
       return { type: 'matched', match, voucherId: voucher.id, voucher };
@@ -304,14 +333,15 @@ export class MatchingService {
       if (ReconciliationConfig.ENABLE_AI_CONCEPT_ANALYSIS) {
         try {
           this.logger.debug(`Usando IA para analizar concepto: "${concept}"`);
-          const aiResult = await this.conceptAnalyzerService.analyzeConceptWithAI({
-            concept,
-            amount: 0,
-            houseNumberRange: {
-              min: 1,
-              max: ReconciliationConfig.MAX_HOUSE_NUMBER,
-            },
-          });
+          const aiResult =
+            await this.conceptAnalyzerService.analyzeConceptWithAI({
+              concept,
+              amount: 0,
+              houseNumberRange: {
+                min: MIN_HOUSE_NUMBER,
+                max: MAX_HOUSE_NUMBER,
+              },
+            });
 
           return ConceptResult.from(aiResult);
         } catch (error) {
@@ -334,6 +364,42 @@ export class MatchingService {
    * Valida si un número de casa es válido
    */
   private isValidHouseNumber(houseNumber: number): boolean {
-    return houseNumber >= 1 && houseNumber <= ReconciliationConfig.MAX_HOUSE_NUMBER;
+    return houseNumber >= MIN_HOUSE_NUMBER && houseNumber <= MAX_HOUSE_NUMBER;
+  }
+
+  /**
+   * Extrae el número de casa del voucher
+   * Estructura: voucher -> records -> house_records -> house.number_house
+   *
+   * @param voucher - Voucher con relaciones (records)
+   * @returns Número de casa válido o null si no está disponible
+   */
+  private extractHouseNumberFromVoucher(voucher: Voucher): number | null {
+    try {
+      if (!voucher.records || voucher.records.length === 0) {
+        return null;
+      }
+
+      for (const record of voucher.records) {
+        if (record.houseRecords && record.houseRecords.length > 0) {
+          // Retornar el número de casa del primer house_record
+          const houseNumber = record.houseRecords[0].house?.number_house;
+
+          if (houseNumber !== undefined && houseNumber !== null) {
+            return houseNumber;
+          }
+        }
+      }
+
+      this.logger.debug(
+        `Voucher ${voucher.id}: No se encontró casa en los house_records`,
+      );
+      return null;
+    } catch (error) {
+      this.logger.warn(
+        `Error extrayendo casa del voucher ${voucher.id}: ${error instanceof Error ? error.message : 'Unknown'}`,
+      );
+      return null;
+    }
   }
 }
