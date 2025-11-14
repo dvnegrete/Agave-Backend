@@ -13,6 +13,7 @@ import { ConceptHouseExtractorService } from './infrastructure/matching/concept-
 import { ConceptAnalyzerService } from './infrastructure/matching/concept-analyzer.service';
 import { ReconciliationPersistenceService } from './infrastructure/persistence/reconciliation-persistence.service';
 import { ReconciliationDataService } from './infrastructure/persistence/reconciliation-data.service';
+import { ManualValidationService } from './infrastructure/persistence/manual-validation.service';
 
 // Entities
 import { TransactionBank } from '@/shared/database/entities/transaction-bank.entity';
@@ -58,6 +59,7 @@ import { VertexAIModule } from '@/shared/libs/vertex-ai/vertex-ai.module';
     ConceptAnalyzerService,
     ReconciliationPersistenceService,
     ReconciliationDataService,
+    ManualValidationService,
 
     // Repositories
     TransactionBankRepository,

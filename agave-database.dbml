@@ -1,9 +1,9 @@
 // =====================================================
 // AGAVE BACKEND - DATABASE SCHEMA (DBML)
 // =====================================================
-// Version: 3.0.0
-// Last Updated: Octubre 30, 2025
-// Compatible with: https://www.drawdb.app/
+// Version: 3.1.0
+// Last Updated: Noviembre 14, 2025
+// Compatible with: https://www.drawdb.app/ and https://dbdiagram.io/
 // =====================================================
 
 Project agave_backend {
@@ -162,6 +162,24 @@ Table transactions_status {
     validation_status [name: 'idx_transactions_status_validation_status']
     processed_at [name: 'idx_transactions_status_processed_at']
     (validation_status, processed_at) [name: 'idx_transactions_status_validation_processed']
+  }
+}
+
+Table manual_validation_approvals {
+  id serial [pk, not null, note: 'ID único del registro de aprobación/rechazo']
+  transaction_id varchar [not null, ref: > transactions_bank.id, note: 'ID de la transacción bancaria revisada']
+  voucher_id int [ref: > vouchers.id, note: 'ID del voucher elegido (NULL si fue rechazado)']
+  approved_by_user_id uuid [not null, ref: > users.id, note: 'ID del usuario que aprobó/rechazó']
+  approval_notes text [note: 'Notas opcionales del operador sobre la decisión']
+  rejection_reason text [note: 'Razón específica del rechazo (si aplica)']
+  approved_at timestamptz [not null, default: `now()`, note: 'Timestamp de la aprobación/rechazo']
+
+  Note: 'Auditoría de aprobaciones/rechazos en validación manual (ÚNICA FUENTE DE VERDAD para datos de aprobación)'
+
+  indexes {
+    transaction_id [name: 'idx_manual_validation_approvals_transaction']
+    approved_by_user_id [name: 'idx_manual_validation_approvals_user']
+    approved_at [name: 'idx_manual_validation_approvals_created']
   }
 }
 
@@ -382,8 +400,9 @@ TableGroup banking {
   transactions_bank
   vouchers
   transactions_status
+  manual_validation_approvals
   last_transaction_bank
-  Note: 'Transacciones bancarias y vouchers'
+  Note: 'Transacciones bancarias, vouchers, y auditoría de validación manual'
 }
 
 TableGroup records_system {

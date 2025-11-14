@@ -1,6 +1,7 @@
 import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { TransactionBank } from '@/shared/database/entities/transaction-bank.entity';
+import { ManualValidationApproval } from '@/shared/database/entities/manual-validation-approval.entity';
 import { TransactionStatusRepository } from '@/shared/database/repositories/transaction-status.repository';
 import { ValidationStatus } from '@/shared/database/entities/enums';
 import {
@@ -196,15 +197,13 @@ export class ManualValidationService {
         throw new NotFoundException(`Voucher ${voucherId} no encontrado`);
       }
 
-      // Actualizar estado de la transacción
+      // Actualizar estado de la transacción (SIN datos de aprobación - ahora en manual_validation_approvals)
       await queryRunner.manager.update(
         'transaction_status',
         { transactions_bank_id: transactionId },
         {
           validation_status: ValidationStatus.CONFIRMED,
           vouchers_id: voucherId,
-          approved_by_user_id: userId,
-          approval_notes: approvalNotes,
           processed_at: new Date(),
           metadata: {
             ...metadata,
@@ -213,6 +212,16 @@ export class ManualValidationService {
           },
         },
       );
+
+      // Crear registro de auditoría en manual_validation_approvals
+      // (ÚNICA fuente de verdad para datos de aprobación)
+      await queryRunner.manager.save(ManualValidationApproval, {
+        transaction_id: transactionId,
+        voucher_id: voucherId,
+        approved_by_user_id: userId,
+        approval_notes: approvalNotes,
+        approved_at: new Date(),
+      });
 
       // Actualizar confirmation_status de voucher
       await queryRunner.manager.update(
@@ -292,13 +301,12 @@ export class ManualValidationService {
       const metadata = (transactionStatus.metadata as any) || {};
 
       // Marcar como not-found (sin info suficiente)
+      // SIN datos de rechazo en transaction_status - ahora en manual_validation_approvals
       await queryRunner.manager.update(
         'transaction_status',
         { transactions_bank_id: transactionId },
         {
           validation_status: ValidationStatus.NOT_FOUND,
-          approved_by_user_id: userId,
-          approval_notes: notes,
           processed_at: new Date(),
           reason: rejectionReason,
           metadata: {
@@ -308,6 +316,17 @@ export class ManualValidationService {
           },
         },
       );
+
+      // Crear registro de auditoría en manual_validation_approvals
+      // (ÚNICA fuente de verdad para datos de rechazo)
+      await queryRunner.manager.save(ManualValidationApproval, {
+        transaction_id: transactionId,
+        voucher_id: null, // NULL porque fue rechazado
+        approved_by_user_id: userId,
+        approval_notes: notes,
+        rejection_reason: rejectionReason,
+        approved_at: new Date(),
+      });
 
       await queryRunner.commitTransaction();
 
