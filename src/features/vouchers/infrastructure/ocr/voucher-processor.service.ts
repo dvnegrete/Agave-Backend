@@ -1,6 +1,10 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { OcrService } from './ocr.service';
-import { getVouchersBusinessRules } from '@/shared/config/business-rules.config';
+import {
+  getVouchersBusinessRules,
+  MIN_HOUSE_NUMBER,
+  MAX_HOUSE_NUMBER,
+} from '@/shared/config/business-rules.config';
 import { formatFecha } from '../../shared/helpers/voucher-formatter.helper';
 
 export interface StructuredData {
@@ -208,7 +212,7 @@ export class VoucherProcessorService {
 
     // Caso 2: faltan_datos = false y casa = null
     if (!data.faltan_datos && data.casa === null) {
-      return `Para poder registrar tu pago por favor indica el número de casa a la que corresponde el pago: (El valor debe ser entre 1 y 66).`;
+      return `Para poder registrar tu pago por favor indica el número de casa a la que corresponde el pago: (El valor debe ser entre ${MIN_HOUSE_NUMBER} y ${MAX_HOUSE_NUMBER}).`;
     }
 
     // Caso 1: faltan_datos = false y casa es un valor numérico

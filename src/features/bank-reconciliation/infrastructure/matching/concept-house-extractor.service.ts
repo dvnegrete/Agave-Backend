@@ -1,5 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { CONCEPT_HOUSE_PATTERNS, ReconciliationConfig } from '../../config/reconciliation.config';
+import {
+  CONCEPT_HOUSE_PATTERNS,
+  ReconciliationConfig,
+} from '../../config/reconciliation.config';
 import { ConceptHouseExtractionResult } from '../../domain/concept-matching.types';
 
 /**
@@ -8,7 +11,7 @@ import { ConceptHouseExtractionResult } from '../../domain/concept-matching.type
  *
  * Estrategia:
  * 1. Intenta coincidir con patrones regex ordenados por confiabilidad
- * 2. Valida que el número esté en rango válido (1-66)
+ * 2. Valida que el número esté en rango válido
  * 3. Intenta identificar información adicional (mes, tipo de pago)
  * 4. Retorna resultado con nivel de confianza
  */

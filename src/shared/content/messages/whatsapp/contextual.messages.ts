@@ -2,20 +2,21 @@
  * Mensajes contextuales para conversaciones activas en WhatsApp
  */
 
-import { VoucherData } from '../types';
+import {
+  MIN_HOUSE_NUMBER,
+  MAX_HOUSE_NUMBER,
+} from '@/shared/config/business-rules.config';
 
 export const ContextualMessages = {
   /**
    * Solicita el número de casa al usuario
    */
-  requestHouseNumber:
-    'Para poder registrar tu pago por favor indica el número de casa a la que corresponde el pago: (El valor debe ser entre 1 y 66).',
+  requestHouseNumber: `Para poder registrar tu pago por favor indica el número de casa a la que corresponde el pago: (El valor debe ser entre ${MIN_HOUSE_NUMBER} y ${MAX_HOUSE_NUMBER}).`,
 
   /**
    * Error cuando no se puede identificar el número de casa
    */
-  invalidHouseNumber:
-    'No pude identificar el número de casa. Por favor envía un número entre 1 y 66.',
+  invalidHouseNumber: `No pude identificar el número de casa. Por favor envía un número entre ${MIN_HOUSE_NUMBER} y ${MAX_HOUSE_NUMBER}.`,
 
   /**
    * Solicita datos faltantes al usuario

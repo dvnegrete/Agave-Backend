@@ -38,7 +38,7 @@ export class VoucherDuplicateDetectorService {
    *
    * @param date - Fecha combinada del voucher (fecha + hora)
    * @param amount - Monto del pago
-   * @param numberHouse - Número de casa (1-66)
+   * @param numberHouse - Número de casa
    * @returns DuplicateCheckResult con información del duplicado si existe
    */
   async detectDuplicate(

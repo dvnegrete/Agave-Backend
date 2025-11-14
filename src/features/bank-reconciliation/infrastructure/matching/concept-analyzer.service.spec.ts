@@ -4,6 +4,10 @@ import { OpenAIService } from '@/shared/libs/openai/openai.service';
 import { VertexAIService } from '@/shared/libs/vertex-ai/vertex-ai.service';
 import { ReconciliationConfig } from '../../config/reconciliation.config';
 import { ConceptAnalysisAIResponse } from '../../dto/concept-analysis.dto';
+import {
+  MIN_HOUSE_NUMBER,
+  MAX_HOUSE_NUMBER,
+} from '@/shared/config/business-rules.config';
 
 describe('ConceptAnalyzerService', () => {
   let service: ConceptAnalyzerService;
@@ -108,7 +112,7 @@ describe('ConceptAnalyzerService', () => {
 
         const result = await service.analyzeConceptWithAI({
           concept: 'Concepto con número inválido',
-          houseNumberRange: { min: 1, max: 66 },
+          houseNumberRange: { min: MIN_HOUSE_NUMBER, max: MAX_HOUSE_NUMBER },
         });
 
         expect(result.houseNumber).toBeNull();

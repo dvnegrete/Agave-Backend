@@ -8,6 +8,10 @@ import {
   Min,
   Max,
 } from 'class-validator';
+import {
+  MIN_HOUSE_NUMBER,
+  MAX_HOUSE_NUMBER,
+} from '@/shared/config/business-rules.config';
 
 /**
  * Filtros para obtener casos pendientes de validación manual
@@ -35,8 +39,8 @@ export class GetManualValidationCasesFilterDto {
   })
   @IsOptional()
   @IsNumber()
-  @Min(1)
-  @Max(66)
+  @Min(MIN_HOUSE_NUMBER)
+  @Max(MAX_HOUSE_NUMBER)
   houseNumber?: number;
 
   @ApiPropertyOptional({

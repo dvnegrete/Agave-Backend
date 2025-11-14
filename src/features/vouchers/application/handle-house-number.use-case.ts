@@ -12,6 +12,10 @@ import {
 } from '../shared/helpers/voucher-formatter.helper';
 import { ErrorMessages } from '@/shared/content';
 import { CONFIRM_CANCEL_BUTTONS } from '../shared/constants/whatsapp-buttons.const';
+import {
+  MIN_HOUSE_NUMBER,
+  MAX_HOUSE_NUMBER,
+} from '@/shared/config/business-rules.config';
 
 export interface HandleHouseNumberInput {
   phoneNumber: string;
@@ -64,13 +68,17 @@ export class HandleHouseNumberUseCase {
     }
 
     // 3. Validar el número de casa
-    const validationResult = validateHouseNumber(messageText, 1, 66);
+    const validationResult = validateHouseNumber(
+      messageText,
+      MIN_HOUSE_NUMBER,
+      MAX_HOUSE_NUMBER,
+    );
 
     if (!validationResult.isValid) {
       await this.sendWhatsAppMessage(
         phoneNumber,
         validationResult.error ||
-          'El número de casa debe ser un número entre 1 y 66',
+          `El número de casa debe ser un número entre ${MIN_HOUSE_NUMBER} y ${MAX_HOUSE_NUMBER}`,
       );
       return { success: true }; // Continue conversation
     }

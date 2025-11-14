@@ -6,6 +6,10 @@ import {
   validateTime,
   validateHouseNumber,
 } from '@/shared/common/utils';
+import {
+  MIN_HOUSE_NUMBER,
+  MAX_HOUSE_NUMBER,
+} from '@/shared/config/business-rules.config';
 import { StructuredDataWithCasa } from '../../infrastructure/ocr/voucher-processor.service';
 
 /**
@@ -122,7 +126,7 @@ export function validateAndUpdateVoucherField(
       if (!value || value.trim() === '') {
         validationResult = {
           isValid: false,
-          error: 'El número de casa es obligatorio. Por favor proporciona un número entre 1 y 66',
+          error: `El número de casa es obligatorio. Por favor proporciona un número entre ${MIN_HOUSE_NUMBER} y ${MAX_HOUSE_NUMBER}`,
         };
       } else {
         validationResult = validateHouseNumber(value);

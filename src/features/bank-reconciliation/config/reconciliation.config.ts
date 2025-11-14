@@ -1,3 +1,5 @@
+import { MAX_HOUSE_NUMBER } from '@/shared/config/business-rules.config';
+
 /**
  * Configuración para el proceso de conciliación bancaria
  *
@@ -24,7 +26,7 @@ export const ReconciliationConfig = {
   /**
    * Número máximo de casas en el proyecto
    */
-  MAX_HOUSE_NUMBER: 66,
+  MAX_HOUSE_NUMBER,
 
   /**
    * Umbral de similitud para considerar matches automáticos
