@@ -25,6 +25,7 @@ import { RecordRepository } from './repositories/record.repository';
 import { HouseRepository } from './repositories/house.repository';
 import { UserRepository } from './repositories/user.repository';
 import { HouseRecordRepository } from './repositories/house-record.repository';
+import { SystemUserSeed } from './seeds/system-user.seed';
 
 @Global()
 @Module({
@@ -63,6 +64,7 @@ import { HouseRecordRepository } from './repositories/house-record.repository';
     HouseRepository,
     UserRepository,
     HouseRecordRepository,
+    SystemUserSeed, // Auto-crea usuario Sistema al iniciar
   ],
   exports: [
     DatabaseConfigService,

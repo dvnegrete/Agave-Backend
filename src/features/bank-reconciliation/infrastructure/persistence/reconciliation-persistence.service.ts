@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { DataSource, QueryRunner } from 'typeorm';
 import { TransactionStatusRepository } from '@/shared/database/repositories/transaction-status.repository';
 import { RecordRepository } from '@/shared/database/repositories/record.repository';
@@ -25,7 +25,7 @@ const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
  * Maneja todas las operaciones de base de datos relacionadas con la conciliación
  */
 @Injectable()
-export class ReconciliationPersistenceService {
+export class ReconciliationPersistenceService implements OnModuleInit {
   private readonly logger = new Logger(ReconciliationPersistenceService.name);
 
   constructor(
@@ -37,6 +37,40 @@ export class ReconciliationPersistenceService {
     private readonly voucherRepository: VoucherRepository,
     private readonly gcsCleanupService: GcsCleanupService,
   ) {}
+
+  /**
+   * Verifica que el usuario Sistema existe al iniciar el módulo
+   * Lanza un error descriptivo si no existe
+   */
+  async onModuleInit() {
+    try {
+      const result = await this.dataSource.query(
+        'SELECT id, email FROM users WHERE id = $1',
+        [SYSTEM_USER_ID],
+      );
+
+      if (!result || result.length === 0) {
+        const errorMessage = `
+          USUARIO SISTEMA NO ENCONTRADO. Asignar casas creadas automáticamente sistema@conciliacion.local
+        `;
+        this.logger.error(errorMessage);
+        throw new Error(
+          'Usuario Sistema no encontrado. Ver logs para instrucciones de setup.',
+        );
+      }
+
+      this.logger.log(
+        `✅ Usuario Sistema verificado: ${result[0].email} (${result[0].id})`,
+      );
+    } catch (error) {
+      if (error.message.includes('Usuario Sistema no encontrado')) {
+        throw error;
+      }
+      this.logger.warn(
+        `No se pudo verificar usuario Sistema: ${error.message}`,
+      );
+    }
+  }
 
   /**
    * Persiste una conciliación exitosa en la base de datos

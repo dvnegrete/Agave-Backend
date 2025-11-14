@@ -1,46 +1,49 @@
 -- =====================================================
--- SCRIPT: Asegurar Usuario del Sistema
+-- ENSURE SYSTEM USER EXISTS
 -- =====================================================
--- Este script verifica y crea el usuario del sistema si no existe
--- Usuario requerido para conciliación bancaria automática
---
--- UUID: 00000000-0000-0000-0000-000000000000
--- Email: sistema@conciliacion.local
---
--- Uso: psql $DATABASE_URL -f src/shared/database/scripts/ensure-system-user.sql
+-- Description: Verifica y crea el usuario Sistema requerido
+--              para la conciliación bancaria automática
+-- Usage: npm run db:ensure-system-user
 -- =====================================================
 
-DO $$
-BEGIN
-  -- Verificar si el usuario ya existe
-  IF NOT EXISTS (
-    SELECT 1 FROM users WHERE id = '00000000-0000-0000-0000-000000000000'
-  ) THEN
-    -- Insertar usuario del sistema
-    INSERT INTO users (id, mail, role, status, created_at, updated_at)
-    VALUES (
-      '00000000-0000-0000-0000-000000000000',
-      'sistema@conciliacion.local',
-      'tenant',
-      'active',
-      NOW(),
-      NOW()
-    );
+-- Crear usuario Sistema si no existe
+INSERT INTO users (id, mail, role, status, created_at, updated_at)
+VALUES (
+  '00000000-0000-0000-0000-000000000000',
+  'sistema@conciliacion.local',
+  'tenant',
+  'active',
+  NOW(),
+  NOW()
+)
+ON CONFLICT (id) DO NOTHING;
 
-    RAISE NOTICE '✅ Usuario del sistema creado exitosamente';
-    RAISE NOTICE '   UUID: 00000000-0000-0000-0000-000000000000';
-    RAISE NOTICE '   Email: sistema@conciliacion.local';
-  ELSE
-    RAISE NOTICE '✓ Usuario del sistema ya existe';
-  END IF;
-END $$;
-
--- Verificar que se creó correctamente
+-- Verificar creación
 SELECT
+  CASE
+    WHEN COUNT(*) > 0 THEN '✅ Usuario Sistema verificado/creado correctamente'
+    ELSE '❌ Error: Usuario Sistema no pudo ser creado'
+  END as status,
   id,
   mail,
   role,
-  status,
+  status as user_status,
   created_at
 FROM users
 WHERE id = '00000000-0000-0000-0000-000000000000';
+
+-- Información adicional
+\echo ''
+\echo '=================================================='
+\echo 'USUARIO SISTEMA PARA CONCILIACIÓN BANCARIA'
+\echo '=================================================='
+\echo 'UUID: 00000000-0000-0000-0000-000000000000'
+\echo 'Email: sistema@conciliacion.local'
+\echo ''
+\echo 'Este usuario se usa para asignar casas creadas'
+\echo 'automáticamente cuando se identifican por centavos'
+\echo 'durante el proceso de conciliación bancaria.'
+\echo ''
+\echo 'Ver documentación completa en:'
+\echo 'docs/features/bank-reconciliation/SETUP-USUARIO-SISTEMA.md'
+\echo '=================================================='
