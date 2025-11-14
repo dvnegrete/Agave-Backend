@@ -5,6 +5,7 @@ export * from './period-config.entity';
 export * from './transaction-bank.entity';
 export * from './voucher.entity';
 export * from './transaction-status.entity';
+export * from './manual-validation-approval.entity';
 export * from './last-transaction-bank.entity';
 export * from './cta-extraordinary-fee.entity';
 export * from './cta-maintenance.entity';

@@ -356,3 +356,253 @@ Este archivo registra features y funcionalidades planificadas pero no implementa
 - Solo fue necesario adaptar la capa de infraestructura (descarga de media y envío de mensajes)
 - Los use cases de negocio se reutilizan sin cambios
 - Considerar rate limits de Telegram Bot API en producción
+
+---
+
+## Bank Reconciliation - Manual Validation Cases
+
+**Prioridad**: Media-Alta
+**Fecha registro**: 2025-11-14
+**Contexto**: Funcionalidad para manejar casos ambiguos de conciliación donde una transacción bancaria tiene múltiples vouchers candidatos válidos.
+
+### Estado Actual
+
+**Infraestructura Completa (pero NO ACTIVADA)**:
+- ✅ Entidad `ManualValidationCase` en `domain/reconciliation.entity.ts`
+- ✅ Método `persistManualValidationCase()` en persistence service
+- ✅ Lógica en `reconcile.use-case.ts` para manejar casos manuales (líneas 166-182)
+- ✅ DTO de respuesta con array `manualValidationRequired`
+- ✅ Documentación en `docs/features/bank-reconciliation/README.md`
+
+**NO ACTIVADO**:
+- ❌ `matching.service.ts` NO retorna `type: 'manual'`
+- ❌ No existe lógica que detecte múltiples vouchers candidatos
+- ❌ Resultado: array `manualValidationRequired` siempre está vacío en producción
+
+### Qué Son Manual Validation Cases
+
+Casos donde una transacción bancaria tiene **múltiples vouchers válidos candidatos** y el sistema no puede elegir automáticamente cuál es el correcto.
+
+**Ejemplo**:
+```json
+{
+  "transactionBankId": "TX-001",
+  "possibleMatches": [
+    {
+      "voucherId": 45,
+      "similarity": 0.98,
+      "dateDifferenceHours": 0.5
+    },
+    {
+      "voucherId": 46,
+      "similarity": 0.95,
+      "dateDifferenceHours": 6
+    }
+  ],
+  "reason": "2 vouchers con monto exacto $1500.15 dentro de ±36 horas"
+}
+```
+
+### Tareas Pendientes
+
+#### 1. Activar Detección en Matching Service
+- [ ] Modificar `resolveMultipleMatches()` en `matching.service.ts` (líneas 141-192)
+  - Si hay múltiples vouchers dentro de tolerancia de fecha (±36 horas)
+  - Crear instancia de `ManualValidationCase` en lugar de elegir el primero
+  - Retornar `{ type: 'manual', case: manualCase }`
+- [ ] Calcular similarity score para cada candidato
+  - Basado en diferencia de fecha: `1.0 - (dateDiff / DATE_TOLERANCE_HOURS)`
+  - Considerar otras variables: monto, concepto, etc.
+
+#### 2. Casos de Uso a Soportar
+- [ ] **Múltiples vouchers con mismo monto exacto**
+  - Transacción: $1500.15, 15-ene 10:00
+  - Voucher 1: $1500.15, 15-ene 08:30 ✓
+  - Voucher 2: $1500.15, 15-ene 18:00 ✓
+  - Acción: Manual validation
+
+- [ ] **Voucher marginal (límite de tolerancia)**
+  - Transacción: $2000.50, 15-ene
+  - Voucher: $2000.50, 20-ene (5 días = 120 horas, fuera de ±36 horas)
+  - Si hay múltiples lejanos: considerar manual
+
+- [ ] **Conflicto entre centavos y concepto**
+  - Transacción: $1500.15 (centavos sugieren casa 15)
+  - Concepto: "Pago casa 20"
+  - Sin voucher: actualmente va a `unclaimedDeposits`
+  - Considerar escalar a manual si ambas fuentes son confiables
+
+#### 3. Endpoints de Validación Manual
+- [ ] `GET /bank-reconciliation/pending-manual-validation`
+  - Listar casos pendientes de revisión
+  - Filtros: dateRange, house, status
+  - Paginación
+
+- [ ] `POST /bank-reconciliation/manual-approve`
+  - Aprobar un caso eligiendo un voucher específico
+  - Body: `{ transactionBankId: string, voucherId: number }`
+  - Persistir conciliación y marcar transacción como confirmed
+
+- [ ] `POST /bank-reconciliation/manual-reject`
+  - Rechazar todos los vouchers candidatos
+  - Marcar transacción como `not-found` o `conflict`
+
+- [ ] `GET /bank-reconciliation/manual-validation-stats`
+  - Estadísticas: total pendientes, pendientes por rango de fecha, tasa de aprobación
+
+#### 4. DTOs (Interfaces Layer)
+- [ ] `GetManualValidationCasesFilterDto`
+  ```typescript
+  {
+    startDate?: Date;
+    endDate?: Date;
+    houseNumber?: number;
+    page?: number;
+    limit?: number;
+    sortBy?: 'date' | 'similarity' | 'candidates';
+  }
+  ```
+
+- [ ] `ApproveManualCaseDto`
+  ```typescript
+  {
+    voucherId: number;
+    // Opcional: comentario del operador
+    approverNotes?: string;
+  }
+  ```
+
+- [ ] `ManualValidationCaseResponseDto` (respuesta detallada)
+  ```typescript
+  {
+    transactionBankId: string;
+    transactionAmount: number;
+    transactionDate: Date;
+    transactionConcept: string;
+    possibleMatches: Array<{
+      voucherId: number;
+      voucherAmount: number;
+      voucherDate: Date;
+      similarity: number;
+      dateDifferenceHours: number;
+      houseNumber?: number;
+    }>;
+    reason: string;
+    createdAt: Date;
+    status: 'pending' | 'approved' | 'rejected';
+  }
+  ```
+
+#### 5. Persistencia de Aprobaciones
+- [ ] Extender `transactions_status` para guardar:
+  - Campo `approved_by_user_id` (NULL hasta que se apruebe)
+  - Campo `approval_notes` (comentarios del operador)
+  - Actualizar `processed_at` cuando se apruebe
+
+- [ ] Crear tabla `manual_validation_approvals` para auditoría
+  ```sql
+  CREATE TABLE manual_validation_approvals (
+    id SERIAL PRIMARY KEY,
+    transaction_id VARCHAR,
+    voucher_id INT,
+    approved_by UUID,
+    approval_notes TEXT,
+    approved_at TIMESTAMP DEFAULT NOW(),
+    FOREIGN KEY (transaction_id) REFERENCES transactions_bank(id),
+    FOREIGN KEY (voucher_id) REFERENCES vouchers(id),
+    FOREIGN KEY (approved_by) REFERENCES users(id)
+  );
+  ```
+
+#### 6. UI/Frontend Considerations
+- [ ] Crear interfaz de aprobación manual
+  - Mostrar ambos lados (transacción + vouchers candidatos)
+  - Permitir comparación visual
+  - Botones: Aprobar con este voucher / Rechazar todos
+
+- [ ] Dashboard de casos pendientes
+  - Filtros por fecha, casa
+  - Ordenar por prioridad (similaridad, fecha)
+  - Indicador visual de urgencia
+
+#### 7. Testing
+- [ ] Unit tests para lógica mejorada de `resolveMultipleMatches()`
+- [ ] Unit tests para cálculo de similarity score
+- [ ] E2E tests con múltiples escenarios:
+  - Exactamente 2 vouchers candidatos
+  - 3+ vouchers candidatos
+  - Todos fuera de tolerancia
+  - Mix de dentro/fuera de tolerancia
+
+- [ ] Tests para endpoints de aprobación:
+  - Aprobar un caso válido
+  - Rechazar un caso
+  - Listar casos pendientes con filtros
+
+#### 8. Documentación
+- [ ] Sección "Manual Validation" en `docs/features/bank-reconciliation/README.md`
+- [ ] Workflow diagram: cómo un caso se convierte en manual
+- [ ] Ejemplos de escenarios que requieren validación manual
+- [ ] Guía de operador: cómo revisar y aprobar casos
+- [ ] API documentation con ejemplos
+
+#### 9. Configuración
+- [ ] Nueva variable en `reconciliation.config.ts`
+  ```typescript
+  ENABLE_MANUAL_VALIDATION: boolean = true;
+  MANUAL_VALIDATION_THRESHOLD?: number;  // % de similaridad mínima
+  ```
+
+### Escenarios de Uso Real
+
+#### Caso 1: Pagos Colectivos
+```
+Dos residentes pagan juntos desde una cuenta compartida
+
+Transacción: $3000.30 (Casa 30)
+Voucher 1: Casa 30, $3000.30 (15-ene 14:00)
+Voucher 2: Casa 25, $3000.30 (15-ene 14:45)
+
+Sistema: "Ambas fechas son válidas. ¿Es para casa 30 o 25?"
+→ Operador revisa concepto y aprueba la correcta
+```
+
+#### Caso 2: Retrasos Bancarios
+```
+Banco procesa transacción días después
+
+Transacción: $1500.15 (20-ene, reportado por banco)
+Voucher: $1500.15 (15-ene, 5 días antes = 120 horas, fuera de tolerancia)
+
+Sistema actual: unclaimedDeposits (depósito no reclamado)
+Sistema mejorado: Podría ser manual si otros indicadores son fuertes
+```
+
+#### Caso 3: Errores de Entrada
+```
+Operador ingresa mismo monto dos veces
+
+Transacción: $2000.00 (sin centavos válidos)
+Voucher A: $2000.00 (casa 5)
+Voucher B: $2000.00 (casa 5) - misma casa, duplicado accidental
+
+Sistema: "Mismo monto, misma casa. Requiere validación manual para evitar duplicado"
+```
+
+### Impacto Esperado
+- **Tasa de auto-conciliación**: 85-90% (actual) → 75-80% (con manual validation)
+- **Precisión**: 98% (actual) → 99%+ (al requerir revisión de casos ambiguos)
+- **Carga de trabajo**: +5-15% de casos requieren revisión manual
+
+### Referencias
+- Entidad: `src/features/bank-reconciliation/domain/reconciliation.entity.ts:121-155`
+- Persistence: `src/features/bank-reconciliation/infrastructure/persistence/reconciliation-persistence.service.ts:410-452`
+- Use Case: `src/features/bank-reconciliation/application/reconcile.use-case.ts:166-182`
+- Matching Service: `src/features/bank-reconciliation/infrastructure/matching/matching.service.ts:141-192`
+- Documentación: `docs/features/bank-reconciliation/README.md:169-201`
+
+### Notas Técnicas
+- La infraestructura de persistencia ya está 100% lista
+- Solo falta activar la lógica de detección en `matching.service.ts`
+- Considerar impacto en performance (cálculo de similarity scores)
+- Implementar indices en `transactions_status(validation_status)` para queries rápidas de casos pendientes

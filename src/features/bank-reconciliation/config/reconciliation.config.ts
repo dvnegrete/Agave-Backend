@@ -50,6 +50,19 @@ export const ReconciliationConfig = {
   ENABLE_AI_CONCEPT_ANALYSIS: true,
 
   /**
+   * Umbral de similitud para escalar a validación manual
+   * Si la diferencia entre el mejor y segundo mejor candidato es < 5% → validación manual
+   * Evita decisiones automáticas cuando hay múltiples opciones muy similares
+   */
+  SIMILARITY_THRESHOLD: 0.05,
+
+  /**
+   * Habilita validación manual para casos ambiguos
+   * Cuando hay múltiples vouchers válidos candidatos
+   */
+  ENABLE_MANUAL_VALIDATION: true,
+
+  /**
    * Meses del año en español (para identificar en conceptos)
    */
   MONTHS_ES: [

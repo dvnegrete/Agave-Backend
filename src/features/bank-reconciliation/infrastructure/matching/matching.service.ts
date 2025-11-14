@@ -36,13 +36,16 @@ export type MatchResult =
  * Implementa la lógica de coincidencias basada en reglas de negocio
  *
  * Estrategia de matching:
- * 1. AMOUNT + DATE: Monto exacto + fecha cercana (usa voucher más cercano)
+ * 1. AMOUNT + DATE: Monto exacto + fecha cercana
+ *    - Si 2+ vouchers con similaridad muy cercana (<5% diff) → MANUAL VALIDATION
+ *    - Si hay claro ganador → usa voucher más cercano en fecha
  * 2. CENTS: Los centavos son suficientes para conciliar automáticamente
- *    - EXCEPTO cuando hay conflicto con concepto → validación manual
+ *    - EXCEPTO cuando hay conflicto con concepto → depósito no reclamado
  * 3. CONCEPT: Solo si concepto tiene alta confianza y no hay centavos
- * 4. MANUAL: Requiere revisión si:
- *    - Conflicto entre centavos y concepto
- *    - Sin centavos, sin concepto, sin voucher
+ * 4. MANUAL: Requiere revisión humana cuando:
+ *    - Múltiples vouchers con similaridad muy cercana
+ * 5. UNCLAIMED: Transacciones sin voucher coincidente pero con información identificable
+ *    - Por centavos, por concepto, o con conflicto entre fuentes
  */
 @Injectable()
 export class MatchingService {
@@ -136,7 +139,10 @@ export class MatchingService {
 
   /**
    * Resuelve el caso de múltiples coincidencias por monto
-   * Prioriza casa del voucher y usa el más cercano en fecha
+   * Estrategia:
+   * 1. Si los mejores candidatos tienen similitud muy cercana (<5%) → validación manual
+   * 2. Si hay un claro ganador → auto-conciliar con el más cercano en fecha
+   * 3. Si ninguno está dentro de tolerancia → sin coincidencias
    */
   private async resolveMultipleMatches(
     transaction: TransactionBank,
@@ -157,7 +163,37 @@ export class MatchingService {
 
     // Si hay al menos una coincidencia dentro de tolerancia
     if (matchesWithDateDiff.length >= 1) {
-      const { voucher, dateDiff } = matchesWithDateDiff[0];
+      // Agregar similarity score a cada candidato
+      const candidatesWithScores = matchesWithDateDiff.map((m) => ({
+        ...m,
+        similarity: this.calculateSimilarityScore(m.dateDiff),
+      }));
+
+      if (
+        ReconciliationConfig.ENABLE_MANUAL_VALIDATION &&
+        candidatesWithScores.length > 1
+      ) {
+        const maxSimilarity = Math.max(
+          ...candidatesWithScores.map((c) => c.similarity),
+        );
+        const minSimilarity = Math.min(
+          ...candidatesWithScores.map((c) => c.similarity),
+        );
+        const similarityDiff = maxSimilarity - minSimilarity;
+
+        // Si la diferencia es menor al umbral (5%) → escalar a validación manual
+        if (similarityDiff < ReconciliationConfig.SIMILARITY_THRESHOLD) {
+          const manualCase = this.createManualValidationCase(
+            transaction,
+            candidatesWithScores,
+          );
+
+          return { type: 'manual', case: manualCase };
+        }
+      }
+
+      // Usar el más cercano en fecha (mejor similaridad)
+      const { voucher, dateDiff, similarity } = candidatesWithScores[0];
 
       let houseNumber = this.extractHouseNumberFromVoucher(voucher);
       let matchSource = 'VOUCHER_HOUSE';
@@ -181,7 +217,7 @@ export class MatchingService {
       });
 
       this.logger.log(
-        `Múltiples vouchers encontrados, usando el más cercano: Voucher ${voucher.id} (diferencia: ${dateDiff}h) → Casa ${houseNumber} (fuente: ${matchSource})`,
+        `Múltiples vouchers encontrados, usando el más cercano: Voucher ${voucher.id} (diferencia: ${dateDiff}h, similitud: ${similarity.toFixed(2)}) → Casa ${houseNumber} (fuente: ${matchSource})`,
       );
 
       return { type: 'matched', match, voucherId: voucher.id, voucher };
@@ -401,5 +437,50 @@ export class MatchingService {
       );
       return null;
     }
+  }
+
+  /**
+   * Calcula el score de similitud de un candidato basado en la diferencia de fecha
+   * Score = 1.0 - (dateDiff / DATE_TOLERANCE_HOURS)
+   * Ejemplo: dateDiff=0 → score=1.0 (perfecto), dateDiff=36h → score=0.0
+   *
+   * @param dateDiff Diferencia de horas
+   * @returns Número entre 0 y 1
+   */
+  private calculateSimilarityScore(dateDiff: number): number {
+    const score = 1.0 - dateDiff / ReconciliationConfig.DATE_TOLERANCE_HOURS;
+    return Math.max(0, Math.min(1, score));
+  }
+
+  /**
+   * Crea un caso que requiere validación manual
+   * Se usa cuando hay múltiples vouchers con similaridad muy cercana
+   *
+   * @param transaction Transacción bancaria
+   * @param candidates Array de vouchers candidatos con sus datos
+   * @returns ManualValidationCase
+   */
+  private createManualValidationCase(
+    transaction: TransactionBank,
+    candidates: Array<{
+      voucher: Voucher;
+      dateDiff: number;
+      similarity: number;
+    }>,
+  ): ManualValidationCase {
+    // Ordenar por similaridad descendente (mejor primero)
+    const sorted = [...candidates].sort((a, b) => b.similarity - a.similarity);
+
+    const reason = `${sorted.length} vouchers con monto exacto ($${transaction.amount.toFixed(2)}) y similitud muy cercana. Diferencia máxima entre candidatos: ${(sorted[0].similarity - sorted[sorted.length - 1].similarity).toFixed(2)}.`;
+
+    return ManualValidationCase.create({
+      transaction,
+      possibleMatches: sorted.map((c) => ({
+        voucher: c.voucher,
+        dateDifferenceHours: c.dateDiff,
+        similarityScore: c.similarity,
+      })),
+      reason,
+    });
   }
 }

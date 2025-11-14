@@ -168,36 +168,38 @@ No se puede identificar la casa.
 
 ### ⚠️ 4. VALIDACIÓN MANUAL
 
-**Qué son**: Casos que el sistema no puede resolver automáticamente.
+**Qué son**: Cuando hay **múltiples vouchers con similitud muy cercana** (diferencia < 5%), el sistema escala a validación manual en lugar de adivinar.
 
 **Razones**:
-- Múltiples vouchers con mismo monto y fechas similares
+- Múltiples vouchers con mismo monto y fechas similares → ¿Cuál es el correcto?
 - Conflictos entre fuentes de información
 - Casos ambiguos que requieren decisión humana
 
 **Ejemplo**:
 ```json
 {
-  "transactionBankId": "777",
+  "transactionBankId": "TX-001",
   "possibleMatches": [
     {
-      "voucherId": 111,
-      "similarity": 0.85,
-      "dateDifferenceHours": 12
+      "voucherId": 101,
+      "similarity": 0.99,
+      "dateDifferenceHours": 0.25
     },
     {
-      "voucherId": 222,
-      "similarity": 0.82,
-      "dateDifferenceHours": 18
+      "voucherId": 102,
+      "similarity": 0.98,        // Diferencia: 0.01 (1%) < 5%
+      "dateDifferenceHours": 0.75  // → Requiere decisión manual
     }
   ],
-  "reason": "Multiple vouchers with same amount"
+  "reason": "Multiple vouchers with <5% similarity difference"
 }
 ```
 
 **Estado en BD**: `validation_status = 'requires-manual'`
 
-**Metadata**: Se guardan candidatos en JSONB para revisión posterior.
+**Auditoría**: Se registra en tabla `manual_validation_approvals` (ÚNICA FUENTE DE VERDAD).
+
+**Más info**: Ver [MANUAL-VALIDATION.md](./MANUAL-VALIDATION.md) para endpoints y flujo completo.
 
 ---
 
@@ -420,25 +422,43 @@ Cuando un voucher se concilia exitosamente, el sistema **automáticamente elimin
 
 ---
 
-## 🚀 TODOs Pendientes
+## 🚀 Características Implementadas ✅
 
-### Alta Prioridad
-- [ ] **Endpoints de validación manual**:
-  - `GET /bank-reconciliation/pending-validation`
-  - `POST /bank-reconciliation/manual-approve`
-  - `POST /bank-reconciliation/manual-reject`
-
-### Media Prioridad
-- [ ] Tabla de auditoría (`BankReconciliationLog`)
-- [ ] Notificaciones por email para casos manuales
-- [ ] Dashboard de métricas
-
-### Baja Prioridad
-- [ ] Tests E2E
-- [ ] Webhooks para eventos de conciliación
+### ✅ Validación Manual (v2.2.0)
+- [x] **Endpoints de validación manual**:
+  - `GET /bank-reconciliation/manual-validation/pending` - Listar casos
+  - `POST /bank-reconciliation/manual-validation/:transactionId/approve` - Aprobar
+  - `POST /bank-reconciliation/manual-validation/:transactionId/reject` - Rechazar
+  - `GET /bank-reconciliation/manual-validation/stats` - Estadísticas
+- [x] Tabla de auditoría (`manual_validation_approvals`) con 3NF
+- [x] Similarity scoring para detección automática de casos ambiguos
+- [x] 26/26 tests pasando (unit + controller)
 
 ---
 
-**Versión**: 2.1.0
-**Última actualización**: Noviembre 2025
+## 🚀 TODOs Pendientes
+
+### Media Prioridad
+- [ ] Notificaciones por email para casos manuales
+- [ ] Dashboard de métricas avanzadas
+- [ ] Exportación de reportes de validación
+
+### Baja Prioridad
+- [ ] Tests E2E completos
+- [ ] Webhooks para eventos de conciliación
+- [ ] API bulk operations
+
+---
+
+**Versión**: 2.2.0
+**Última actualización**: Noviembre 14, 2025
 **Estado**: ✅ Production Ready
+
+---
+
+## 📚 Documentación
+
+- **[MANUAL-VALIDATION.md](./MANUAL-VALIDATION.md)** - Validación manual, endpoints, flujos (NUEVO)
+- **[QUERIES-CONCILIACION.md](./QUERIES-CONCILIACION.md)** - 40+ queries SQL útiles para análisis
+- **[concept-matching-examples.md](./concept-matching-examples.md)** - Ejemplos de extracción de casa por concepto
+- **[SETUP-USUARIO-SISTEMA.md](./SETUP-USUARIO-SISTEMA.md)** - Configuración del usuario sistema
