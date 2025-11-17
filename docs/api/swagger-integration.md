@@ -73,14 +73,25 @@ src/
 │   │       ├── transaction-bank.dto.ts
 │   │       └── upload-file.dto.ts
 │   │
-│   └── vouchers/
+│   ├── vouchers/
+│   │   ├── controllers/
+│   │   │   └── vouchers.controller.ts
+│   │   ├── decorators/
+│   │   │   └── swagger.decorators.ts          # ← 2 decoradores custom
+│   │   └── dto/
+│   │       ├── ocr-service.dto.ts
+│   │       └── transaction.dto.ts
+│   │
+│   └── payment-management/
 │       ├── controllers/
-│       │   └── vouchers.controller.ts
+│       │   └── payment-management.controller.ts
 │       ├── decorators/
-│       │   └── swagger.decorators.ts          # ← 2 decoradores custom
+│       │   └── swagger.decorators.ts          # ← 7 decoradores integrados en controller
 │       └── dto/
-│           ├── ocr-service.dto.ts
-│           └── transaction.dto.ts
+│           ├── create-period.dto.ts
+│           ├── period-response.dto.ts
+│           ├── create-period-config.dto.ts
+│           └── house-balance.dto.ts
 ```
 
 ---
@@ -252,7 +263,8 @@ export class ExampleResponseDto {
 | **bank-reconciliation** | 1 | `decorators/swagger.decorators.ts` |
 | **transactions-bank** | 8 | `decorators/swagger.decorators.ts` |
 | **vouchers** | 2 | `decorators/swagger.decorators.ts` |
-| **Total** | **11 endpoints** | - |
+| **payment-management** | 7 | Integrados en `payment-management.controller.ts` |
+| **Total** | **18 endpoints** | - |
 
 ### Detalle de Endpoints Documentados
 
@@ -302,6 +314,55 @@ export class ExampleResponseDto {
 
 2. **GET /vouchers/:id** - `@ApiGetVoucherById()`
    - Obtener voucher específico con URL firmada temporal (60 min)
+
+#### 💳 Payment Management (7 endpoints)
+
+1. **GET /payment-management/periods** - `@ApiOperation`
+   - Obtener todos los períodos de facturación registrados
+   - Response: Lista de `PeriodResponseDto` con año, mes, fechas y nombre de período
+
+2. **POST /payment-management/periods** - `@ApiOperation`
+   - Crear nuevo período de facturación manualmente
+   - Request: `CreatePeriodDto` (year, month, period_config_id)
+   - Response: `PeriodResponseDto`
+   - Error: 400 (período duplicado), 404 (configuración no encontrada)
+
+3. **POST /payment-management/periods/ensure** - `@ApiOperation`
+   - Asegurar existencia de período (crea si no existe)
+   - Endpoint especial para el sistema de conciliación bancaria
+   - Request: `CreatePeriodDto` (year, month)
+   - Response: `PeriodResponseDto` (existente o creado)
+
+4. **POST /payment-management/config** - `@ApiOperation`
+   - Crear nueva configuración de período con montos y reglas de pago
+   - Request: `CreatePeriodConfigDto` (montos de mantenimiento, agua, cuota extraordinaria, día de vencimiento, etc.)
+   - Response: `PeriodConfigResponseDto`
+   - Error: 400 (montos negativos o parámetros inválidos)
+
+5. **GET /payment-management/houses/:houseId/payments** - `@ApiOperation`
+   - Obtener historial completo de pagos de una casa
+   - Path Param: houseId (número de la casa)
+   - Response: `PaymentHistoryResponseDTO` con lista de asignaciones por período y concepto
+   - Error: 404 (casa no encontrada)
+
+6. **GET /payment-management/houses/:houseId/payments/:periodId** - `@ApiOperation`
+   - Obtener pagos de una casa en período específico
+   - Path Params: houseId, periodId
+   - Response: `PaymentHistoryResponseDTO` con pagos filtrados por período
+   - Error: 404 (casa no encontrada)
+
+7. **GET /payment-management/houses/:houseId/balance** - `@ApiOperation`
+   - Obtener saldo actual de una casa (deuda, crédito, centavos acumulados)
+   - Path Param: houseId
+   - Response: `HouseBalanceDTO` con estado financiero (balanced, credited, in-debt)
+   - Error: 404 (casa no encontrada)
+
+**Características Principales**:
+- ✅ Distribución automática de pagos entre conceptos (mantenimiento, agua, cuota extraordinaria)
+- ✅ Gestión de saldos (deuda, crédito, centavos acumulados)
+- ✅ Validación de montos y períodos
+- ✅ Soporte para overrides de montos por casa/período
+- ✅ Historial completo de pagos con auditoría
 
 ---
 
@@ -498,6 +559,13 @@ import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 ## 🔄 Changelog
 
+### v1.1.0 - Noviembre 2025 (Payment Management Sprint)
+- ✅ Documentación de 7 nuevos endpoints de Payment Management
+- ✅ Integración de decoradores Swagger en payment-management.controller.ts
+- ✅ Documentación de DTOs de Payment Management (PeriodResponseDto, HouseBalanceDTO, etc.)
+- ✅ Actualización de resumen de endpoints: 11 → 18
+- ✅ Soporte para distribución de pagos, gestión de períodos y saldos de casas
+
 ### v1.0.0 - Noviembre 2025
 - ✅ Implementación inicial de Swagger/OpenAPI
 - ✅ Arquitectura híbrida con custom decorators
@@ -507,6 +575,6 @@ import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 ---
 
-**Versión**: 1.0.0
+**Versión**: 1.1.0
 **Última actualización**: Noviembre 2025
 **Mantenido por**: Equipo de Desarrollo Agave
