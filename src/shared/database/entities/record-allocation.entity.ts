@@ -9,20 +9,7 @@ import {
 import { Record } from './record.entity';
 import { Period } from './period.entity';
 import { House } from './house.entity';
-
-export enum AllocationConceptType {
-  MAINTENANCE = 'maintenance',
-  WATER = 'water',
-  EXTRAORDINARY_FEE = 'extraordinary_fee',
-  PENALTIES = 'penalties',
-  OTHER = 'other',
-}
-
-export enum PaymentStatus {
-  COMPLETE = 'complete',
-  PARTIAL = 'partial',
-  OVERPAID = 'overpaid',
-}
+import { AllocationConceptType, PaymentStatus } from './enums';
 
 /**
  * Distribución detallada de pagos a conceptos y períodos

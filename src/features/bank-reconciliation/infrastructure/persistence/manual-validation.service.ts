@@ -216,7 +216,7 @@ export class ManualValidationService {
       // Crear registro de auditoría en manual_validation_approvals
       // (ÚNICA fuente de verdad para datos de aprobación)
       await queryRunner.manager.save(ManualValidationApproval, {
-        transaction_id: transactionId,
+        transaction_id: Number(transactionId),
         voucher_id: voucherId,
         approved_by_user_id: userId,
         approval_notes: approvalNotes,
@@ -320,7 +320,7 @@ export class ManualValidationService {
       // Crear registro de auditoría en manual_validation_approvals
       // (ÚNICA fuente de verdad para datos de rechazo)
       await queryRunner.manager.save(ManualValidationApproval, {
-        transaction_id: transactionId,
+        transaction_id: Number(transactionId),
         voucher_id: null, // NULL porque fue rechazado
         approved_by_user_id: userId,
         approval_notes: notes,

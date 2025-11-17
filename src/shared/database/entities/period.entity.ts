@@ -14,6 +14,8 @@ import { CtaMaintenance } from './cta-maintenance.entity';
 import { CtaPenalties } from './cta-penalties.entity';
 import { CtaWater } from './cta-water.entity';
 import { PeriodConfig } from './period-config.entity';
+import { RecordAllocation } from './record-allocation.entity';
+import { HousePeriodOverride } from './house-period-override.entity';
 
 @Entity('periods')
 @Index(['year', 'month'], { unique: true })
@@ -65,4 +67,16 @@ export class Period {
 
   @OneToMany(() => CtaWater, (water) => water.period)
   waters: CtaWater[];
+
+  @OneToMany(
+    () => RecordAllocation,
+    (allocation) => allocation.period,
+  )
+  recordAllocations: RecordAllocation[];
+
+  @OneToMany(
+    () => HousePeriodOverride,
+    (override) => override.period,
+  )
+  housePeriodOverrides: HousePeriodOverride[];
 }

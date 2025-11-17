@@ -6,7 +6,7 @@ import { ValidationStatus } from '../entities/enums';
 
 export interface CreateTransactionStatusDto {
   validation_status?: ValidationStatus;
-  transactions_bank_id?: string | null;
+  transactions_bank_id?: number | null;
   vouchers_id?: number | null;
   reason?: string;
   identified_house_number?: number;
@@ -24,7 +24,7 @@ export interface CreateTransactionStatusDto {
 
 export interface UpdateTransactionStatusDto {
   validation_status?: ValidationStatus;
-  transactions_bank_id?: string | null;
+  transactions_bank_id?: number | null;
   vouchers_id?: number | null;
   reason?: string;
   identified_house_number?: number;
@@ -95,7 +95,7 @@ export class TransactionStatusRepository {
     transactionBankId: string,
   ): Promise<TransactionStatus[]> {
     return this.transactionStatusRepository.find({
-      where: { transactions_bank_id: transactionBankId },
+      where: { transactions_bank_id: Number(transactionBankId) },
       relations: ['voucher', 'records'],
       order: { created_at: 'DESC' },
     });

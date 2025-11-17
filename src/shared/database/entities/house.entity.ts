@@ -4,12 +4,16 @@ import {
   Column,
   ManyToOne,
   OneToMany,
+  OneToOne,
   JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { User } from './user.entity';
 import { HouseRecord } from './house-record.entity';
+import { HouseBalance } from './house-balance.entity';
+import { HousePeriodOverride } from './house-period-override.entity';
+import { RecordAllocation } from './record-allocation.entity';
 
 @Entity('houses')
 export class House {
@@ -37,4 +41,21 @@ export class House {
 
   @OneToMany(() => HouseRecord, (houseRecord) => houseRecord.house)
   houseRecords: HouseRecord[];
+
+  @OneToOne(() => HouseBalance, (balance) => balance.house, {
+    nullable: true,
+  })
+  houseBalance: HouseBalance;
+
+  @OneToMany(
+    () => HousePeriodOverride,
+    (override) => override.house,
+  )
+  housePeriodOverrides: HousePeriodOverride[];
+
+  @OneToMany(
+    () => RecordAllocation,
+    (allocation) => allocation.house,
+  )
+  recordAllocations: RecordAllocation[];
 }

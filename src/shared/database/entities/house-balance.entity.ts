@@ -2,7 +2,7 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
-  ManyToOne,
+  OneToOne,
   JoinColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -50,7 +50,10 @@ export class HouseBalance {
   @UpdateDateColumn()
   updated_at: Date;
 
-  @ManyToOne(() => House, { onUpdate: 'CASCADE', onDelete: 'CASCADE' })
+  @OneToOne(() => House, (house) => house.houseBalance, {
+    onUpdate: 'CASCADE',
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'house_id' })
   house: House;
 }

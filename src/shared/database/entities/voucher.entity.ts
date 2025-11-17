@@ -8,13 +8,14 @@ import {
 } from 'typeorm';
 import { TransactionStatus } from './transaction-status.entity';
 import { Record } from './record.entity';
+import { ManualValidationApproval } from './manual-validation-approval.entity';
 
 @Entity('vouchers')
 export class Voucher {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ type: 'timestamp' })
+  @Column({ type: 'timestamptz' })
   date: Date;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
@@ -46,4 +47,10 @@ export class Voucher {
 
   @OneToMany(() => Record, (record) => record.voucher)
   records: Record[];
+
+  @OneToMany(
+    () => ManualValidationApproval,
+    (approval) => approval.voucher,
+  )
+  manualValidationApprovals: ManualValidationApproval[];
 }

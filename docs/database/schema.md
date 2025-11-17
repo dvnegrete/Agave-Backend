@@ -134,6 +134,194 @@ CREATE UNIQUE INDEX idx_house_records_unique ON house_records(house_id, record_i
 users (1) ──→ (N) houses (1) ──→ (N) house_records (N) ──→ (1) records (1) ──→ (1) vouchers
 ```
 
+### Payment Management Module (v3.0+)
+
+#### periods
+Tabla que define períodos de facturación (mensual, trimestral, etc.) con generación automática de fechas.
+
+```sql
+CREATE TABLE periods (
+    id              SERIAL PRIMARY KEY,
+    year            INT NOT NULL,
+    month           INT NOT NULL,
+    start_date      DATE GENERATED ALWAYS AS (date_trunc('month', make_date(year, month, 1))::date) STORED,
+    end_date        DATE GENERATED ALWAYS AS ((date_trunc('month', make_date(year, month, 1)) + interval '1 month' - interval '1 day')::date) STORED,
+    created_at      TIMESTAMPTZ DEFAULT now(),
+    updated_at      TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE UNIQUE INDEX idx_periods_year_month ON periods(year, month);
+```
+
+**Columnas Principales:**
+- `id`: Identificador único del período
+- `year`: Año del período (ej: 2024)
+- `month`: Mes del período (1-12)
+- `start_date`: Fecha generada automáticamente del primer día del mes
+- `end_date`: Fecha generada automáticamente del último día del mes
+
+#### period_config
+Tabla de configuración de montos por concepto a nivel del período (configuración global).
+
+```sql
+CREATE TABLE period_configs (
+    id                  SERIAL PRIMARY KEY,
+    period_id           INT NOT NULL REFERENCES periods(id),
+    concept_type        VARCHAR(50) NOT NULL,  -- 'maintenance', 'water', 'extraordinary_fee'
+    default_amount      FLOAT NOT NULL,
+    created_at          TIMESTAMPTZ DEFAULT now(),
+    updated_at          TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE UNIQUE INDEX idx_period_configs_period_concept ON period_configs(period_id, concept_type);
+```
+
+**Columnas Principales:**
+- `period_id`: FK al período
+- `concept_type`: Tipo de concepto (mantenimiento, agua, cuota extraordinaria)
+- `default_amount`: Monto por defecto para este concepto en este período
+
+#### house_balances
+Tabla que mantiene los saldos acumulados de cada casa (centavos, saldo a favor, deuda).
+
+```sql
+CREATE TABLE house_balances (
+    id              SERIAL PRIMARY KEY,
+    house_id        INT NOT NULL UNIQUE REFERENCES houses(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    accumulated_cents FLOAT DEFAULT 0,
+    credit_balance  FLOAT DEFAULT 0,
+    debit_balance   FLOAT DEFAULT 0,
+    updated_at      TIMESTAMPTZ DEFAULT now()
+);
+```
+
+**Columnas Principales:**
+- `house_id`: FK única a house (relación OneToOne)
+- `accumulated_cents`: Centavos acumulados de pagos (0.00 - 0.99)
+- `credit_balance`: Saldo a favor por pagos adelantados
+- `debit_balance`: Deuda acumulada por pagos incompletos
+
+#### house_period_overrides
+Tabla que permite montos personalizados por casa/período (convenios de pago, descuentos).
+
+```sql
+CREATE TABLE house_period_overrides (
+    id              SERIAL PRIMARY KEY,
+    house_id        INT NOT NULL REFERENCES houses(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    period_id       INT NOT NULL REFERENCES periods(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    concept_type    VARCHAR(50) NOT NULL,  -- 'maintenance', 'water', 'extraordinary_fee'
+    custom_amount   FLOAT NOT NULL,
+    reason          TEXT,
+    created_at      TIMESTAMPTZ DEFAULT now(),
+    updated_at      TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE UNIQUE INDEX idx_house_period_overrides_unique ON house_period_overrides(house_id, period_id, concept_type);
+```
+
+**Columnas Principales:**
+- `house_id`: FK a house
+- `period_id`: FK a period
+- `concept_type`: Tipo de concepto a sobrescribir
+- `custom_amount`: Monto personalizado para esta casa en este período
+- `reason`: Razón del ajuste (ej: convenio, descuento)
+
+#### record_allocations
+Tabla que registra la distribución detallada de pagos a conceptos y períodos.
+
+```sql
+CREATE TABLE record_allocations (
+    id              SERIAL PRIMARY KEY,
+    record_id       INT NOT NULL REFERENCES records(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    house_id        INT NOT NULL REFERENCES houses(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    period_id       INT NOT NULL REFERENCES periods(id) ON DELETE NO ACTION ON UPDATE CASCADE,
+    concept_type    VARCHAR(50) NOT NULL,  -- 'maintenance', 'water', 'extraordinary_fee', 'penalties', 'other'
+    concept_id      INT NOT NULL,  -- ID del concepto específico (cta_maintenance_id, etc.)
+    allocated_amount FLOAT NOT NULL,
+    expected_amount FLOAT NOT NULL,
+    payment_status  VARCHAR(50) NOT NULL,  -- 'complete', 'partial', 'overpaid'
+    created_at      TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_record_allocations_record_id ON record_allocations(record_id);
+CREATE INDEX idx_record_allocations_house_id ON record_allocations(house_id);
+CREATE INDEX idx_record_allocations_period_id ON record_allocations(period_id);
+```
+
+**Columnas Principales:**
+- `record_id`: FK al registro de pago
+- `house_id`: FK a la casa
+- `period_id`: FK al período
+- `concept_type`: Tipo de concepto (mantenimiento, agua, etc.)
+- `concept_id`: ID del concepto específico (relaciona con tabla CTA)
+- `allocated_amount`: Monto aplicado del pago
+- `expected_amount`: Monto esperado del concepto
+- `payment_status`: Estado del pago (completo, parcial, sobrepagado)
+
+#### CTA Tables (Concept Tables)
+Tablas que definen los conceptos/ítems de pago.
+
+```sql
+CREATE TABLE cta_maintenance (
+    id              SERIAL PRIMARY KEY,
+    period_id       INT NOT NULL REFERENCES periods(id),
+    description     TEXT,
+    created_at      TIMESTAMPTZ DEFAULT now(),
+    updated_at      TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE cta_water (
+    id              SERIAL PRIMARY KEY,
+    period_id       INT NOT NULL REFERENCES periods(id),
+    description     TEXT,
+    created_at      TIMESTAMPTZ DEFAULT now(),
+    updated_at      TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE cta_extraordinary_fee (
+    id              SERIAL PRIMARY KEY,
+    period_id       INT NOT NULL REFERENCES periods(id),
+    description     TEXT,
+    created_at      TIMESTAMPTZ DEFAULT now(),
+    updated_at      TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE cta_penalties (
+    id              SERIAL PRIMARY KEY,
+    period_id       INT NOT NULL REFERENCES periods(id),
+    description     TEXT,
+    created_at      TIMESTAMPTZ DEFAULT now(),
+    updated_at      TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE cta_other_payments (
+    id              SERIAL PRIMARY KEY,
+    period_id       INT NOT NULL REFERENCES periods(id),
+    description     TEXT,
+    created_at      TIMESTAMPTZ DEFAULT now(),
+    updated_at      TIMESTAMPTZ DEFAULT now()
+);
+```
+
+#### manual_validation_approvals
+Tabla de auditoría para validaciones manuales de transacciones con conflictos (v3.1+).
+
+```sql
+CREATE TABLE manual_validation_approvals (
+    id                      SERIAL PRIMARY KEY,
+    transaction_id          BIGINT NOT NULL REFERENCES transactions_bank(id),
+    voucher_id              BIGINT REFERENCES vouchers(id),
+    approved_by_user_id     UUID NOT NULL REFERENCES users(id),
+    reconciliation_status   VARCHAR(50) NOT NULL,
+    reconciliation_notes    TEXT,
+    created_at              TIMESTAMPTZ DEFAULT now(),
+    updated_at              TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_manual_validation_transaction_id ON manual_validation_approvals(transaction_id);
+CREATE INDEX idx_manual_validation_voucher_id ON manual_validation_approvals(voucher_id);
+```
+
 ### Transactions Bank Module
 
 ### transactions_bank
@@ -357,3 +545,139 @@ WHERE cel_phone = 525512345678;
 ### Transactions Bank Queries
 
 See existing queries above in "Query Patterns" section.
+
+### Payment Management Queries
+
+#### Ver historial de pagos de una casa
+```sql
+SELECT
+    ra.allocated_amount,
+    ra.payment_status,
+    ra.concept_type,
+    p.year,
+    p.month,
+    r.created_at
+FROM record_allocations ra
+JOIN records r ON ra.record_id = r.id
+JOIN periods p ON ra.period_id = p.id
+WHERE ra.house_id = 42
+ORDER BY p.year DESC, p.month DESC;
+```
+
+#### Ver saldos actuales de una casa
+```sql
+SELECT
+    h.number_house,
+    hb.accumulated_cents,
+    hb.credit_balance,
+    hb.debit_balance
+FROM houses h
+LEFT JOIN house_balances hb ON h.id = hb.house_id
+WHERE h.number_house = 42;
+```
+
+#### Ver montos por período para una casa
+```sql
+SELECT
+    p.year,
+    p.month,
+    hpo.concept_type,
+    hpo.custom_amount,
+    hpo.reason
+FROM house_period_overrides hpo
+JOIN periods p ON hpo.period_id = p.id
+WHERE hpo.house_id = 42
+ORDER BY p.year DESC, p.month DESC;
+```
+
+## ENUM Types
+
+### AllocationConceptType
+Tipos de conceptos para distribución de pagos en `record_allocations`.
+
+```sql
+CREATE TYPE allocation_concept_type AS ENUM (
+    'maintenance',           -- Mantenimiento/cuota ordinaria
+    'water',                 -- Agua
+    'extraordinary_fee',     -- Cuota extraordinaria
+    'penalties',             -- Multas/mora
+    'other'                  -- Otros
+);
+```
+
+**Valores:**
+- `maintenance`: Cuota de mantenimiento ordinaria del período
+- `water`: Consumo de agua
+- `extraordinary_fee`: Cuota extraordinaria aprobada
+- `penalties`: Multas, mora o intereses
+- `other`: Otros conceptos no clasificados
+
+### PaymentStatus
+Estados de pago en `record_allocations`.
+
+```sql
+CREATE TYPE payment_status AS ENUM (
+    'complete',              -- Pago completo del concepto
+    'partial',               -- Pago parcial (falta dinero)
+    'overpaid'               -- Pago en exceso (sobrepagado)
+);
+```
+
+**Valores:**
+- `complete`: El monto aplicado es exactamente igual al esperado
+- `partial`: El monto aplicado es menor al esperado (deuda)
+- `overpaid`: El monto aplicado es mayor al esperado (exceso)
+
+### ConceptType
+Tipos de conceptos para montos personalizados en `house_period_overrides`.
+
+```sql
+CREATE TYPE concept_type AS ENUM (
+    'maintenance',           -- Mantenimiento/cuota ordinaria
+    'water',                 -- Agua
+    'extraordinary_fee'      -- Cuota extraordinaria
+);
+```
+
+**Valores:**
+- `maintenance`: Cuota ordinaria personalizada
+- `water`: Consumo de agua personalizado
+- `extraordinary_fee`: Cuota extraordinaria personalizada
+
+### ValidationStatus
+Estados de validación en `manual_validation_approvals`.
+
+```sql
+CREATE TYPE validation_status AS ENUM (
+    'not-found',             -- Transacción no encontrada en registros
+    'pending',               -- Pendiente de validación manual
+    'confirmed',             -- Confirmada automáticamente
+    'requires-manual',       -- Requiere validación manual
+    'conflict'               -- Conflicto detectado
+);
+```
+
+**Valores:**
+- `not-found`: No se encontró registro coincidente
+- `pending`: En espera de validación manual
+- `confirmed`: Validada automáticamente
+- `requires-manual`: Requiere revisión manual (múltiples coincidencias)
+- `conflict`: Conflicto entre voucher y transacción
+
+## Relaciones v3.1
+
+```
+Period (1) ──→ (N) PeriodConfig
+             ──→ (N) HousePeriodOverride
+             ──→ (N) RecordAllocation
+
+House (1) ──→ (1) HouseBalance
+           ──→ (N) HousePeriodOverride
+           ──→ (N) RecordAllocation
+
+Record (1) ──→ (N) RecordAllocation
+
+User (1) ──→ (N) ManualValidationApproval
+TransactionBank (1) ──→ (N) ManualValidationApproval
+Voucher (1) ──→ (N) ManualValidationApproval
+```

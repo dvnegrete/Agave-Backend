@@ -26,7 +26,7 @@ export class TransactionStatus {
   validation_status: ValidationStatus;
 
   @Column({ type: 'bigint', nullable: true })
-  transactions_bank_id: string;
+  transactions_bank_id: number;
 
   @Column({ type: 'int', nullable: true })
   vouchers_id: number;

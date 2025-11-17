@@ -20,12 +20,12 @@ export class ReconciliationDataService {
    * Obtiene IDs de transacciones que ya fueron procesadas por conciliación
    * (tienen un TransactionStatus registrado, sin importar el resultado)
    */
-  private async getProcessedTransactionIds(): Promise<Set<string>> {
+  private async getProcessedTransactionIds(): Promise<Set<number>> {
     const statuses = await this.transactionStatusRepository.findAll();
     return new Set(
       statuses
         .map((s) => s.transactions_bank_id)
-        .filter((id): id is string => id !== null && id !== undefined),
+        .filter((id): id is number => id !== null && id !== undefined),
     );
   }
 
@@ -48,7 +48,7 @@ export class ReconciliationDataService {
       (t) =>
         t.is_deposit &&
         !t.confirmation_status &&
-        !processedTransactionIds.has(t.id), // ⬅️ NUEVO: No reprocesar
+        !processedTransactionIds.has(Number(t.id)), // ⬅️ NUEVO: No reprocesar
     );
 
     // Filtrar por rango de fechas si se especifica

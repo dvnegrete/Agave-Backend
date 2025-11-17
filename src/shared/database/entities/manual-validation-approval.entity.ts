@@ -28,8 +28,8 @@ export class ManualValidationApproval {
   /**
    * ID de la transacción bancaria que fue revisada
    */
-  @Column({ type: 'varchar', nullable: false })
-  transaction_id: string;
+  @Column({ type: 'bigint', nullable: false })
+  transaction_id: number;
 
   /**
    * ID del voucher elegido (NULL si fue rechazado)

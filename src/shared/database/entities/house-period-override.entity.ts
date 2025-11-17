@@ -10,12 +10,7 @@ import {
 } from 'typeorm';
 import { House } from './house.entity';
 import { Period } from './period.entity';
-
-export enum ConceptType {
-  MAINTENANCE = 'maintenance',
-  WATER = 'water',
-  EXTRAORDINARY_FEE = 'extraordinary_fee',
-}
+import { ConceptType } from './enums';
 
 /**
  * Sobrescritura de montos para casas específicas en períodos específicos

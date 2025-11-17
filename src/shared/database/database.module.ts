@@ -17,6 +17,10 @@ import { CtaMaintenance } from './entities/cta-maintenance.entity';
 import { CtaPenalties } from './entities/cta-penalties.entity';
 import { CtaWater } from './entities/cta-water.entity';
 import { CtaOtherPayments } from './entities/cta-other-payments.entity';
+import { PeriodConfig } from './entities/period-config.entity';
+import { HouseBalance } from './entities/house-balance.entity';
+import { HousePeriodOverride } from './entities/house-period-override.entity';
+import { RecordAllocation } from './entities/record-allocation.entity';
 import { TransactionBankRepository } from './repositories/transaction-bank.repository';
 import { LastTransactionBankRepository } from './repositories/last-transaction-bank.repository';
 import { VoucherRepository } from './repositories/voucher.repository';
@@ -52,6 +56,10 @@ import { SystemUserSeed } from './seeds/system-user.seed';
       CtaPenalties,
       CtaWater,
       CtaOtherPayments,
+      PeriodConfig,
+      HouseBalance,
+      HousePeriodOverride,
+      RecordAllocation,
     ]),
   ],
   providers: [

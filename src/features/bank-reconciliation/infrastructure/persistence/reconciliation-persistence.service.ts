@@ -205,7 +205,7 @@ export class ReconciliationPersistenceService implements OnModuleInit {
     return await this.transactionStatusRepository.create(
       {
         validation_status: ValidationStatus.CONFIRMED,
-        transactions_bank_id: transactionBankId,
+        transactions_bank_id: Number(transactionBankId),
         vouchers_id: voucherId,
         reason: voucherId
           ? 'Conciliado con voucher'
@@ -370,7 +370,7 @@ export class ReconciliationPersistenceService implements OnModuleInit {
       await this.transactionStatusRepository.create(
         {
           validation_status: status,
-          transactions_bank_id: transactionBankId,
+          transactions_bank_id: Number(transactionBankId),
           vouchers_id: null,
           reason: surplus.reason,
           identified_house_number: surplus.houseNumber,
@@ -419,7 +419,7 @@ export class ReconciliationPersistenceService implements OnModuleInit {
       await this.transactionStatusRepository.create(
         {
           validation_status: ValidationStatus.REQUIRES_MANUAL,
-          transactions_bank_id: transactionBankId,
+          transactions_bank_id: Number(transactionBankId),
           vouchers_id: null,
           reason: manualCase.reason,
           identified_house_number: undefined,

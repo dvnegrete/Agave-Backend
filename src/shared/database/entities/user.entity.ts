@@ -8,6 +8,7 @@ import {
 } from 'typeorm';
 import { Role, Status } from './enums';
 import { House } from './house.entity';
+import { ManualValidationApproval } from './manual-validation-approval.entity';
 
 @Entity('users')
 export class User {
@@ -54,4 +55,10 @@ export class User {
 
   @OneToMany(() => House, (house) => house.user)
   houses: House[];
+
+  @OneToMany(
+    () => ManualValidationApproval,
+    (approval) => approval.approvedByUser,
+  )
+  manualValidationApprovals: ManualValidationApproval[];
 }
