@@ -35,6 +35,9 @@ import { HouseRepository } from '@/shared/database/repositories/house.repository
 import { OpenAIModule } from '@/shared/libs/openai/openai.module';
 import { VertexAIModule } from '@/shared/libs/vertex-ai/vertex-ai.module';
 
+// Payment Management Module for payment allocation
+import { PaymentManagementModule } from '@/features/payment-management/payment-management.module';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -47,6 +50,7 @@ import { VertexAIModule } from '@/shared/libs/vertex-ai/vertex-ai.module';
     ]),
     OpenAIModule,
     VertexAIModule,
+    PaymentManagementModule,
   ],
   controllers: [BankReconciliationController],
   providers: [

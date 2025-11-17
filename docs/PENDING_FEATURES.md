@@ -2,6 +2,54 @@
 
 Este archivo registra features y funcionalidades planificadas pero no implementadas aún.
 
+**Última actualización**: 2025-11-17
+
+---
+
+## Payment Management - Automatic Payment Allocation
+
+**Prioridad**: Alta ✅ **COMPLETADO**
+**Fecha registro**: 2025-11-17
+**Fecha completado**: 2025-11-17
+**Estado**: ✅ IMPLEMENTADO
+
+**Contexto**: Integración de AllocatePaymentUseCase en el flujo de conciliación bancaria para crear automáticamente `record_allocations` cuando se concilian transacciones.
+
+### Problema Resuelto
+Antes de esta implementación:
+- ❌ GET /payment-management/houses/:houseId/payments retornaba lista vacía
+- ❌ `record_allocations` nunca se creaban durante conciliación
+- ❌ Flujo incompleto: solo creaba records, no la distribución de pagos por conceptos
+
+### Implementación Completada
+
+**Archivos Modificados:**
+1. `src/features/bank-reconciliation/infrastructure/persistence/reconciliation-persistence.service.ts`
+   - Inyectadas 4 nuevas dependencias: AllocatePaymentUseCase, PeriodRepository, EnsurePeriodExistsUseCase, TransactionBankRepository
+   - Modificado método `persistReconciliation()` para ejecutar asignación automática (paso 6)
+   - Modificado `createHouseRecordAssociation()` para retornar la house (necesario para allocations)
+   - Agregado método `getOrCreateCurrentPeriod()` para obtener/crear período automáticamente
+   - Total: ~90 líneas de código agregadas
+
+2. `src/features/bank-reconciliation/bank-reconciliation.module.ts`
+   - Importado PaymentManagementModule para acceso a dependencias
+   - Agregado al array de imports
+
+**Funcionalidad Implementada:**
+- ✅ Asignación automática de pagos después de cada conciliación exitosa
+- ✅ Creación automática de `record_allocations` (distribución por concepto)
+- ✅ Obtención/creación automática del período actual
+- ✅ Actualización automática de `house_balance`
+- ✅ Manejo robusto de errores (no cancela conciliación si allocations falla)
+- ✅ Logging detallado del proceso
+
+**Resultado:**
+- ✅ GET /payment-management/houses/:houseId/payments ahora retorna todos los pagos
+- ✅ Flujo completo de conciliación a asignación automatizado
+- ✅ Aplicación compilada y ejecutándose correctamente
+
+---
+
 ## Houses Management Feature
 
 **Prioridad**: Media
