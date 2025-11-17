@@ -31,7 +31,7 @@ export class AddManualValidationFields1731590000000
           },
           {
             name: 'transaction_id',
-            type: 'varchar',
+            type: 'bigint',
             isNullable: false,
             comment: 'ID de la transacción bancaria',
           },
@@ -107,15 +107,21 @@ export class AddManualValidationFields1731590000000
     );
 
     // 3. Agregar índices útiles en transaction_status para queries frecuentes
-    await queryRunner.query(
-      `CREATE INDEX idx_transaction_status_validation_status
-       ON transaction_status(validation_status)`,
-    );
-
-    await queryRunner.query(
-      `CREATE INDEX idx_transaction_status_created
-       ON transaction_status(created_at DESC)`,
-    );
+    // NOTA: Estos índices se crearán en una migración posterior cuando transaction_status exista
+    // try {
+    //   await queryRunner.query(
+    //     `CREATE INDEX IF NOT EXISTS idx_transaction_status_validation_status
+    //      ON transaction_status(validation_status)`,
+    //   );
+    //
+    //   await queryRunner.query(
+    //     `CREATE INDEX IF NOT EXISTS idx_transaction_status_created
+    //      ON transaction_status(created_at DESC)`,
+    //   );
+    // } catch (error) {
+    //   // La tabla transaction_status podría no existir aún, se crearán luego
+    //   console.log('Índices en transaction_status se crearán después');
+    // }
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

@@ -7,6 +7,13 @@ import {
   ParseIntPipe,
   NotFoundException,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  ApiBody,
+} from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { House } from '@/shared/database/entities';
@@ -28,6 +35,7 @@ import {
   HouseBalanceDTO,
 } from '../dto';
 
+@ApiTags('Payment Management')
 @Controller('payment-management')
 export class PaymentManagementController {
   constructor(
@@ -46,6 +54,16 @@ export class PaymentManagementController {
    * GET /payment-management/periods
    * Obtiene todos los períodos
    */
+  @ApiOperation({
+    summary: 'Obtener todos los períodos',
+    description:
+      'Retorna una lista de todos los períodos de facturación registrados',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de períodos obtenida exitosamente',
+    type: [PeriodResponseDto],
+  })
   @Get('periods')
   async getPeriods(): Promise<PeriodResponseDto[]> {
     const periods = await this.getPeriodsUseCase.execute();
@@ -67,10 +85,23 @@ export class PaymentManagementController {
    * POST /payment-management/periods
    * Crea un nuevo período manualmente
    */
+  @ApiOperation({
+    summary: 'Crear nuevo período',
+    description:
+      'Crea un nuevo período de facturación con configuración especificada',
+  })
+  @ApiBody({ type: CreatePeriodDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Período creado exitosamente',
+    type: PeriodResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Período ya existe o datos inválidos',
+  })
   @Post('periods')
-  async createPeriod(
-    @Body() dto: CreatePeriodDto,
-  ): Promise<PeriodResponseDto> {
+  async createPeriod(@Body() dto: CreatePeriodDto): Promise<PeriodResponseDto> {
     const period = await this.createPeriodUseCase.execute(dto);
 
     return {
@@ -91,10 +122,19 @@ export class PaymentManagementController {
    * Asegura que existe un período (crea si no existe)
    * Usado por el sistema de conciliación bancaria
    */
+  @ApiOperation({
+    summary: 'Asegurar existencia de período',
+    description:
+      'Obtiene un período existente o lo crea automáticamente con configuración activa',
+  })
+  @ApiBody({ type: CreatePeriodDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Período obtenido o creado exitosamente',
+    type: PeriodResponseDto,
+  })
   @Post('periods/ensure')
-  async ensurePeriod(
-    @Body() dto: CreatePeriodDto,
-  ): Promise<PeriodResponseDto> {
+  async ensurePeriod(@Body() dto: CreatePeriodDto): Promise<PeriodResponseDto> {
     const period = await this.ensurePeriodExistsUseCase.execute(
       dto.year,
       dto.month,
@@ -117,6 +157,17 @@ export class PaymentManagementController {
    * POST /payment-management/config
    * Crea una nueva configuración de período
    */
+  @ApiOperation({
+    summary: 'Crear configuración de período',
+    description:
+      'Crea una nueva configuración de montos default y reglas de pago',
+  })
+  @ApiBody({ type: CreatePeriodConfigDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Configuración creada exitosamente',
+    type: PeriodConfigResponseDto,
+  })
   @Post('config')
   async createConfig(
     @Body() dto: CreatePeriodConfigDto,
@@ -127,7 +178,8 @@ export class PaymentManagementController {
       id: config.id,
       default_maintenance_amount: config.defaultMaintenanceAmount,
       default_water_amount: config.defaultWaterAmount ?? undefined,
-      default_extraordinary_fee_amount: config.defaultExtraordinaryFeeAmount ?? undefined,
+      default_extraordinary_fee_amount:
+        config.defaultExtraordinaryFeeAmount ?? undefined,
       payment_due_day: config.paymentDueDay,
       late_payment_penalty_amount: config.latePaymentPenaltyAmount,
       effective_from: config.effectiveFrom,
@@ -152,6 +204,25 @@ export class PaymentManagementController {
    * GET /payment-management/houses/:houseId/payments
    * Obtiene el historial completo de pagos de una casa
    */
+  @ApiOperation({
+    summary: 'Obtener historial de pagos',
+    description:
+      'Retorna el historial completo de pagos realizados por una casa',
+  })
+  @ApiParam({
+    name: 'houseId',
+    description: 'ID de la casa',
+    example: 42,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Historial de pagos obtenido',
+    type: PaymentHistoryResponseDTO,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Casa no encontrada',
+  })
   @Get('houses/:houseId/payments')
   async getPaymentHistory(
     @Param('houseId', ParseIntPipe) houseId: number,
@@ -171,6 +242,29 @@ export class PaymentManagementController {
    * GET /payment-management/houses/:houseId/payments/:periodId
    * Obtiene pagos de una casa en un período específico
    */
+  @ApiOperation({
+    summary: 'Obtener pagos por período',
+    description: 'Retorna los pagos de una casa en un período específico',
+  })
+  @ApiParam({
+    name: 'houseId',
+    description: 'ID de la casa',
+    example: 42,
+  })
+  @ApiParam({
+    name: 'periodId',
+    description: 'ID del período',
+    example: 1,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Pagos del período obtenidos',
+    type: PaymentHistoryResponseDTO,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Casa no encontrada',
+  })
   @Get('houses/:houseId/payments/:periodId')
   async getPaymentHistoryByPeriod(
     @Param('houseId', ParseIntPipe) houseId: number,
@@ -191,6 +285,25 @@ export class PaymentManagementController {
    * GET /payment-management/houses/:houseId/balance
    * Obtiene el saldo actual de una casa
    */
+  @ApiOperation({
+    summary: 'Obtener saldo de casa',
+    description:
+      'Retorna el saldo actual (deuda, crédito, centavos acumulados) de una casa',
+  })
+  @ApiParam({
+    name: 'houseId',
+    description: 'ID de la casa',
+    example: 42,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Saldo de casa obtenido',
+    type: HouseBalanceDTO,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Casa no encontrada',
+  })
   @Get('houses/:houseId/balance')
   async getHouseBalance(
     @Param('houseId', ParseIntPipe) houseId: number,

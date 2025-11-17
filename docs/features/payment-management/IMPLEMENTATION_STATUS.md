@@ -1,7 +1,12 @@
 # Payment Management - Estado de Implementación
 
-**Fecha de última actualización**: 28 de Octubre 2025
-**Commit**: `bfd033c` - feat(payment-management): Implementacion de periodos y registro de pagos con montos personalizados
+**Fecha de última actualización**: 17 de Noviembre 2025
+**Versión**: 3.1.0
+**Sprint completado**: Sprint 2 - Implementación completa de gestión de pagos
+**Últimos commits**:
+- Implementación de repositorios y use cases de pagos
+- Creación de 64 tests unitarios (todos pasando)
+- Documentación completa con Swagger
 
 ## Resumen de lo Implementado
 
@@ -51,6 +56,7 @@ Ubicación: `src/shared/database/entities/`
 #### 4. Casos de Uso (Application Layer)
 Ubicación: `src/features/payment-management/application/`
 
+**Sprint 1 - Básicos** ✅:
 - ✅ **EnsurePeriodExistsUseCase**: Creación automática de períodos
   - Verifica existencia
   - Busca configuración activa
@@ -61,9 +67,27 @@ Ubicación: `src/features/payment-management/application/`
 - ✅ **GetPeriodsUseCase**: Obtención de todos los períodos
 - ✅ **CreatePeriodConfigUseCase**: Creación de configuración
 
+**Sprint 2 - Distribución y Consultas** ✅ (NUEVO):
+- ✅ **AllocatePaymentUseCase**: Distribución detallada de pagos
+  - Distribución de montos entre conceptos (mantenimiento, agua, cuota extraordinaria)
+  - Cálculo de estados (complete, partial, overpaid)
+  - Aplicación inteligente de montos restantes (deuda → centavos → crédito)
+  - Integración con overrides de montos personalizados
+  - ~300 líneas de lógica de negocio compleja
+
+- ✅ **GetPaymentHistoryUseCase**: Obtención de historial de pagos
+  - Listado de todos los pagos de una casa
+  - Filtrado por período específico
+  - Cálculo de diferencias (pagado vs esperado)
+
+- ✅ **GetHouseBalanceUseCase**: Consulta de saldo actual
+  - Cálculo de saldo neto
+  - Determinación de estado (balanced, credited, in-debt)
+
 #### 5. Repositorios
 Ubicación: `src/features/payment-management/infrastructure/repositories/`
 
+**Sprint 1**:
 - ✅ **PeriodRepository**: CRUD de períodos
   - `findByYearAndMonth()`
   - `findById()`
@@ -75,41 +99,143 @@ Ubicación: `src/features/payment-management/infrastructure/repositories/`
   - `findById()`
   - `create()`
 
+**Sprint 2** ✅ (NUEVO):
+- ✅ **RecordAllocationRepository**: Gestión de distribución de pagos (12 métodos)
+  - `findByHouseId()`, `findByHouseAndPeriod()`, `findByPaymentStatus()`
+  - `getTotalPaidByHousePeriod()`: Cálculo de totales con agregación SQL
+  - `getTotalExpectedByHousePeriod()`: Cálculo de esperados
+  - Queries complejas con createQueryBuilder para agregaciones
+
+- ✅ **HouseBalanceRepository**: Gestión de saldos (11 métodos)
+  - Operaciones atómicas de actualización
+  - `addAccumulatedCents()`: Manejo de módulo para mantener rango 0.00-0.99
+  - `addCreditBalance()`, `addDebitBalance()`: Operaciones de balance
+  - `findWithDebt()`, `findWithCredit()`: Queries para reportes
+
+- ✅ **HousePeriodOverrideRepository**: Montos personalizados (10 métodos)
+  - `getApplicableAmount()`: Fallback inteligente (override → global)
+  - `findByHousePeriodAndConcept()`: Búsqueda específica con índices
+
 #### 6. Interfaces de Repositorios
 Ubicación: `src/features/payment-management/interfaces/`
 
+**Sprint 1**:
 - ✅ `IPeriodRepository`: Contrato de repositorio de períodos
 - ✅ `IPeriodConfigRepository`: Contrato de repositorio de configuraciones
+
+**Sprint 2** ✅ (NUEVO):
+- ✅ `IRecordAllocationRepository`: Contrato para distribución de pagos
+- ✅ `IHouseBalanceRepository`: Contrato para gestión de saldos
+- ✅ `IHousePeriodOverrideRepository`: Contrato para overrides
 
 #### 7. DTOs
 Ubicación: `src/features/payment-management/dto/`
 
+**Sprint 1**:
 - ✅ **CreatePeriodDto**: Para crear períodos
 - ✅ **CreatePeriodConfigDto**: Para crear configuraciones
 - ✅ **PeriodResponseDto**: Response de período
 - ✅ **PeriodConfigResponseDto**: Response de configuración (definido en controller)
 - ✅ **UpdatePeriodAmountsDto**: Para actualizar montos (sin implementar aún)
 
+**Sprint 2** ✅ (NUEVO - 9 DTOs):
+- ✅ **PaymentAllocationDTO**: Distribución de un pago específico
+- ✅ **CreatePaymentAllocationDTO**: Versión para creación
+- ✅ **PaymentDistributionRequestDTO**: Request para distribuir pagos
+- ✅ **PaymentDistributionResponseDTO**: Response con distribución y saldo
+- ✅ **PaymentHistoryItemDTO**: Item de historial con período y diferencia
+- ✅ **PaymentHistoryResponseDTO**: Historial agregado con totales
+- ✅ **PaymentHistoryByPeriodDTO**: Historial por período específico
+- ✅ **HouseBalanceDTO**: Saldo actual con estado
+- ✅ **UpdateHouseBalanceDTO**: Para actualizar balance
+
 #### 8. API Endpoints
 Ubicación: `src/features/payment-management/controllers/payment-management.controller.ts`
 
-**Implementados**:
+**Sprint 1 - Implementados** ✅:
 - ✅ `GET /payment-management/periods` - Listar todos los períodos
 - ✅ `POST /payment-management/periods` - Crear período manualmente
 - ✅ `POST /payment-management/periods/ensure` - Asegurar existencia (para conciliación)
 - ✅ `POST /payment-management/config` - Crear configuración
+
+**Sprint 2 - Implementados** ✅ (NUEVO):
+- ✅ `GET /payment-management/houses/:houseId/payments` - Historial completo de pagos
+- ✅ `GET /payment-management/houses/:houseId/payments/:periodId` - Pagos por período
+- ✅ `GET /payment-management/houses/:houseId/balance` - Saldo actual de casa
+- ✅ **Con decoradores Swagger completos** (ApiTags, ApiOperation, ApiResponse, ApiParam)
 
 **Marcados como TODO en código**:
 - ⏳ `PATCH /payment-management/periods/:id/amounts` - Actualizar montos
 - ⏳ `GET /payment-management/config/active?date=YYYY-MM-DD` - Config activa
 - ⏳ `PATCH /payment-management/config/:id` - Actualizar configuración
 
+**Ver documentación completa**: [API_ENDPOINTS.md](API_ENDPOINTS.md)
+
 #### 9. Documentación
-- ✅ README.md del feature (en `src/features/payment-management/`)
+- ✅ README.md del feature (en `src/features/payment-management/`) - Actualizado Sprint 2
 - ✅ MIGRATIONS.md con guía detallada de migraciones
+- ✅ IMPLEMENTATION_STATUS.md - Actualizado con estado Sprint 2
+- ✅ **API_ENDPOINTS.md** - NUEVO: Documentación completa de endpoints con ejemplos cURL
 - ✅ Documentación integrada en `docs/features/payment-management/`
+- ✅ Decoradores Swagger completos en todos los endpoints
 - ✅ Actualizado `docs/README.md` con referencias
 - ✅ Actualizado `docs/DOCUMENTATION_STRUCTURE.md`
+
+#### 10. Testing
+**Sprint 2 - Unit Tests** ✅ (64 TESTS PASANDO):
+
+Ubicación: `src/features/payment-management/**/__tests__/`
+
+- ✅ **RecordAllocationRepository.spec.ts** - 9 tests ✅
+  - findByHouseId, findByHouseAndPeriod, create, findByPaymentStatus
+  - getTotalPaidByHousePeriod con agregación SQL
+  - delete con validaciones
+
+- ✅ **HouseBalanceRepository.spec.ts** - 14 tests ✅
+  - CRUD completo (create, findByHouseId, getOrCreate)
+  - addCreditBalance, addDebitBalance con validaciones
+  - addAccumulatedCents con módulo para mantener 0.00-0.99
+  - findWithDebt, findWithCredit con MoreThan queries
+  - delete con estados de éxito/fallo
+
+- ✅ **HousePeriodOverrideRepository.spec.ts** - 9 tests ✅
+  - findByHouseAndPeriod, findByHousePeriodAndConcept
+  - create, update con excepciones
+  - getApplicableAmount con fallback logic
+  - delete con validaciones
+
+- ✅ **AllocatePaymentUseCase.spec.ts** - 9 tests ✅
+  - Distribución completa de pagos entre conceptos
+  - Validaciones (zero amount, negative amount, missing period)
+  - Distribución parcial e inteligente
+  - Aplicación de montos restantes a crédito
+  - Mock sequencing con .mockResolvedValueOnce() para calls múltiples
+
+- ✅ **GetPaymentHistoryUseCase.spec.ts** - 9 tests ✅
+  - Historia completa de pagos de casa
+  - Filtrado por período específico
+  - Cálculo de diferencias (pagado vs esperado)
+  - Estados de pago (complete, partial, overpaid)
+  - Período year/month extraction
+
+- ✅ **GetHouseBalanceUseCase.spec.ts** - 14 tests ✅
+  - Balance retrieval and creation
+  - Net balance calculations
+  - Status determination (in-debt, credited, balanced)
+  - Accumulated cents handling
+  - Response field validation
+
+**Cobertura de Tests**:
+- Total: 64 tests
+- Status: ✅ Todos pasando
+- Tipos de tests: Repositorio (32), Use Cases (32)
+- Mock patterns: TypeORM queries, sequential mocking, type casting
+
+**Problemas resueltos durante testing**:
+- ✅ TypeScript strict null checking en mocks
+- ✅ Mock sequencing con .mockResolvedValueOnce()
+- ✅ Query builder mocking para agregaciones
+- ✅ Type casting (`as any`) para objetos mock complejos
 
 ## ⚠️ Importante: Módulo NO Registrado en App
 
@@ -154,15 +280,32 @@ npm run db:generate
 # Ver docs/features/payment-management/MIGRATIONS.md
 ```
 
+## 📊 Resumen de Sprint 2 ✅ COMPLETADO
+
+**Fechas**: Noviembre 2025
+**Objetivo**: Implementación completa de gestión de pagos y distribución
+**Estado**: ✅ **COMPLETADO** - Todos los componentes funcionales y testeados
+
+**Entregables completados**:
+1. ✅ 4 repositorios de datos con 33 métodos
+2. ✅ 3 casos de uso complejos (AllocatePayment, GetPaymentHistory, GetHouseBalance)
+3. ✅ 9 DTOs para request/response
+4. ✅ 3 endpoints GET completamente documentados con Swagger
+5. ✅ 64 tests unitarios (100% pasando)
+6. ✅ Documentación completa (README, API_ENDPOINTS, IMPLEMENTATION_STATUS)
+
+---
+
 ## Próximos Pasos para Continuar el Desarrollo
 
-### 1. Integración del Módulo (Alta Prioridad)
+### 1. Integración del Módulo (Alta Prioridad) - ⏳ PENDIENTE
 **Objetivo**: Hacer que el módulo esté disponible en la aplicación
 
 **Tareas**:
 - [ ] Importar `PaymentManagementModule` en `src/app.module.ts`
 - [ ] Ejecutar `npm run start:dev` y verificar que no haya errores
 - [ ] Verificar que los endpoints estén disponibles (puede usar Postman/Insomnia)
+- [ ] Acceder a `/api/docs` y ver los endpoints de Payment Management listados en Swagger
 
 ### 2. Ejecutar Migraciones de Base de Datos (Alta Prioridad)
 **Objetivo**: Crear las tablas necesarias en PostgreSQL
