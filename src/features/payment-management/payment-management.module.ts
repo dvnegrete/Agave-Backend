@@ -10,11 +10,17 @@ import {
   EnsurePeriodExistsUseCase,
   GetPeriodsUseCase,
   CreatePeriodConfigUseCase,
+  AllocatePaymentUseCase,
+  GetPaymentHistoryUseCase,
+  GetHouseBalanceUseCase,
 } from './application';
 
 // Infrastructure Layer - Repositories
 import { PeriodRepository } from './infrastructure/repositories/period.repository';
 import { PeriodConfigRepository } from './infrastructure/repositories/period-config.repository';
+import { RecordAllocationRepository } from './infrastructure/repositories/record-allocation.repository';
+import { HouseBalanceRepository } from './infrastructure/repositories/house-balance.repository';
+import { HousePeriodOverrideRepository } from './infrastructure/repositories/house-period-override.repository';
 
 // Entities
 import {
@@ -23,10 +29,8 @@ import {
   HouseBalance,
   HousePeriodOverride,
   RecordAllocation,
+  House,
 } from '@/shared/database/entities';
-
-// Interfaces - Provide implementations
-import { IPeriodRepository, IPeriodConfigRepository} from './interfaces';
 
 @Module({
   imports: [
@@ -36,6 +40,7 @@ import { IPeriodRepository, IPeriodConfigRepository} from './interfaces';
       HouseBalance,
       HousePeriodOverride,
       RecordAllocation,
+      House,
     ]),
   ],
   controllers: [PaymentManagementController],
@@ -45,6 +50,9 @@ import { IPeriodRepository, IPeriodConfigRepository} from './interfaces';
     EnsurePeriodExistsUseCase,
     GetPeriodsUseCase,
     CreatePeriodConfigUseCase,
+    AllocatePaymentUseCase,
+    GetPaymentHistoryUseCase,
+    GetHouseBalanceUseCase,
 
     // Repositories - Provide with interface tokens
     {
@@ -55,14 +63,33 @@ import { IPeriodRepository, IPeriodConfigRepository} from './interfaces';
       provide: 'IPeriodConfigRepository',
       useClass: PeriodConfigRepository,
     },
+    {
+      provide: 'IRecordAllocationRepository',
+      useClass: RecordAllocationRepository,
+    },
+    {
+      provide: 'IHouseBalanceRepository',
+      useClass: HouseBalanceRepository,
+    },
+    {
+      provide: 'IHousePeriodOverrideRepository',
+      useClass: HousePeriodOverrideRepository,
+    },
     // Also provide as regular classes for DI
     PeriodRepository,
     PeriodConfigRepository,
+    RecordAllocationRepository,
+    HouseBalanceRepository,
+    HousePeriodOverrideRepository,
   ],
   exports: [
     EnsurePeriodExistsUseCase, // Exportado para uso en conciliación bancaria
+    AllocatePaymentUseCase, // Exportado para integración con reconciliación
     PeriodRepository,
     PeriodConfigRepository,
+    RecordAllocationRepository,
+    HouseBalanceRepository,
+    HousePeriodOverrideRepository,
   ],
 })
 export class PaymentManagementModule {}

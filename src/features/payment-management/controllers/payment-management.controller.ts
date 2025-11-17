@@ -5,18 +5,27 @@ import {
   Body,
   Param,
   ParseIntPipe,
+  NotFoundException,
 } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { House } from '@/shared/database/entities';
 import {
   CreatePeriodUseCase,
   EnsurePeriodExistsUseCase,
   GetPeriodsUseCase,
   CreatePeriodConfigUseCase,
+  AllocatePaymentUseCase,
+  GetPaymentHistoryUseCase,
+  GetHouseBalanceUseCase,
 } from '../application';
 import {
   CreatePeriodDto,
   CreatePeriodConfigDto,
   PeriodResponseDto,
   PeriodConfigResponseDto,
+  PaymentHistoryResponseDTO,
+  HouseBalanceDTO,
 } from '../dto';
 
 @Controller('payment-management')
@@ -26,6 +35,11 @@ export class PaymentManagementController {
     private readonly ensurePeriodExistsUseCase: EnsurePeriodExistsUseCase,
     private readonly getPeriodsUseCase: GetPeriodsUseCase,
     private readonly createPeriodConfigUseCase: CreatePeriodConfigUseCase,
+    private readonly allocatePaymentUseCase: AllocatePaymentUseCase,
+    private readonly getPaymentHistoryUseCase: GetPaymentHistoryUseCase,
+    private readonly getHouseBalanceUseCase: GetHouseBalanceUseCase,
+    @InjectRepository(House)
+    private readonly houseRepository: Repository<House>,
   ) {}
 
   /**
@@ -133,4 +147,62 @@ export class PaymentManagementController {
 
   // TODO: Implementar endpoint para actualizar configuración
   // PATCH /payment-management/config/:id
+
+  /**
+   * GET /payment-management/houses/:houseId/payments
+   * Obtiene el historial completo de pagos de una casa
+   */
+  @Get('houses/:houseId/payments')
+  async getPaymentHistory(
+    @Param('houseId', ParseIntPipe) houseId: number,
+  ): Promise<PaymentHistoryResponseDTO> {
+    const house = await this.houseRepository.findOne({
+      where: { id: houseId },
+    });
+
+    if (!house) {
+      throw new NotFoundException(`Casa con ID ${houseId} no encontrada`);
+    }
+
+    return this.getPaymentHistoryUseCase.execute(houseId, house);
+  }
+
+  /**
+   * GET /payment-management/houses/:houseId/payments/:periodId
+   * Obtiene pagos de una casa en un período específico
+   */
+  @Get('houses/:houseId/payments/:periodId')
+  async getPaymentHistoryByPeriod(
+    @Param('houseId', ParseIntPipe) houseId: number,
+    @Param('periodId', ParseIntPipe) periodId: number,
+  ): Promise<PaymentHistoryResponseDTO> {
+    const house = await this.houseRepository.findOne({
+      where: { id: houseId },
+    });
+
+    if (!house) {
+      throw new NotFoundException(`Casa con ID ${houseId} no encontrada`);
+    }
+
+    return this.getPaymentHistoryUseCase.executeByPeriod(houseId, periodId, house);
+  }
+
+  /**
+   * GET /payment-management/houses/:houseId/balance
+   * Obtiene el saldo actual de una casa
+   */
+  @Get('houses/:houseId/balance')
+  async getHouseBalance(
+    @Param('houseId', ParseIntPipe) houseId: number,
+  ): Promise<HouseBalanceDTO> {
+    const house = await this.houseRepository.findOne({
+      where: { id: houseId },
+    });
+
+    if (!house) {
+      throw new NotFoundException(`Casa con ID ${houseId} no encontrada`);
+    }
+
+    return this.getHouseBalanceUseCase.execute(houseId, house);
+  }
 }
