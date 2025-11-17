@@ -21,6 +21,7 @@ import { PeriodConfig } from './entities/period-config.entity';
 import { HouseBalance } from './entities/house-balance.entity';
 import { HousePeriodOverride } from './entities/house-period-override.entity';
 import { RecordAllocation } from './entities/record-allocation.entity';
+import { ManualValidationApproval } from './entities/manual-validation-approval.entity';
 import { TransactionBankRepository } from './repositories/transaction-bank.repository';
 import { LastTransactionBankRepository } from './repositories/last-transaction-bank.repository';
 import { VoucherRepository } from './repositories/voucher.repository';
@@ -60,6 +61,7 @@ import { SystemUserSeed } from './seeds/system-user.seed';
       HouseBalance,
       HousePeriodOverride,
       RecordAllocation,
+      ManualValidationApproval,
     ]),
   ],
   providers: [

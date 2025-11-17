@@ -15,7 +15,7 @@ export class Voucher {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ type: 'timestamptz' })
+  @Column({ type: 'timestamptz', nullable: true })
   date: Date;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
@@ -48,9 +48,6 @@ export class Voucher {
   @OneToMany(() => Record, (record) => record.voucher)
   records: Record[];
 
-  @OneToMany(
-    () => ManualValidationApproval,
-    (approval) => approval.voucher,
-  )
+  @OneToMany(() => ManualValidationApproval, (approval) => approval.voucher)
   manualValidationApprovals: ManualValidationApproval[];
 }
