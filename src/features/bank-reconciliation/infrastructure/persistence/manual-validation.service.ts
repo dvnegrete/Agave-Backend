@@ -54,11 +54,7 @@ export class ManualValidationService {
     let query = this.dataSource
       .getRepository(TransactionBank)
       .createQueryBuilder('tb')
-      .leftJoin(
-        'transaction_status',
-        'ts',
-        'ts.transactions_bank_id = tb.id',
-      )
+      .leftJoin('transaction_status', 'ts', 'ts.transactions_bank_id = tb.id')
       .where('ts.validation_status = :status', {
         status: ValidationStatus.REQUIRES_MANUAL,
       })
@@ -359,40 +355,47 @@ export class ManualValidationService {
   async getManualValidationStats(): Promise<ManualValidationStatsDto> {
     // Total pendientes
     const totalPending = await this.dataSource
-      .getRepository('transaction_status')
-      .count({
-        where: { validation_status: ValidationStatus.REQUIRES_MANUAL },
-      });
+      .getRepository(TransactionBank)
+      .createQueryBuilder('tb')
+      .leftJoin('transaction_status', 'ts', 'ts.transactions_bank_id = tb.id')
+      .where('ts.validation_status = :status', {
+        status: ValidationStatus.REQUIRES_MANUAL,
+      })
+      .getCount();
 
-    // Total aprobados
+    // Total aprobados (CONFIRMED con approvedVoucherId en metadata)
     const totalApproved = await this.dataSource
-      .getRepository('transaction_status')
-      .count({
-        where: {
-          validation_status: ValidationStatus.CONFIRMED,
-          metadata: 'approvedVoucherId',
-        },
-      });
+      .getRepository(TransactionBank)
+      .createQueryBuilder('tb')
+      .leftJoin('transaction_status', 'ts', 'ts.transactions_bank_id = tb.id')
+      .where('ts.validation_status = :status', {
+        status: ValidationStatus.CONFIRMED,
+      })
+      .andWhere("ts.metadata->>'approvedVoucherId' IS NOT NULL")
+      .getCount();
 
-    // Total rechazados (marcados como not-found desde manual)
+    // Total rechazados (NOT_FOUND con rejectionReason en metadata)
     const totalRejected = await this.dataSource
-      .getRepository('transaction_status')
-      .count({
-        where: {
-          validation_status: ValidationStatus.NOT_FOUND,
-        },
-      });
+      .getRepository(TransactionBank)
+      .createQueryBuilder('tb')
+      .leftJoin('transaction_status', 'ts', 'ts.transactions_bank_id = tb.id')
+      .where('ts.validation_status = :status', {
+        status: ValidationStatus.NOT_FOUND,
+      })
+      .andWhere("ts.metadata->>'rejectionReason' IS NOT NULL")
+      .getCount();
 
     // Pendientes en últimas 24 horas
     const last24Hours = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const pendingLast24Hours = await this.dataSource
-      .getRepository('transaction_status')
-      .count({
-        where: {
-          validation_status: ValidationStatus.REQUIRES_MANUAL,
-          created_at: more(last24Hours) as any,
-        },
-      });
+      .getRepository(TransactionBank)
+      .createQueryBuilder('tb')
+      .leftJoin('transaction_status', 'ts', 'ts.transactions_bank_id = tb.id')
+      .where('ts.validation_status = :status', {
+        status: ValidationStatus.REQUIRES_MANUAL,
+      })
+      .andWhere('ts.created_at >= :last24Hours', { last24Hours })
+      .getCount();
 
     // Tasa de aprobación
     const approvalRate =
@@ -400,14 +403,13 @@ export class ManualValidationService {
         ? totalApproved / (totalApproved + totalRejected)
         : 0;
 
-    // Tiempo promedio de aprobación
+    // Tiempo promedio de aprobación (solo los que fueron resueltos)
     const avgResult = await this.dataSource.query(`
       SELECT AVG(EXTRACT(EPOCH FROM (processed_at - created_at)) / 60) as avg_minutes
       FROM transaction_status
-      WHERE validation_status != $1
-      AND metadata->>'rejectionReason' IS NOT NULL
+      WHERE (validation_status = $1 OR validation_status = $2)
       AND processed_at IS NOT NULL
-    `, [ValidationStatus.REQUIRES_MANUAL]);
+    `, [ValidationStatus.CONFIRMED, ValidationStatus.NOT_FOUND]);
 
     const avgApprovalTimeMinutes = avgResult[0]?.avg_minutes || 0;
 
@@ -478,9 +480,4 @@ export class ManualValidationService {
       status: 'pending',
     };
   }
-}
-
-// Helper para query builder (importar si no existe)
-function more(date: Date) {
-  return date;
 }

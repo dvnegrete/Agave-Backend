@@ -112,8 +112,8 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 // Configuración de Swagger
 const config = new DocumentBuilder()
   .setTitle('Agave Backend API')
-  .setDescription('API para gestión de transacciones bancarias, vouchers y reconciliación')
-  .setVersion('1.0')
+  .setDescription('API para gestión de transacciones bancarias, vouchers, reconciliación y validación manual')
+  .setVersion('1.2')
   .addTag('vouchers', 'Procesamiento de comprobantes de pago con OCR')
   .addTag('transactions-bank', 'Gestión de transacciones bancarias')
   .addTag('bank-reconciliation', 'Reconciliación de transacciones')
@@ -260,20 +260,49 @@ export class ExampleResponseDto {
 
 | Feature | Endpoints Documentados | Archivo de Decorators |
 |---------|------------------------|----------------------|
-| **bank-reconciliation** | 1 | `decorators/swagger.decorators.ts` |
+| **bank-reconciliation** | 5 | Integrados en `bank-reconciliation.controller.ts` |
 | **transactions-bank** | 8 | `decorators/swagger.decorators.ts` |
 | **vouchers** | 2 | `decorators/swagger.decorators.ts` |
 | **payment-management** | 7 | Integrados en `payment-management.controller.ts` |
-| **Total** | **18 endpoints** | - |
+| **Total** | **22 endpoints** | - |
 
 ### Detalle de Endpoints Documentados
 
-#### 🔄 Bank Reconciliation (1 endpoint)
+#### 🔄 Bank Reconciliation (5 endpoints)
+
+**Conciliación Automática:**
 
 1. **POST /bank-reconciliation/reconcile** - `@ApiReconcileTransactions()`
    - Ejecutar conciliación bancaria automática
    - Request: `ReconcileRequestDto` (startDate, endDate opcionales)
    - Response: `ReconciliationResponseDto` (summary, conciliados, pendientes, sobrantes, manualValidation)
+
+**Validación Manual de Casos Ambiguos:**
+
+2. **GET /bank-reconciliation/manual-validation/pending**
+   - Listar casos pendientes de validación manual
+   - Query Params: startDate, endDate, houseNumber, page (default 1), limit (default 20), sortBy (date|similarity|candidates)
+   - Response: `ManualValidationCasesPageDto` (paginación, lista de casos con posibles matches)
+   - Features: Filtrado por fecha y casa, sorting flexible, paginación configurable
+
+3. **POST /bank-reconciliation/manual-validation/:transactionId/approve**
+   - Aprobar un caso de validación manual eligiendo un voucher candidato
+   - Path Param: transactionId
+   - Request: `ApproveManualCaseDto` (voucherId, approverNotes opcionales)
+   - Response: `ApproveManualCaseResponseDto` (resultado de conciliación con timestamp)
+   - Features: Validación de voucher, auditoría de aprobación, transacción ACID
+
+4. **POST /bank-reconciliation/manual-validation/:transactionId/reject**
+   - Rechazar todos los vouchers candidatos de un caso
+   - Path Param: transactionId
+   - Request: `RejectManualCaseDto` (rejectionReason, notes opcionales)
+   - Response: `RejectManualCaseResponseDto` (confirmación de rechazo)
+   - Features: Auditoría de rechazo, marcar transacción como not-found, logging detallado
+
+5. **GET /bank-reconciliation/manual-validation/stats**
+   - Obtener estadísticas de validación manual
+   - Response: `ManualValidationStatsDto` (total pendientes, aprobados, rechazados, tasa de aprobación, distribución por casa)
+   - Metrics: Casos en últimas 24h, tiempo promedio de resolución, distribución por rango de casas (1-10, 11-20, 21-30, 31-40, 41-66)
 
 #### 🏦 Transactions Bank (8 endpoints)
 
