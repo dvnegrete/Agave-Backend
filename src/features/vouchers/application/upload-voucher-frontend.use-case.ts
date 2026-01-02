@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { VoucherProcessorService } from '../infrastructure/ocr/voucher-processor.service';
+import { VoucherGarbageCollectorService } from '../infrastructure/persistence/voucher-garbage-collector.service';
 import {
   FrontendVoucherResponseDto,
   ValidationResultDto,
@@ -32,7 +33,10 @@ export interface UploadVoucherFrontendOutput extends FrontendVoucherResponseDto 
 export class UploadVoucherFrontendUseCase {
   private readonly logger = new Logger(UploadVoucherFrontendUseCase.name);
 
-  constructor(private readonly voucherProcessor: VoucherProcessorService) {}
+  constructor(
+    private readonly voucherProcessor: VoucherProcessorService,
+    private readonly garbageCollector: VoucherGarbageCollectorService,
+  ) {}
 
   async execute(
     input: UploadVoucherFrontendInput,
@@ -68,15 +72,27 @@ export class UploadVoucherFrontendUseCase {
         },
       };
 
-      this.logger.debug(
-        `Voucher procesado exitosamente. Casa: ${ocrResult.structuredData.casa}, Datos válidos: ${validation.isValid}`,
-      );
+      // Trigger background cleanup de archivos huérfanos (fire-and-forget)
+      this.triggerBackgroundCleanup();
 
       return response;
     } catch (error) {
       this.logger.error(`Error procesando voucher: ${error.message}`);
       throw error;
     }
+  }
+
+  /**
+   * Ejecuta cleanup en background sin bloquear la respuesta al usuario
+   * Fire-and-forget pattern: no esperar resultado, no lanzar errores
+   *
+   * Busca archivos en GCS más viejos que 2 horas que no estén referenciados en BD
+   * y los elimina. Si algo falla, solo loguea warning (no afecta upload exitoso)
+   */
+  private triggerBackgroundCleanup(): void {
+    this.garbageCollector.cleanup().catch((error) => {
+      this.logger.warn('Background cleanup error', error.message);
+    });
   }
 
   /**

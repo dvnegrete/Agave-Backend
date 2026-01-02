@@ -217,4 +217,18 @@ export class VoucherRepository {
 
     return { total, confirmed, pending };
   }
+
+  /**
+   * Verifica si un archivo GCS está referenciado en algún voucher
+   * Usado por VoucherGarbageCollectorService para detectar archivos huérfanos
+   *
+   * @param filename Nombre del archivo GCS (ej: p-2024-01-15_14-30-45-uuid.jpg)
+   * @returns true si existe voucher con url = filename, false si no
+   */
+  async isFileReferenced(filename: string): Promise<boolean> {
+    const count = await this.voucherRepository.count({
+      where: { url: filename },
+    });
+    return count > 0;
+  }
 }

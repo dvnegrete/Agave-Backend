@@ -5,6 +5,7 @@ import { VouchersFrontendController } from './controllers/vouchers-frontend.cont
 import { VouchersService } from './infrastructure/persistence/vouchers.service';
 import { ConversationStateService } from './infrastructure/persistence/conversation-state.service';
 import { VoucherDuplicateDetectorService } from './infrastructure/persistence/voucher-duplicate-detector.service';
+import { VoucherGarbageCollectorService } from './infrastructure/persistence/voucher-garbage-collector.service';
 // Infrastructure - OCR
 import { OcrService } from './infrastructure/ocr/ocr.service';
 import { VoucherProcessorService } from './infrastructure/ocr/voucher-processor.service';
@@ -43,6 +44,7 @@ import { ConfirmVoucherFrontendUseCase } from './application/confirm-voucher-fro
     VouchersService,
     ConversationStateService,
     VoucherDuplicateDetectorService,
+    VoucherGarbageCollectorService,
     // Infrastructure - OCR
     OcrService,
     VoucherProcessorService,

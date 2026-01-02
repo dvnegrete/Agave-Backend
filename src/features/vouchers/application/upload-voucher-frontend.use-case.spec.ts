@@ -1,14 +1,25 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UploadVoucherFrontendUseCase } from './upload-voucher-frontend.use-case';
 import { VoucherProcessorService } from '../infrastructure/ocr/voucher-processor.service';
+import { VoucherGarbageCollectorService } from '../infrastructure/persistence/voucher-garbage-collector.service';
 
 describe('UploadVoucherFrontendUseCase', () => {
   let useCase: UploadVoucherFrontendUseCase;
   let mockVoucherProcessor: any;
+  let mockGarbageCollector: any;
 
   beforeEach(async () => {
     mockVoucherProcessor = {
       processVoucher: jest.fn(),
+    };
+
+    mockGarbageCollector = {
+      cleanup: jest.fn().mockResolvedValue({
+        filesScanned: 0,
+        filesDeleted: 0,
+        filesFailed: 0,
+        orphanedFilesDetected: 0,
+      }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -17,6 +28,10 @@ describe('UploadVoucherFrontendUseCase', () => {
         {
           provide: VoucherProcessorService,
           useValue: mockVoucherProcessor,
+        },
+        {
+          provide: VoucherGarbageCollectorService,
+          useValue: mockGarbageCollector,
         },
       ],
     }).compile();
