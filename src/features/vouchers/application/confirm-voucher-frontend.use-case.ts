@@ -53,162 +53,162 @@ export class ConfirmVoucherFrontendUseCase {
   async execute(
     input: ConfirmVoucherFrontendInput,
   ): Promise<ConfirmVoucherFrontendOutput> {
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
+    const {
+      monto,
+      fecha_pago,
+      hora_transaccion,
+      casa,
+      referencia,
+      gcsFilename,
+      userId,
+    } = input;
 
+    this.logger.debug(`
+      Confirmando voucher Frontend: casa=${casa}, monto=${monto}`);
+
+    // 1. Validar y parsear datos (ANTES de cualquier conexión BD)
+    const amount = parseFloat(monto);
+    if (isNaN(amount) || !isFinite(amount) || amount <= 0) {
+      throw new BadRequestException(
+        VOUCHER_FRONTEND_MESSAGES.VALIDATION.AMOUNT.INVALID_WITH_VALUE(monto),
+      );
+    }
+
+    // 2. Combinar fecha y hora
+    const dateTime = combineDateAndTime(
+      fecha_pago,
+      hora_transaccion || VOUCHER_FRONTEND_MESSAGES.DEFAULTS.DEFAULT_TIME,
+    );
+
+    // 3. Detectar duplicados (usa su propia conexión BD)
+    const duplicateCheck = await this.duplicateDetector.detectDuplicate(
+      dateTime,
+      amount,
+      casa,
+    );
+
+    if (duplicateCheck.isDuplicate) {
+      this.logger.warn(
+        `⚠️  Duplicado detectado. Casa=${casa}, Monto=${amount}. ${duplicateCheck.message}`,
+      );
+      throw new ConflictException(
+        VOUCHER_FRONTEND_MESSAGES.BUSINESS_ERRORS.DUPLICATE_VOUCHER(
+          duplicateCheck.message,
+        ),
+      );
+    }
+
+    // 4. Generar código de confirmación único (con retry logic)
+    const voucherData = {
+      date: dateTime,
+      authorization_number:
+        referencia || VOUCHER_FRONTEND_MESSAGES.DEFAULTS.DEFAULT_REFERENCE,
+      amount,
+      confirmation_status: false,
+      url: gcsFilename,
+    };
+
+    const generateResult = await generateUniqueConfirmationCode(
+      this.voucherRepository,
+      voucherData,
+    );
+
+    if (!generateResult.success) {
+      throw new BadRequestException(
+        VOUCHER_FRONTEND_MESSAGES.BUSINESS_ERRORS.CONFIRMATION_CODE_GENERATION_FAILED(
+          generateResult.error,
+        ),
+      );
+    }
+
+    const confirmationCode = generateResult.code!;
+
+    // 5. ✅ MEJOR PRÁCTICA: Usar transaction() en lugar de QueryRunner manual
+    // Esto proporciona automáticamente ACID compliance, commit, y rollback
     try {
-      const {
-        monto,
-        fecha_pago,
-        hora_transaccion,
-        casa,
-        referencia,
-        gcsFilename,
-        userId,
-      } = input;
-
-      this.logger.debug(`
-        Confirmando voucher Frontend: casa=${casa}, monto=${monto}`);
-
-      // 1. Validar y parsear datos
-      const amount = parseFloat(monto);
-      if (isNaN(amount) || !isFinite(amount) || amount <= 0) {
-        throw new BadRequestException(
-          VOUCHER_FRONTEND_MESSAGES.VALIDATION.AMOUNT.INVALID_WITH_VALUE(monto),
-        );
-      }
-
-      // 2. Combinar fecha y hora
-      const dateTime = combineDateAndTime(
-        fecha_pago,
-        hora_transaccion || VOUCHER_FRONTEND_MESSAGES.DEFAULTS.DEFAULT_TIME,
-      );
-
-      // 3. Detectar duplicados
-      const duplicateCheck = await this.duplicateDetector.detectDuplicate(
-        dateTime,
-        amount,
-        casa,
-      );
-
-      if (duplicateCheck.isDuplicate) {
-        this.logger.warn(
-          `⚠️  Duplicado detectado. Casa=${casa}, Monto=${amount}. ${duplicateCheck.message}`,
-        );
-        throw new ConflictException(
-          VOUCHER_FRONTEND_MESSAGES.BUSINESS_ERRORS.DUPLICATE_VOUCHER(
-            duplicateCheck.message,
-          ),
-        );
-      }
-
-      // 4. Generar código de confirmación único (con retry logic)
-      const voucherData = {
-        date: dateTime,
-        authorization_number:
-          referencia || VOUCHER_FRONTEND_MESSAGES.DEFAULTS.DEFAULT_REFERENCE,
-        amount,
-        confirmation_status: false,
-        url: gcsFilename,
-      };
-
-      const generateResult = await generateUniqueConfirmationCode(
-        this.voucherRepository,
-        voucherData,
-      );
-
-      if (!generateResult.success) {
-        throw new BadRequestException(
-          VOUCHER_FRONTEND_MESSAGES.BUSINESS_ERRORS.CONFIRMATION_CODE_GENERATION_FAILED(
-            generateResult.error,
-          ),
-        );
-      }
-
-      const confirmationCode = generateResult.code!;
-
-      // 5. INICIAR TRANSACCIÓN - Garantiza atomicidad ACID
-      await queryRunner.startTransaction();
-
-      try {
+      const result = await this.dataSource.transaction(async (manager) => {
         // 6. Obtener el voucher que fue creado por generateUniqueConfirmationCode
-        const voucher =
-          await this.voucherRepository.findByConfirmationCode(confirmationCode);
+        // Usar la query directa del manager en lugar del repositorio
+        const voucher = await manager.query(
+          'SELECT id, confirmation_code, confirmation_status FROM vouchers WHERE confirmation_code = $1',
+          [confirmationCode],
+        );
 
-        if (!voucher) {
+        if (!voucher || voucher.length === 0) {
           throw new Error(
             VOUCHER_FRONTEND_MESSAGES.BUSINESS_ERRORS.VOUCHER_NOT_FOUND_AFTER_GENERATION,
           );
         }
 
+        const voucherId = voucher[0].id;
+        const confirmationStatus = voucher[0].confirmation_status;
+
         // 7. Crear o buscar Usuario (si userId está disponible)
         let userIdToUse: string | null = null;
         if (userId) {
-          const user = await this.findOrCreateUser(userId, queryRunner);
+          const user = await this.findOrCreateUserWithManager(userId, manager);
           userIdToUse = user?.id || null;
         }
 
         // 8. Crear Record (vincula voucher con las cuentas)
-        const record = await this.recordRepository.create(
-          {
-            vouchers_id: voucher.id,
-            transaction_status_id: null,
-            cta_extraordinary_fee_id: null,
-            cta_maintence_id: null,
-            cta_penalities_id: null,
-            cta_water_id: null,
-            cta_other_payments_id: null,
-          },
-          queryRunner,
-        );
+        const recordData = {
+          vouchers_id: voucherId,
+          transaction_status_id: null,
+          cta_extraordinary_fee_id: null,
+          cta_maintence_id: null,
+          cta_penalities_id: null,
+          cta_water_id: null,
+          cta_other_payments_id: null,
+        };
+        const record = manager.create('Record', recordData);
+        const savedRecord = await manager.save(record);
 
         // 9. Crear o buscar Casa y su asociación con el Record
-        await this.findOrCreateHouseAssociation(
+        await this.findOrCreateHouseAssociationWithManager(
           casa,
           userIdToUse,
-          record.id,
-          queryRunner,
+          (savedRecord as any).id,
+          manager,
         );
-
-        // 10. COMMIT - Todo exitoso
-        await queryRunner.commitTransaction();
 
         this.logger.debug(
-          `Voucher confirmado exitosamente: id=${voucher.id}, code=${confirmationCode}, casa=${casa}`,
+          `Voucher confirmado exitosamente: id=${voucherId}, code=${confirmationCode}, casa=${casa}`,
         );
 
-        // 11. Construir respuesta
+        // Retornar los datos para la respuesta fuera de la transacción
         return {
-          success: true,
+          voucherId,
           confirmationCode,
-          voucher: {
-            id: voucher.id,
-            amount,
-            date: dateTime.toISOString(),
-            casa,
-            referencia: referencia || '',
-            confirmation_status: voucher.confirmation_status,
-          },
+          confirmationStatus,
         };
-      } catch (transactionError) {
-        // ROLLBACK - Algo falló en la transacción
-        await queryRunner.rollbackTransaction();
-        this.logger.error(
-          `Error en transacción de confirmación: ${transactionError.message}`,
-        );
-        throw transactionError;
-      }
+      });
+
+      // 11. Construir respuesta
+      return {
+        success: true,
+        confirmationCode: result.confirmationCode,
+        voucher: {
+          id: result.voucherId,
+          amount,
+          date: dateTime.toISOString(),
+          casa,
+          referencia: referencia || '',
+          confirmation_status: result.confirmationStatus,
+        },
+      };
     } catch (error) {
-      this.logger.error(`Error confirmando voucher Frontend: ${error.message}`);
+      // ✅ transaction() automáticamente maneja rollback en caso de error
+      // No es necesario llamar rollbackTransaction() manualmente
+      this.logger.error(
+        `Error confirmando voucher Frontend: ${error.message}`,
+      );
       throw error;
-    } finally {
-      // Liberar el QueryRunner
-      await queryRunner.release();
     }
   }
 
   /**
    * Busca un usuario por ID o lo crea si no existe
+   * Versión para uso con QueryRunner (legacy)
    * NOTA: cel_phone no se usa para usuarios creados vía Frontend
    */
   private async findOrCreateUser(
@@ -253,8 +253,52 @@ export class ConfirmVoucherFrontendUseCase {
   }
 
   /**
+   * Busca un usuario por ID o lo crea si no existe
+   * Versión para uso con EntityManager (transaction)
+   * NOTA: cel_phone no se usa para usuarios creados vía Frontend
+   */
+  private async findOrCreateUserWithManager(
+    userId: string | null,
+    manager: any,
+  ): Promise<any | null> {
+    if (!userId) {
+      return null;
+    }
+
+    try {
+      // Buscar usuario por ID usando el manager
+      let user = await manager.findOne('User', { where: { id: userId } });
+
+      if (!user) {
+        // Usuario no existe, crear nuevo
+        this.logger.debug(`Creando nuevo usuario con ID: ${userId}`);
+
+        user = manager.create('User', {
+          id: userId,
+          cel_phone: 0, // Placeholder - no tenemos teléfono desde Frontend
+          role: Role.TENANT,
+          status: Status.ACTIVE,
+        });
+        await manager.save(user);
+
+        this.logger.debug(`Usuario creado exitosamente: ${user.id}`);
+      } else {
+        this.logger.debug(`Usuario existente encontrado: ${user.id}`);
+      }
+
+      return user;
+    } catch (error) {
+      this.logger.error(`Error al buscar o crear usuario: ${error.message}`);
+      throw new Error(
+        VOUCHER_FRONTEND_MESSAGES.USER_ERRORS.PROCESSING_FAILED(error.message),
+      );
+    }
+  }
+
+  /**
    * Busca una casa por number_house o la crea si no existe,
    * luego crea la asociación con el record en la tabla house_records
+   * Versión para uso con QueryRunner (legacy)
    */
   private async findOrCreateHouseAssociation(
     numberHouse: number,
@@ -315,6 +359,77 @@ export class ConfirmVoucherFrontendUseCase {
         },
         queryRunner,
       );
+
+      this.logger.debug(`Asociación house_record creada exitosamente`);
+    } catch (error) {
+      this.logger.error(`Error al buscar o crear casa: ${error.message}`);
+      throw new Error(
+        VOUCHER_FRONTEND_MESSAGES.HOUSE_ERRORS.PROCESSING_FAILED(
+          numberHouse,
+          error.message,
+        ),
+      );
+    }
+  }
+
+  /**
+   * Busca una casa por number_house o la crea si no existe,
+   * luego crea la asociación con el record en la tabla house_records
+   * Versión para uso con EntityManager (transaction)
+   */
+  private async findOrCreateHouseAssociationWithManager(
+    numberHouse: number,
+    userId: string | null | undefined,
+    recordId: number,
+    manager: any,
+  ): Promise<void> {
+    try {
+      // Buscar casa existente por número de casa
+      let house = await manager.findOne('House', {
+        where: { number_house: numberHouse },
+      });
+
+      if (!house) {
+        // Casa no existe, crear nueva
+        const assignedUserId = userId || '';
+
+        this.logger.debug(
+          `Creando nueva casa ${numberHouse}` +
+            (userId ? ` para usuario ${userId}` : ' (sin usuario asignado)'),
+        );
+
+        house = manager.create('House', {
+          number_house: numberHouse,
+          user_id: assignedUserId,
+        });
+        await manager.save(house);
+
+        this.logger.debug(`Casa creada exitosamente: ${house.id}`);
+      } else {
+        this.logger.debug(
+          `Casa existente encontrada: ${house.id} (number_house: ${numberHouse})`,
+        );
+
+        // Verificar si el propietario cambió (solo si tenemos userId)
+        if (userId && house.user_id !== userId) {
+          this.logger.debug(
+            `Actualizando propietario de casa ${numberHouse}: ${house.user_id} → ${userId}`,
+          );
+          house.user_id = userId;
+          await manager.save(house);
+        }
+      }
+
+      // Crear asociación en house_records
+      this.logger.debug(
+        `Creando asociación house_record: house_id=${house.id}, record_id=${recordId}`,
+      );
+
+      const houseRecord = manager.create('HouseRecord', {
+        house_id: house.id,
+        record_id: recordId,
+      });
+      await manager.save(houseRecord);
 
       this.logger.debug(`Asociación house_record creada exitosamente`);
     } catch (error) {

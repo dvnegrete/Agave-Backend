@@ -15,7 +15,7 @@ export interface DatabaseConfig {
 
 @Injectable()
 export class DatabaseConfigService {
-  constructor(private configService: ConfigService) {}
+  constructor(private configService: ConfigService) { }
 
   getDatabaseConfig(): DatabaseConfig {
     const databaseProvider = this.configService.get<string>(
@@ -94,6 +94,17 @@ export class DatabaseConfigService {
 
   getTypeOrmConfig(): TypeOrmModuleOptions {
     const config = this.getDatabaseConfig();
+    const isProduction =
+      this.configService.get<string>('NODE_ENV') === 'production';
+    const isDevelopment =
+      this.configService.get<string>('NODE_ENV') === 'development';
+
+    // Configuración optimizada del pool según ambiente
+    const poolConfig = isProduction
+      ? this.getProductionPoolConfig()
+      : isDevelopment
+        ? this.getDevelopmentPoolConfig()
+        : this.getDefaultPoolConfig();
 
     return {
       type: 'postgres',
@@ -107,10 +118,76 @@ export class DatabaseConfigService {
       // Usar solo autoLoadEntities en lugar de especificar el patrón entities
       // Esto evita la carga duplicada y problemas con dependencias circulares
       autoLoadEntities: true,
-      synchronize: this.configService.get<string>('NODE_ENV') === 'development',
-      logging: this.configService.get<string>('NODE_ENV') === 'development',
+      synchronize: isDevelopment,
+      logging: isDevelopment,
       migrations: [__dirname + '/../../database/migrations/*{.ts,.js}'],
       migrationsRun: false,
+
+      // ✅ Configuración optimizada del Connection Pool
+      // TypeORM utiliza pg (node-postgres) bajo el hood, por lo que estos settings van en 'extra'
+      extra: {
+        max: poolConfig.maxConnections, // Max 20 (production) / 5 (development)
+        maxQueue: poolConfig.maxQueryQueue, // Max queries en queue
+        idleTimeoutMillis: poolConfig.idleTimeoutMillis, // 30s (prod) / 10s (dev)
+        connectionTimeoutMillis: poolConfig.connectionTimeoutMillis, // 5s (prod) / 3s (dev)
+        allowExitOnIdle: false, // Mantener conexiones vivas en el pool
+        // Validación periódica de conexiones vivas
+        statement_timeout: 30000, // Statement timeout en ms
+      },
+    };
+  }
+
+  /**
+   * Configuración de pool para producción
+   * Optimizada para alto rendimiento y confiabilidad
+   */
+  private getProductionPoolConfig(): {
+    maxConnections: number;
+    maxQueryQueue: number;
+    idleTimeoutMillis: number;
+    connectionTimeoutMillis: number;
+  } {
+    return {
+      maxConnections: 20, // Max 20 conexiones simultáneas
+      maxQueryQueue: 100, // Max 100 queries esperando
+      idleTimeoutMillis: 30000, // 30 segundos de timeout idle
+      connectionTimeoutMillis: 5000, // 5 segundos para conectar
+    };
+  }
+
+  /**
+   * Configuración de pool para desarrollo
+   * Optimizada para menor consumo de recursos
+   */
+  private getDevelopmentPoolConfig(): {
+    maxConnections: number;
+    maxQueryQueue: number;
+    idleTimeoutMillis: number;
+    connectionTimeoutMillis: number;
+  } {
+    return {
+      maxConnections: 5, // Max 5 conexiones (menos recursos)
+      maxQueryQueue: 50,
+      idleTimeoutMillis: 10000, // 10 segundos
+      connectionTimeoutMillis: 3000, // 3 segundos
+    };
+  }
+
+  /**
+   * Configuración de pool por defecto
+   * Punto medio entre producción y desarrollo
+   */
+  private getDefaultPoolConfig(): {
+    maxConnections: number;
+    maxQueryQueue: number;
+    idleTimeoutMillis: number;
+    connectionTimeoutMillis: number;
+  } {
+    return {
+      maxConnections: 10,
+      maxQueryQueue: 50,
+      idleTimeoutMillis: 20000,
+      connectionTimeoutMillis: 4000,
     };
   }
 }
