@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { VouchersController } from './controllers/vouchers.controller';
+import { VouchersFrontendController } from './controllers/vouchers-frontend.controller';
 // Infrastructure - Persistence
 import { VouchersService } from './infrastructure/persistence/vouchers.service';
 import { ConversationStateService } from './infrastructure/persistence/conversation-state.service';
@@ -21,7 +22,7 @@ import { TelegramMessagingService } from './infrastructure/telegram/telegram-mes
 import { GoogleCloudModule } from '@/shared/libs/google-cloud';
 import { VertexAIModule } from '@/shared/libs/vertex-ai/vertex-ai.module';
 import { OpenAIModule } from '@/shared/libs/openai/openai.module';
-// Use Cases
+// Use Cases - WhatsApp/Telegram
 import { ProcessVoucherUseCase } from './application/process-voucher.use-case';
 import { ConfirmVoucherUseCase } from './application/confirm-voucher.use-case';
 import { HandleWhatsAppMessageUseCase } from './application/handle-whatsapp-message.use-case';
@@ -30,10 +31,13 @@ import { HandleMissingDataUseCase } from './application/handle-missing-data.use-
 import { HandleHouseNumberUseCase } from './application/handle-house-number.use-case';
 import { CorrectVoucherDataUseCase } from './application/correct-voucher-data.use-case';
 import { HandleTelegramWebhookUseCase } from './application/handle-telegram-webhook.use-case';
+// Use Cases - Frontend HTTP
+import { UploadVoucherFrontendUseCase } from './application/upload-voucher-frontend.use-case';
+import { ConfirmVoucherFrontendUseCase } from './application/confirm-voucher-frontend.use-case';
 
 @Module({
   imports: [GoogleCloudModule, VertexAIModule, OpenAIModule],
-  controllers: [VouchersController],
+  controllers: [VouchersController, VouchersFrontendController],
   providers: [
     // Infrastructure - Persistence
     VouchersService,
@@ -52,7 +56,7 @@ import { HandleTelegramWebhookUseCase } from './application/handle-telegram-webh
     TelegramApiService,
     TelegramMediaService,
     TelegramMessagingService,
-    // Use Cases
+    // Use Cases - WhatsApp/Telegram
     ProcessVoucherUseCase,
     ConfirmVoucherUseCase,
     HandleWhatsAppMessageUseCase,
@@ -61,6 +65,9 @@ import { HandleTelegramWebhookUseCase } from './application/handle-telegram-webh
     HandleHouseNumberUseCase,
     CorrectVoucherDataUseCase,
     HandleTelegramWebhookUseCase,
+    // Use Cases - Frontend HTTP
+    UploadVoucherFrontendUseCase,
+    ConfirmVoucherFrontendUseCase,
   ],
   exports: [VouchersService],
 })
