@@ -22,9 +22,14 @@ import {
   ManualValidationStatsDto,
   ApproveManualCaseResponseDto,
   RejectManualCaseResponseDto,
+  GetUnclaimedDepositsFilterDto,
+  UnclaimedDepositsPageDto,
+  AssignHouseDto,
+  AssignHouseResponseDto,
 } from '../dto';
 import { ApiReconcileTransactions } from '../decorators/swagger.decorators';
 import { ManualValidationService } from '../infrastructure/persistence/manual-validation.service';
+import { UnclaimedDepositsService } from '../infrastructure/persistence/unclaimed-deposits.service';
 
 @ApiTags('bank-reconciliation')
 @Controller('bank-reconciliation')
@@ -34,6 +39,7 @@ export class BankReconciliationController {
   constructor(
     private readonly reconcileUseCase: ReconcileUseCase,
     private readonly manualValidationService: ManualValidationService,
+    private readonly unclaimedDepositsService: UnclaimedDepositsService,
   ) {}
 
   @Post('reconcile')
@@ -158,8 +164,7 @@ export class BankReconciliationController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Obtener estadísticas de validación manual',
-    description:
-      'Retorna estadísticas agregadas de casos de validación manual',
+    description: 'Retorna estadísticas agregadas de casos de validación manual',
   })
   @ApiResponse({
     status: 200,
@@ -170,5 +175,70 @@ export class BankReconciliationController {
     this.logger.log('Obteniendo estadísticas de validación manual');
 
     return this.manualValidationService.getManualValidationStats();
+  }
+
+  // ==================== UNCLAIMED DEPOSITS ENDPOINTS ====================
+
+  @Get('unclaimed-deposits')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Obtener depósitos no reclamados',
+    description:
+      'Lista depósitos válidos que no pudieron conciliarse automáticamente (estados: conflict, not-found). Estos depósitos permanecerán en reportes financieros hasta que se asignen a una casa.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista paginada de depósitos no reclamados',
+    type: UnclaimedDepositsPageDto,
+  })
+  async getUnclaimedDeposits(
+    @Query() filters: GetUnclaimedDepositsFilterDto,
+  ): Promise<UnclaimedDepositsPageDto> {
+    this.logger.log(
+      `Obteniendo depósitos no reclamados. Filtros: ${JSON.stringify(filters)}`,
+    );
+
+    return this.unclaimedDepositsService.getUnclaimedDeposits(
+      filters.startDate ? new Date(filters.startDate) : undefined,
+      filters.endDate ? new Date(filters.endDate) : undefined,
+      filters.validationStatus,
+      filters.houseNumber,
+      filters.page,
+      filters.limit,
+      filters.sortBy,
+    );
+  }
+
+  @Post('unclaimed-deposits/:transactionId/assign-house')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Asignar casa manualmente a un depósito',
+    description:
+      'Asigna manualmente una casa a un depósito que no pudo identificarse automáticamente. ' +
+      'Completa la conciliación, crea el registro de pago y asigna automáticamente a conceptos. ' +
+      'Se registra auditoría de quién realizó la asignación.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Depósito asignado exitosamente',
+    type: AssignHouseResponseDto,
+  })
+  async assignHouseToDeposit(
+    @Param('transactionId') transactionId: string,
+    @Body() dto: AssignHouseDto,
+    @Req() req: any,
+  ): Promise<AssignHouseResponseDto> {
+    const userId = req?.user?.id || 'system';
+
+    this.logger.log(
+      `Asignando casa ${dto.houseNumber} a depósito ${transactionId} por usuario ${userId}`,
+    );
+
+    return this.unclaimedDepositsService.assignHouseToDeposit(
+      transactionId,
+      dto.houseNumber,
+      userId,
+      dto.adminNotes,
+    );
   }
 }

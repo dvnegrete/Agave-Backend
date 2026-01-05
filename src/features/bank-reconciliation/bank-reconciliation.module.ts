@@ -14,6 +14,7 @@ import { ConceptAnalyzerService } from './infrastructure/matching/concept-analyz
 import { ReconciliationPersistenceService } from './infrastructure/persistence/reconciliation-persistence.service';
 import { ReconciliationDataService } from './infrastructure/persistence/reconciliation-data.service';
 import { ManualValidationService } from './infrastructure/persistence/manual-validation.service';
+import { UnclaimedDepositsService } from './infrastructure/persistence/unclaimed-deposits.service';
 
 // Entities
 import { TransactionBank } from '@/shared/database/entities/transaction-bank.entity';
@@ -64,6 +65,7 @@ import { PaymentManagementModule } from '@/features/payment-management/payment-m
     ReconciliationPersistenceService,
     ReconciliationDataService,
     ManualValidationService,
+    UnclaimedDepositsService,
 
     // Repositories
     TransactionBankRepository,
