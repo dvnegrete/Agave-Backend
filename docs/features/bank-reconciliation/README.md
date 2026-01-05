@@ -450,15 +450,59 @@ Cuando un voucher se concilia exitosamente, el sistema **automáticamente elimin
 
 ---
 
-**Versión**: 2.2.0
-**Última actualización**: Noviembre 14, 2025
+**Versión**: 2.3.0
+**Última actualización**: Enero 5, 2026
 **Estado**: ✅ Production Ready
+
+---
+
+## 🔌 Endpoints API Adicionales
+
+### Gestión de Depósitos No Reclamados
+
+Nuevos endpoints para listar y asignar manualmente casas a depósitos que no pudieron conciliarse automáticamente:
+
+#### 1. **GET /bank-reconciliation/unclaimed-deposits**
+Lista depósitos válidos sin casa asignada (estados: `conflict`, `not-found`).
+
+**Filtros disponibles:**
+- `startDate`, `endDate` - Rango de fechas
+- `validationStatus` - 'conflict' | 'not-found' | 'all'
+- `houseNumber` - Filtrar por casa sugerida
+- `page`, `limit` - Paginación
+- `sortBy` - 'date' | 'amount'
+
+```bash
+GET /bank-reconciliation/unclaimed-deposits?validationStatus=conflict&page=1&limit=20
+```
+
+#### 2. **POST /bank-reconciliation/unclaimed-deposits/:transactionId/assign-house**
+Asigna manualmente una casa a un depósito no reclamado.
+
+Automáticamente:
+- ✅ Valida casa (1-66)
+- ✅ Crea/busca casa (con usuario Sistema si no existe)
+- ✅ Actualiza estado a `confirmed`
+- ✅ Crea Record y HouseRecord
+- ✅ Ejecuta asignación automática de pagos
+- ✅ Registra auditoría en `manual_validation_approvals`
+
+```bash
+POST /bank-reconciliation/unclaimed-deposits/TX-12345/assign-house
+{
+  "houseNumber": 15,
+  "adminNotes": "Confirmado por residente"
+}
+```
+
+**📖 Ver [UNCLAIMED-DEPOSITS.md](./UNCLAIMED-DEPOSITS.md) para detalles completos.**
 
 ---
 
 ## 📚 Documentación
 
-- **[MANUAL-VALIDATION.md](./MANUAL-VALIDATION.md)** - Validación manual, endpoints, flujos (NUEVO)
+- **[MANUAL-VALIDATION.md](./MANUAL-VALIDATION.md)** - Validación manual para múltiples vouchers candidatos
+- **[UNCLAIMED-DEPOSITS.md](./UNCLAIMED-DEPOSITS.md)** - Gestión de depósitos no reclamados (NUEVO)
 - **[QUERIES-CONCILIACION.md](./QUERIES-CONCILIACION.md)** - 40+ queries SQL útiles para análisis
 - **[concept-matching-examples.md](./concept-matching-examples.md)** - Ejemplos de extracción de casa por concepto
 - **[SETUP-USUARIO-SISTEMA.md](./SETUP-USUARIO-SISTEMA.md)** - Configuración del usuario sistema

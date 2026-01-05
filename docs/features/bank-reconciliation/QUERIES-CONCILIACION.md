@@ -4,7 +4,8 @@
 
 Colección de queries SQL útiles para consultar, analizar y dar seguimiento a los resultados de conciliación bancaria almacenados en la tabla `transactions_status`.
 
-**Fecha:** Octubre 22, 2025
+**Fecha:** Enero 5, 2026
+**Última actualización:** Enero 5, 2026 - Añadidas queries para depósitos no reclamados
 
 ---
 
@@ -165,6 +166,83 @@ FROM transactions_bank tb
 INNER JOIN transactions_status ts ON tb.id = ts.transactions_bank_id
 WHERE ts.validation_status = 'not-found'
 ORDER BY ts.processed_at DESC;
+```
+
+---
+
+## 🏦 2.5 Gestión de Depósitos No Reclamados
+
+### Ver Depósitos Pendientes de Asignación Manual
+
+```sql
+-- Todos los depósitos sin casa asignada
+SELECT
+  tb.id as transaction_id,
+  tb.amount,
+  tb.date as transaction_date,
+  tb.concept,
+  ts.validation_status,
+  ts.identified_house_number as casa_sugerida,
+  ts.reason,
+  DATEDIFF(NOW(), ts.processed_at) as dias_pendiente
+FROM transactions_bank tb
+INNER JOIN transaction_status ts ON tb.id = ts.transactions_bank_id
+WHERE ts.validation_status IN ('conflict', 'not-found')
+  AND tb.is_deposit = true
+ORDER BY ts.processed_at ASC;
+```
+
+### Ver Montos Pendientes de Asignación
+
+```sql
+SELECT
+  ts.validation_status,
+  COUNT(*) as cantidad,
+  SUM(tb.amount) as monto_total,
+  MIN(tb.amount) as monto_minimo,
+  MAX(tb.amount) as monto_maximo,
+  AVG(tb.amount) as monto_promedio
+FROM transactions_bank tb
+INNER JOIN transaction_status ts ON tb.id = ts.transactions_bank_id
+WHERE ts.validation_status IN ('conflict', 'not-found')
+  AND tb.is_deposit = true
+GROUP BY ts.validation_status;
+```
+
+### Ver Quién Asignó Cada Depósito (Auditoría)
+
+```sql
+SELECT
+  tb.id as transaction_id,
+  tb.amount,
+  tb.date,
+  ts.identified_house_number,
+  mva.approved_by_user_id,
+  mva.approval_notes,
+  mva.approved_at,
+  DATEDIFF(mva.approved_at, ts.processed_at) as minutos_para_asignar
+FROM transactions_bank tb
+INNER JOIN transaction_status ts ON tb.id = ts.transactions_bank_id
+LEFT JOIN manual_validation_approvals mva ON tb.id = mva.transaction_id
+WHERE mva.voucher_id IS NULL  -- Sin voucher = depósito no reclamado
+ORDER BY mva.approved_at DESC;
+```
+
+### Ver Conflictos Específicos (Casa sugerida vs Concepto)
+
+```sql
+SELECT
+  tb.id as transaction_id,
+  tb.amount,
+  CAST(FLOOR((tb.amount % 1) * 100) AS INT) as casa_por_centavos,
+  ts.identified_house_number as casa_en_sistema,
+  tb.concept,
+  ts.reason
+FROM transactions_bank tb
+INNER JOIN transaction_status ts ON tb.id = ts.transactions_bank_id
+WHERE ts.validation_status = 'conflict'
+  AND tb.is_deposit = true
+ORDER BY tb.date DESC;
 ```
 
 ---
