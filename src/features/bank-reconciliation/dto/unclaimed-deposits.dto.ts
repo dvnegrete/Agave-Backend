@@ -129,9 +129,15 @@ export class UnclaimedDepositResponseDto {
 
   @ApiProperty({
     description: 'Fecha del depósito',
-    example: '2025-01-15T10:00:00Z',
+    example: '2025-01-15',
   })
   date: Date;
+
+  @ApiProperty({
+    description: 'Hora del depósito',
+    example: '10:30:00',
+  })
+  time: string | null;
 
   @ApiProperty({
     description: 'Concepto/descripción del depósito',

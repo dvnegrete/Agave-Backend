@@ -77,11 +77,7 @@ export class UnclaimedDepositsService {
     let query = this.dataSource
       .getRepository(TransactionBank)
       .createQueryBuilder('tb')
-      .leftJoin(
-        TransactionStatus,
-        'ts',
-        'ts.transactions_bank_id = tb.id',
-      )
+      .leftJoin(TransactionStatus, 'ts', 'ts.transactions_bank_id = tb.id')
       .where('tb.is_deposit = :isDeposit', { isDeposit: true })
       .select([
         'tb.id',
@@ -370,6 +366,7 @@ export class UnclaimedDepositsService {
       transactionBankId: String(item.tb_id),
       amount: item.tb_amount,
       date: item.tb_date,
+      time: item.tb_time || null,
       concept: item.tb_concept,
       validationStatus: item.ts_validation_status,
       reason: item.ts_reason,
