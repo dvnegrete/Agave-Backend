@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Inject } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { House } from '@/shared/database/entities';
 import {
   PaymentHistoryResponseDTO,
@@ -39,9 +39,7 @@ export class GetPaymentHistoryUseCase {
     }
 
     // Convertir a DTOs
-    const paymentItems = allocations.map((a) =>
-      this.toPaymentHistoryItem(a),
-    );
+    const paymentItems = allocations.map((a) => this.toPaymentHistoryItem(a));
 
     // Calcular totales
     const totalPaid = paymentItems.reduce(
@@ -88,9 +86,7 @@ export class GetPaymentHistoryUseCase {
       };
     }
 
-    const paymentItems = allocations.map((a) =>
-      this.toPaymentHistoryItem(a),
-    );
+    const paymentItems = allocations.map((a) => this.toPaymentHistoryItem(a));
 
     const totalPaid = paymentItems.reduce(
       (sum, item) => sum + item.allocated_amount,
@@ -125,7 +121,7 @@ export class GetPaymentHistoryUseCase {
       allocated_amount: allocation.allocated_amount,
       expected_amount: allocation.expected_amount,
       payment_status: allocation.payment_status,
-      difference: allocation.allocated_amount - allocation.expected_amount,
+      difference: allocation.expected_amount - allocation.allocated_amount,
     };
   }
 }

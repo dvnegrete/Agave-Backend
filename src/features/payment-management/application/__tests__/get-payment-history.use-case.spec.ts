@@ -117,7 +117,7 @@ describe('GetPaymentHistoryUseCase', () => {
 
       const result = await useCase.execute(42, mockHouse);
 
-      expect(result.payments[0].difference).toBe(-50000);
+      expect(result.payments[0].difference).toBe(50000);
       expect(result.total_paid).toBe(50000);
       expect(result.total_expected).toBe(100000);
     });
@@ -136,7 +136,7 @@ describe('GetPaymentHistoryUseCase', () => {
 
       const result = await useCase.execute(42, mockHouse);
 
-      expect(result.payments[0].difference).toBe(20000);
+      expect(result.payments[0].difference).toBe(-20000);
       expect(result.total_paid).toBe(120000);
     });
   });
