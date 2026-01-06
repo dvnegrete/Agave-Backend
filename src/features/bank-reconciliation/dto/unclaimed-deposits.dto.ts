@@ -8,6 +8,7 @@ import {
   Min,
   Max,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import {
   MIN_HOUSE_NUMBER,
   MAX_HOUSE_NUMBER,
@@ -47,6 +48,7 @@ export class GetUnclaimedDepositsFilterDto {
     example: 15,
   })
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(MIN_HOUSE_NUMBER)
   @Max(MAX_HOUSE_NUMBER)
@@ -58,6 +60,7 @@ export class GetUnclaimedDepositsFilterDto {
     default: 1,
   })
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(1)
   page?: number = 1;
@@ -68,6 +71,7 @@ export class GetUnclaimedDepositsFilterDto {
     default: 20,
   })
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(1)
   @Max(100)
@@ -92,6 +96,7 @@ export class AssignHouseDto {
     description: 'Número de casa a asignar (1-66)',
     example: 15,
   })
+  @Type(() => Number)
   @IsNumber()
   @Min(MIN_HOUSE_NUMBER)
   @Max(MAX_HOUSE_NUMBER)

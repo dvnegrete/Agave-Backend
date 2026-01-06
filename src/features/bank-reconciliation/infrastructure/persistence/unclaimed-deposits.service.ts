@@ -11,17 +11,14 @@ import { RecordRepository } from '@/shared/database/repositories/record.reposito
 import { HouseRecordRepository } from '@/shared/database/repositories/house-record.repository';
 import { TransactionBankRepository } from '@/shared/database/repositories/transaction-bank.repository';
 import { TransactionBank } from '@/shared/database/entities/transaction-bank.entity';
+import { TransactionStatus } from '@/shared/database/entities/transaction-status.entity';
 import { ManualValidationApproval } from '@/shared/database/entities/manual-validation-approval.entity';
 import { ValidationStatus } from '@/shared/database/entities/enums';
 import {
   MIN_HOUSE_NUMBER,
   MAX_HOUSE_NUMBER,
 } from '@/shared/config/business-rules.config';
-import {
-  GetUnclaimedDepositsFilterDto,
-  UnclaimedDepositsPageDto,
-  AssignHouseResponseDto,
-} from '../../dto';
+import { UnclaimedDepositsPageDto, AssignHouseResponseDto } from '../../dto';
 import { AllocatePaymentUseCase } from '@/features/payment-management/application';
 import { PeriodRepository } from '@/features/payment-management/infrastructure/repositories/period.repository';
 import { EnsurePeriodExistsUseCase } from '@/features/payment-management/application';
@@ -80,7 +77,11 @@ export class UnclaimedDepositsService {
     let query = this.dataSource
       .getRepository(TransactionBank)
       .createQueryBuilder('tb')
-      .leftJoin('transaction_status', 'ts', 'ts.transactions_bank_id = tb.id')
+      .leftJoin(
+        TransactionStatus,
+        'ts',
+        'ts.transactions_bank_id = tb.id',
+      )
       .where('tb.is_deposit = :isDeposit', { isDeposit: true })
       .select([
         'tb.id',
@@ -180,53 +181,45 @@ export class UnclaimedDepositsService {
     await queryRunner.startTransaction();
 
     try {
-      // 1. Obtener transacción y su estado
-      const result = await queryRunner.query(
-        `SELECT * FROM transaction_status
-         WHERE transactions_bank_id = $1
-         AND validation_status IN ($2, $3)`,
-        [transactionId, ValidationStatus.CONFLICT, ValidationStatus.NOT_FOUND],
+      // 1. Obtener transacción y su estado usando repositorio
+      const transactionStatuses =
+        await this.transactionStatusRepository.findByTransactionBankId(
+          transactionId,
+        );
+
+      const transactionStatus = transactionStatuses?.find(
+        (ts) =>
+          ts.validation_status === ValidationStatus.CONFLICT ||
+          ts.validation_status === ValidationStatus.NOT_FOUND,
       );
 
-      if (!result || result.length === 0) {
+      if (!transactionStatus) {
         throw new NotFoundException(
           `Depósito no reclamado no encontrado: ${transactionId}`,
         );
       }
 
-      const transactionStatus = result[0];
+      // 2. Obtener transacción bancaria usando repositorio
+      const transaction =
+        await this.transactionBankRepository.findById(transactionId);
 
-      // 2. Obtener transacción bancaria
-      const transactionBank = await queryRunner.query(
-        'SELECT * FROM transactions_bank WHERE id = $1',
-        [transactionId],
-      );
-
-      if (!transactionBank || transactionBank.length === 0) {
+      if (!transaction) {
         throw new NotFoundException(
           `Transacción bancaria no encontrada: ${transactionId}`,
         );
       }
 
-      const transaction = transactionBank[0];
+      // 3. Validar o crear casa usando repositorio
+      let house = await this.houseRepository.findByNumberHouse(houseNumber);
 
-      // 3. Validar o crear casa
-      let house = await queryRunner.query(
-        'SELECT * FROM houses WHERE number_house = $1',
-        [houseNumber],
-      );
-
-      if (!house || house.length === 0) {
-        // Crear casa con usuario Sistema
-        await queryRunner.query(
-          `INSERT INTO houses (number_house, user_id, created_at, updated_at)
-           VALUES ($1, $2, NOW(), NOW())`,
-          [houseNumber, SYSTEM_USER_ID],
-        );
-
-        house = await queryRunner.query(
-          'SELECT * FROM houses WHERE number_house = $1',
-          [houseNumber],
+      if (!house) {
+        // Crear casa con usuario Sistema dentro de la transacción
+        house = await this.houseRepository.create(
+          {
+            number_house: houseNumber,
+            user_id: SYSTEM_USER_ID,
+          },
+          queryRunner,
         );
 
         this.logger.log(
@@ -234,59 +227,54 @@ export class UnclaimedDepositsService {
         );
       }
 
-      const houseId = house[0].id;
+      // 4. Actualizar transaction_status usando queryRunner.manager
+      const updatedTransactionStatus = queryRunner.manager.create(
+        TransactionStatus,
+        {
+          ...transactionStatus,
+          validation_status: ValidationStatus.CONFIRMED,
+          identified_house_number: houseNumber,
+          reason: `Asignación manual por administrador: ${adminNotes || 'Sin notas'}`,
+          processed_at: new Date(),
+        },
+      );
+      await queryRunner.manager.save(updatedTransactionStatus);
 
-      // 4. Actualizar transaction_status
-      await queryRunner.query(
-        `UPDATE transaction_status
-         SET
-           validation_status = $1,
-           identified_house_number = $2,
-           reason = $3,
-           processed_at = NOW(),
-           updated_at = NOW()
-         WHERE transactions_bank_id = $4`,
-        [
-          ValidationStatus.CONFIRMED,
-          houseNumber,
-          `Asignación manual por administrador: ${adminNotes || 'Sin notas'}`,
-          transactionId,
-        ],
+      // 5. Actualizar confirmación en transactions_bank usando queryRunner.manager
+      const updatedTransaction = queryRunner.manager.create(TransactionBank, {
+        ...transaction,
+        confirmation_status: true,
+      });
+      await queryRunner.manager.save(updatedTransaction);
+
+      // 6. Crear Record usando repositorio dentro de transacción
+      const record = await this.recordRepository.create(
+        {
+          transaction_status_id: transactionStatus.id,
+        },
+        queryRunner,
       );
 
-      // 5. Actualizar confirmación en transactions_bank
-      await queryRunner.query(
-        `UPDATE transactions_bank
-         SET confirmation_status = true
-         WHERE id = $1`,
-        [transactionId],
+      const recordId = record.id;
+
+      // 7. Crear HouseRecord usando repositorio dentro de transacción
+      await this.houseRecordRepository.create(
+        {
+          house_id: house.id,
+          record_id: recordId,
+        },
+        queryRunner,
       );
 
-      // 6. Crear Record
-      const recordResult = await queryRunner.query(
-        `INSERT INTO records (transaction_status_id, created_at, updated_at)
-         VALUES ($1, NOW(), NOW())
-         RETURNING id`,
-        [transactionStatus.id],
-      );
-
-      const recordId = recordResult[0].id;
-
-      // 7. Crear HouseRecord
-      await queryRunner.query(
-        `INSERT INTO house_records (house_id, record_id, created_at, updated_at)
-         VALUES ($1, $2, NOW(), NOW())`,
-        [houseId, recordId],
-      );
-
-      // 8. Crear auditoría en manual_validation_approvals
-      await queryRunner.manager.save(ManualValidationApproval, {
+      // 8. Crear auditoría en manual_validation_approvals usando queryRunner.manager
+      const approval = queryRunner.manager.create(ManualValidationApproval, {
         transaction_id: Number(transactionId),
         voucher_id: null, // Sin voucher
         approved_by_user_id: userId,
         approval_notes: `Asignación manual de casa ${houseNumber}. ${adminNotes || ''}`,
         approved_at: new Date(),
       });
+      await queryRunner.manager.save(approval);
 
       await queryRunner.commitTransaction();
 
@@ -302,7 +290,7 @@ export class UnclaimedDepositsService {
 
         const allocationResult = await this.allocatePaymentUseCase.execute({
           record_id: recordId,
-          house_id: houseId,
+          house_id: house.id,
           amount_to_distribute: transaction.amount,
           period_id: period.id,
         });
@@ -372,8 +360,7 @@ export class UnclaimedDepositsService {
    */
   private mapToUnclaimedDepositDto(item: any) {
     // Extraer casa sugerida de centavos
-    const suggestedHouseNumber =
-      Math.floor((item.tb_amount % 1) * 100) || null;
+    const suggestedHouseNumber = Math.floor((item.tb_amount % 1) * 100) || null;
 
     // Extraer casa sugerida de concepto (si existe en metadata)
     const metadata = (item.ts_metadata as any) || {};
