@@ -584,3 +584,138 @@ Sistema: "Mismo monto, misma casa. Requiere validación manual para evitar dupli
 - Logging detallado para troubleshooting
 - Índices en transaction_status(validation_status) para queries rápidas de casos pendientes
 - Manejo robusto de errores con try-catch y rollback automático
+
+---
+
+## Payment Management - Tablas Contables cta_*
+
+**Prioridad**: Baja (No Bloqueante)
+**Fecha registro**: 2025-01-05
+**Estado**: ⚠️ PENDIENTE DE DEFINICIÓN DE REGLAS DE NEGOCIO
+
+**Contexto**: Las tablas contables `cta_*` existen en el esquema de base de datos pero NO están siendo utilizadas. El sistema actual funciona correctamente usando `record_allocations` para el tracking de pagos.
+
+### Estado Actual
+
+**Tablas existentes pero sin uso:**
+- `cta_maintenance` - Cuentas de mantenimiento
+- `cta_water` - Cuentas de agua
+- `cta_penalties` - Cuentas de penalidades/recargos
+- `cta_extraordinary_fee` - Cuentas de cuotas extraordinarias
+- `cta_other_payments` - Cuentas de otros pagos
+
+**Entidades TypeORM creadas:**
+- ✅ `src/shared/database/entities/cta-maintenance.entity.ts`
+- ✅ `src/shared/database/entities/cta-water.entity.ts`
+- ✅ `src/shared/database/entities/cta-penalties.entity.ts`
+- ✅ `src/shared/database/entities/cta-extraordinary-fee.entity.ts`
+- ✅ `src/shared/database/entities/cta-other-payments.entity.ts`
+
+**Relaciones en Record entity:**
+```typescript
+// src/shared/database/entities/record.entity.ts
+@Column({ type: 'int', nullable: true })
+cta_maintence_id: number;      // ❌ Nunca se popula
+
+@Column({ type: 'int', nullable: true })
+cta_water_id: number;          // ❌ Nunca se popula
+
+@Column({ type: 'int', nullable: true })
+cta_penalities_id: number;     // ❌ Nunca se popula
+
+@Column({ type: 'int', nullable: true })
+cta_extraordinary_fee_id: number;  // ❌ Nunca se popula
+
+@Column({ type: 'int', nullable: true })
+cta_other_payments_id: number;     // ❌ Nunca se popula
+```
+
+### Problema Identificado
+
+En `AllocatePaymentUseCase` (líneas 157, 173, 188):
+```typescript
+concepts.push({
+  type: AllocationConceptType.MAINTENANCE,
+  conceptId: 1,  // ⚠️ Valor hardcodeado, NO es FK real
+  expectedAmount: maintenanceAmount,
+});
+```
+
+El `conceptId` se guarda en `record_allocations.concept_id` pero:
+- NO corresponde a un registro real en las tablas `cta_*`
+- NO se crean registros contables individuales por período/casa
+
+### Sistema Actual vs Diseño Original
+
+| Aspecto | Diseño Original (cta_*) | Implementación Actual |
+|---------|------------------------|----------------------|
+| Tracking de pagos | Registros en cta_maintenance, cta_water, etc. | `record_allocations` |
+| Saldos por casa | Sumar registros cta_* | `house_balances` tabla |
+| Historial | Consultar cta_* por período | `record_allocations` por house_id |
+| FK en Record | Apunta a cta_*.id | No se usa |
+| Granularidad | Cuenta contable por concepto/período | Asignación por pago |
+
+**El sistema actual FUNCIONA correctamente** sin las tablas cta_*. Estas tablas representan un diseño contable más detallado que no se implementó.
+
+### Decisión Pendiente
+
+Se necesita definir si:
+
+**Opción A: Eliminar tablas cta_* (Simplificar)**
+- Remover entidades y migraciones
+- Limpiar FK en Record entity
+- Mantener solo `record_allocations` + `house_balances`
+- Menor complejidad, sistema más simple
+
+**Opción B: Implementar tablas cta_* (Contabilidad Completa)**
+- Definir reglas de negocio para cada tabla
+- Crear registros contables al conciliar pagos
+- Vincular Record.cta_*_id a registros reales
+- Mayor trazabilidad contable
+
+### Reglas de Negocio a Definir (Si se elige Opción B)
+
+1. **¿Cuándo se crea un registro cta_*?**
+   - ¿Al inicio del período para todas las casas?
+   - ¿Solo cuando hay un pago?
+   - ¿Al generar estados de cuenta?
+
+2. **¿Qué representa cada registro cta_*?**
+   - ¿Cargo mensual esperado?
+   - ¿Pago aplicado?
+   - ¿Ambos (débito y crédito)?
+
+3. **¿Cómo se relaciona con Period?**
+   - Cada cta_* tiene `period_id`
+   - ¿Se crea automáticamente al crear período?
+   - ¿Hereda montos de PeriodConfig?
+
+4. **¿Cómo se vincula con Record?**
+   - ¿Un Record puede tener múltiples cta_*?
+   - ¿O un cta_* puede tener múltiples Records?
+
+5. **¿Qué pasa con pagos parciales?**
+   - ¿Se actualiza el cta_* existente?
+   - ¿Se crea uno nuevo por cada pago parcial?
+
+### Tareas Pendientes (Si se decide implementar)
+
+- [ ] Definir reglas de negocio con stakeholders
+- [ ] Documentar flujo contable esperado
+- [ ] Modificar `AllocatePaymentUseCase` para crear cta_*
+- [ ] Actualizar Record con FK reales
+- [ ] Crear repositorios para cada cta_*
+- [ ] Agregar endpoints para consultar cuentas contables
+- [ ] Migrar datos existentes si es necesario
+
+### Referencias
+- Record entity: `src/shared/database/entities/record.entity.ts`
+- AllocatePaymentUseCase: `src/features/payment-management/application/allocate-payment.use-case.ts:157`
+- RecordAllocation: `src/shared/database/entities/record-allocation.entity.ts`
+- Entidades cta_*: `src/shared/database/entities/cta-*.entity.ts`
+
+### Notas Técnicas
+- Las tablas cta_* tienen estructura: `id`, `amount`, `period_id`, `created_at`, `updated_at`
+- Cada una tiene relación ManyToOne con Period
+- Cada una tiene relación OneToMany con Record
+- El sistema funciona sin ellas porque `record_allocations` cumple el rol de tracking
