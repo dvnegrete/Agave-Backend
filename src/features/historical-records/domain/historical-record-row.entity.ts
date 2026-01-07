@@ -61,12 +61,14 @@ export class HistoricalRecordRow {
 
   /**
    * Business rule: Validate that floor(deposito) equals sum of cta_* amounts
+   * cta_* amounts are always integers, deposito can have decimals (cents for house identification)
+   * Rule: floor(DEPOSITO) == sum(cta_maintenance + cta_water + cta_penalties + cta_extraordinary_fee)
    */
   isValidAmountDistribution(): boolean {
     const expectedTotal = Math.floor(this.deposito);
     const actualTotal = this.cuotaExtra + this.mantto + this.penalizacion + this.agua;
-    // Allow small floating point errors
-    return Math.abs(expectedTotal - actualTotal) < 0.01;
+    // Exact comparison - cta_* are always integers after parsing
+    return expectedTotal === actualTotal;
   }
 
   /**
@@ -114,12 +116,12 @@ export class HistoricalRecordRow {
   validate(): { isValid: boolean; errors: string[] } {
     const errors: string[] = [];
 
-    // Validate amount distribution
+    // Validate amount distribution: floor(DEPOSITO) == sum(cta_*)
     if (!this.isValidAmountDistribution()) {
       const expectedTotal = Math.floor(this.deposito);
       const actualTotal = this.cuotaExtra + this.mantto + this.penalizacion + this.agua;
       errors.push(
-        `Row ${this.rowNumber}: Amount mismatch - floor(${this.deposito}) != ${actualTotal}`,
+        `Row ${this.rowNumber}: Amount distribution error - floor(DEPOSITO: ${this.deposito}) = ${expectedTotal} but sum(cta_*) = ${actualTotal}`,
       );
     }
 

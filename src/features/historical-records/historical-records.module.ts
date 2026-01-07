@@ -41,6 +41,8 @@ import { PaymentManagementModule } from '@/features/payment-management/payment-m
 /**
  * Historical Records Module
  * Handles loading and processing of historical accounting records from Excel files
+ *
+ * TODO: Add AuthModule import when AuthGuard is added to controller
  */
 @Module({
   imports: [

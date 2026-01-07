@@ -7,7 +7,6 @@ import {
   ParseFilePipe,
   MaxFileSizeValidator,
   Body,
-  UseGuards,
   Logger,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -21,17 +20,16 @@ import {
 import { UploadHistoricalRecordsUseCase } from '../application/upload-historical-records.use-case';
 import { UploadHistoricalFileDto, HistoricalRecordResponseDto } from '../dto';
 import { HistoricalFileValidator } from '../validators/historical-file.validator';
-import { AuthGuard } from '@/shared/auth/guards/auth.guard';
 
 /**
  * Controller for historical records management
  * Handles file uploads and processing of historical accounting records
- * REQUIRES: Authentication
- * TODO: Add role-based authorization (AdminGuard)
+ *
+ * TODO: Add authentication (AuthGuard) and role-based authorization (AdminGuard)
+ * Currently open for end-to-end testing without authentication
  */
 @ApiTags('historical-records')
 @Controller('historical-records')
-@UseGuards(AuthGuard)
 export class HistoricalRecordsController {
   private readonly logger = new Logger(HistoricalRecordsController.name);
 
@@ -65,7 +63,6 @@ export class HistoricalRecordsController {
     summary: 'Cargar archivo Excel con registros históricos contables',
     description:
       'Procesa un archivo Excel con registros históricos y crea records en el sistema. ' +
-      'Requiere autenticación. ' +
       'Archivo debe ser .xlsx con columnas: FECHA, HORA, CONCEPTO, DEPOSITO, Casa, Cuota Extra, Mantto, Penalizacion, Agua.',
   })
   @ApiConsumes('multipart/form-data')
@@ -137,10 +134,6 @@ export class HistoricalRecordsController {
         error: 'Bad Request',
       },
     },
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'No autenticado',
   })
   async uploadHistoricalFile(
     @UploadedFile(

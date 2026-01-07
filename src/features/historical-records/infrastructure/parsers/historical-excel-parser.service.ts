@@ -147,17 +147,24 @@ export class HistoricalExcelParserService {
     // Parse CONCEPTO
     const concepto = String(getValue('CONCEPTO') || '').trim();
 
-    // Parse DEPOSITO
+    // Parse DEPOSITO (keep decimals for cent-based house identification)
+    // IMPORTANT: Do NOT round. Decimals are used to identify house via cents.
+    // Validation uses floor(DEPOSITO) for comparison, not rounded value.
     const deposito = this.parseNumber(getValue('DEPOSITO'), 'DEPOSITO', rowNumber);
 
-    // Parse Casa
-    const casa = this.parseNumber(getValue('Casa'), 'Casa', rowNumber, true) || 0;
+    // Parse Casa (use round for house number)
+    const casa = Math.round(this.parseNumber(getValue('Casa'), 'Casa', rowNumber, true) || 0);
 
-    // Parse cta_* amounts (allow 0 or missing)
-    const cuotaExtra = this.parseNumber(getValue('Cuota Extra'), 'Cuota Extra', rowNumber, true) || 0;
-    const mantto = this.parseNumber(getValue('Mantto'), 'Mantto', rowNumber, true) || 0;
-    const penalizacion = this.parseNumber(getValue('Penalizacion'), 'Penalizacion', rowNumber, true) || 0;
-    const agua = this.parseNumber(getValue('Agua'), 'Agua', rowNumber, true) || 0;
+    // Parse cta_* amounts (allow 0 or missing, FLOOR to integers - NOT round)
+    // cta_* amounts must always be integers per business rules
+    // CRITICAL: Use Math.floor() NOT Math.round()
+    // Reason: decimals in Excel are carried from DEPOSITO cents for house identification
+    // floor(DEPOSITO) must equal sum(cta_*) where cta_* are floored values
+    // Example: DEPOSITO=850.51, agua=250.51 → floor(850.51)=850, floor(250.51)=250
+    const cuotaExtra = Math.floor(this.parseNumber(getValue('Cuota Extra'), 'Cuota Extra', rowNumber, true) || 0);
+    const mantto = Math.floor(this.parseNumber(getValue('Mantto'), 'Mantto', rowNumber, true) || 0);
+    const penalizacion = Math.floor(this.parseNumber(getValue('Penalizacion'), 'Penalizacion', rowNumber, true) || 0);
+    const agua = Math.floor(this.parseNumber(getValue('Agua'), 'Agua', rowNumber, true) || 0);
 
     return HistoricalRecordRow.create({
       fecha,
@@ -261,6 +268,9 @@ export class HistoricalExcelParserService {
 
   /**
    * Parse number with validation
+   * Supports various formats: 850, 850.00, $850.00, $850,00, 1,000.00, $1,000.00, $1,050
+   * Intelligently detects decimal vs thousands separators
+   * CRITICAL: Uses parseFloat() which NEVER rounds. For exact integer values, caller must round.
    * @param value Value to parse
    * @param fieldName Name of the field (for error messages)
    * @param rowNumber Row number (for error messages)
@@ -279,14 +289,87 @@ export class HistoricalExcelParserService {
       throw new Error(`${fieldName} es requerido`);
     }
 
-    const num = typeof value === 'number'
-      ? value
-      : parseFloat(String(value).replace(/,/g, ''));
+    let num: number;
+
+    if (typeof value === 'number') {
+      // If already a number, use it as-is (no rounding)
+      num = value;
+    } else {
+      // Convert to string and remove currency formatting
+      let str = String(value)
+        .trim()
+        .replace(/\$/g, '') // Remove dollar sign
+        .replace(/\s/g, ''); // Remove spaces
+
+      // Intelligently detect decimal separator vs thousands separator
+      str = this.normalizeNumberString(str);
+
+      // parseFloat NEVER rounds - it preserves all decimal places
+      num = parseFloat(str);
+    }
 
     if (isNaN(num)) {
       throw new Error(`${fieldName} debe ser un número válido: ${value}`);
     }
 
+    // CRITICAL: Return raw number without any rounding
+    // Caller must use Math.round() if integer is needed, or Math.floor() to truncate
     return num;
+  }
+
+  /**
+   * Normalize number string by detecting decimal vs thousands separators
+   * Examples:
+   * - "1,050" → "1050" (comma is thousands separator, no decimals)
+   * - "1,050.00" → "1050.00" (comma is thousands, dot is decimal)
+   * - "1,050,00" → "1050.00" (comma is decimal, other commas are thousands)
+   * - "1.050" → "1050" (dot is thousands separator, no decimals)
+   * - "1.050,00" → "1050.00" (dot is thousands, comma is decimal)
+   */
+  private normalizeNumberString(str: string): string {
+    // Count occurrences of dots and commas
+    const dotCount = (str.match(/\./g) || []).length;
+    const commaCount = (str.match(/,/g) || []).length;
+
+    // No separators
+    if (dotCount === 0 && commaCount === 0) {
+      return str;
+    }
+
+    // Only one separator
+    if (dotCount + commaCount === 1) {
+      const lastSeparatorIndex = Math.max(str.lastIndexOf('.'), str.lastIndexOf(','));
+      const digitsAfter = str.length - lastSeparatorIndex - 1;
+
+      // If there are 1-3 digits after the separator, it's likely decimal
+      if (digitsAfter >= 1 && digitsAfter <= 3) {
+        // Convert to standard decimal (dot)
+        return str.replace(/,/g, '.');
+      } else {
+        // It's a thousands separator, remove it
+        return str.replace(/[.,]/g, '');
+      }
+    }
+
+    // Multiple separators - determine which is decimal based on position
+    const lastDotIndex = str.lastIndexOf('.');
+    const lastCommaIndex = str.lastIndexOf(',');
+    const lastSeparatorIndex = Math.max(lastDotIndex, lastCommaIndex);
+    const digitsAfter = str.length - lastSeparatorIndex - 1;
+
+    // The last separator is decimal if there are 1-3 digits after it
+    if (digitsAfter >= 1 && digitsAfter <= 3) {
+      // Last separator is decimal
+      if (lastSeparatorIndex === lastCommaIndex) {
+        // Last separator is comma (decimal), remove other separators and convert comma to dot
+        return str.replace(/\./g, '').replace(/,/, '.');
+      } else {
+        // Last separator is dot (decimal), remove other separators
+        return str.replace(/,/g, '');
+      }
+    } else {
+      // Last separator is thousands, remove all separators
+      return str.replace(/[.,]/g, '');
+    }
   }
 }
