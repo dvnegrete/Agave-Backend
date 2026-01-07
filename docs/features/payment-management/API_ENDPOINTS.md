@@ -223,9 +223,9 @@ Crea una nueva configuración de período.
 
 ### GET /houses/{houseId}/payments
 
-Obtiene el historial completo de pagos de una casa.
+Obtiene el historial completo de pagos de una casa, incluyendo vouchers no conciliados.
 
-**Descripción**: Retorna todos los pagos realizados por una casa con detalles de distribución entre conceptos.
+**Descripción**: Retorna todos los pagos realizados por una casa con detalles de distribución entre conceptos. También incluye vouchers que no han sido conciliados con transacciones bancarias.
 
 **Path Parameters**:
 
@@ -285,9 +285,58 @@ Obtiene el historial completo de pagos de una casa.
       "period_month": 12,
       "payment_date": "2024-12-10T14:20:00Z"
     }
-  ]
+  ],
+  "unreconciled_vouchers": {
+    "total_count": 2,
+    "vouchers": [
+      {
+        "id": 1,
+        "date": "2024-12-14T10:15:00Z",
+        "amount": 300.00,
+        "confirmation_status": false,
+        "confirmation_code": "202412-ABC123",
+        "created_at": "2024-12-14T10:20:00Z"
+      },
+      {
+        "id": 2,
+        "date": "2024-12-20T14:30:00Z",
+        "amount": 450.50,
+        "confirmation_status": false,
+        "confirmation_code": "202412-DEF456",
+        "created_at": "2024-12-20T14:35:00Z"
+      }
+    ]
+  }
 }
 ```
+
+**Response Fields - Pagos**:
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `id` | integer | ID del registro de asignación |
+| `record_id` | integer | ID del record de transacción |
+| `house_id` | integer | ID de la casa |
+| `concept_type` | string | Tipo de concepto (MAINTENANCE, WATER, EXTRAORDINARY_FEE) |
+| `concept_id` | integer | ID del concepto específico |
+| `allocated_amount` | float | Monto asignado |
+| `expected_amount` | float | Monto esperado |
+| `payment_status` | string | Estado del pago (COMPLETE, PARTIAL, OVERPAID) |
+| `difference` | float | Diferencia entre pagado y esperado |
+| `period_year` | integer | Año del período |
+| `period_month` | integer | Mes del período |
+| `payment_date` | datetime | Fecha del pago |
+
+**Response Fields - Vouchers No Conciliados**:
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `id` | integer | ID del voucher |
+| `date` | datetime | Fecha del voucher |
+| `amount` | float | Monto del voucher |
+| `confirmation_status` | boolean | Estado de confirmación |
+| `confirmation_code` | string \| null | Código de confirmación único (ej: 202412-ABC123) |
+| `created_at` | datetime | Fecha de creación del voucher |
 
 **Errores**:
 
@@ -520,6 +569,17 @@ El monto restante se aplica como crédito a favor.
 
 ---
 
-**Última actualización**: Noviembre 2024
+**Última actualización**: Enero 7, 2026
 **Versión de API**: v1
 **Status**: En producción
+
+### Cambios Recientes (Enero 2026)
+
+✨ **Nuevo**: Endpoint `/payment-management/houses/{houseId}/payments` ahora incluye:
+- Campo `unreconciled_vouchers` con lista de vouchers sin conciliar
+- Campo `confirmation_code` en cada voucher para trazabilidad
+- Integración automática con Bank Reconciliation
+
+✨ **Nuevo**: Endpoints adicionales para consultas de pago:
+- `GET /payment-management/houses/{houseId}/balance` - Saldo actual
+- `GET /payment-management/houses/{houseId}/payments/{periodId}` - Pagos por período

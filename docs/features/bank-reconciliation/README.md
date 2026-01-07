@@ -450,9 +450,22 @@ Cuando un voucher se concilia exitosamente, el sistema **automáticamente elimin
 
 ---
 
-**Versión**: 2.3.0
-**Última actualización**: Enero 5, 2026
+**Versión**: 2.3.1
+**Última actualización**: Enero 7, 2026
 **Estado**: ✅ Production Ready
+
+### Cambios Recientes (Enero 2026)
+
+✨ **Integración automática con Payment Management**:
+- `AllocatePaymentUseCase` se ejecuta automáticamente después de cada conciliación
+- Los pagos se distribuyen automáticamente entre conceptos (mantenimiento, agua, etc.)
+- `HouseBalance` se actualiza automáticamente con cada pago conciliado
+- `RecordAllocation` se crea automáticamente para trazabilidad
+
+✨ **Confirmation Code en Vouchers**:
+- Campo `confirmation_code` agregado a respuestas de API
+- Permite trazabilidad completa de vouchers a través de su código único
+- Incluido en endpoint `/payment-management/houses/{id}/payments`
 
 ---
 

@@ -29,22 +29,36 @@ payment-management/
 │   ├── create-period.use-case.ts
 │   ├── ensure-period-exists.use-case.ts  # Creación automática
 │   ├── get-periods.use-case.ts
-│   └── create-period-config.use-case.ts
+│   ├── create-period-config.use-case.ts
+│   ├── allocate-payment.use-case.ts      # Distribución de pagos ✨ NUEVO
+│   ├── get-payment-history.use-case.ts   # Historial de pagos ✨ NUEVO
+│   └── get-house-balance.use-case.ts     # Consulta de saldos ✨ NUEVO
 │
 ├── infrastructure/              # Repositorios e implementación
 │   └── repositories/
 │       ├── period.repository.ts
-│       └── period-config.repository.ts
+│       ├── period-config.repository.ts
+│       ├── record-allocation.repository.ts    # Distribución de pagos ✨ NUEVO
+│       ├── house-balance.repository.ts        # Saldos por casa ✨ NUEVO
+│       └── house-period-override.repository.ts # Montos personalizados ✨ NUEVO
 │
 ├── interfaces/                  # Contratos de repositorios
 │   ├── period.repository.interface.ts
-│   └── period-config.repository.interface.ts
+│   ├── period-config.repository.interface.ts
+│   ├── record-allocation.repository.interface.ts ✨ NUEVO
+│   ├── house-balance.repository.interface.ts     ✨ NUEVO
+│   └── house-period-override.repository.interface.ts ✨ NUEVO
 │
 ├── dto/                         # Data Transfer Objects
 │   ├── create-period.dto.ts
 │   ├── create-period-config.dto.ts
 │   ├── period-response.dto.ts
-│   └── update-period-amounts.dto.ts
+│   ├── update-period-amounts.dto.ts
+│   ├── payment-allocation.dto.ts          ✨ NUEVO
+│   ├── payment-distribution-response.dto.ts ✨ NUEVO
+│   ├── payment-history-response.dto.ts    ✨ NUEVO
+│   ├── house-balance.dto.ts               ✨ NUEVO
+│   └── unreconciled-voucher.dto.ts        ✨ NUEVO
 │
 ├── controllers/                 # Controladores HTTP
 │   └── payment-management.controller.ts
@@ -336,45 +350,211 @@ Obtiene todos los períodos registrados con sus configuraciones.
 const periods = await getPeriodsUseCase.execute();
 ```
 
+### 5. AllocatePaymentUseCase ✨ NUEVO
+
+**Ubicación**: `src/features/payment-management/application/allocate-payment.use-case.ts`
+
+Distribuye un pago entre conceptos (mantenimiento, agua, cuota extraordinaria) y actualiza saldos de casa.
+
+**Funcionalidades**:
+- Distribución inteligente de montos entre conceptos
+- Cálculo de estados de pago (complete, partial, overpaid)
+- Aplicación de montos restantes a centavos acumulados o crédito
+- Integración con `HousePeriodOverride` para montos personalizados
+- Actualización automática de saldos en `HouseBalance`
+- Creación de registros en `RecordAllocation` para trazabilidad
+
+**Flujo de Distribución**:
+1. Valida que el monto sea positivo
+2. Obtiene período y su configuración
+3. Busca overrides personalizados para la casa
+4. Distribuye monto entre conceptos en orden de prioridad
+5. Calcula estado de cada concepto (complete/partial/overpaid)
+6. Aplica montos restantes a centavos acumulados
+7. Actualiza balance total de casa
+8. Persiste en `record_allocations`
+
+**Ejemplo de uso**:
+```typescript
+const result = await allocatePaymentUseCase.execute({
+  record_id: 1,
+  house_id: 5,
+  period_id: 10,
+  amount: 2000,
+  transaction_date: new Date()
+});
+
+// Result:
+// {
+//   allocations: [
+//     { type: 'MAINTENANCE', allocated: 800, expected: 800, status: 'complete' },
+//     { type: 'WATER', allocated: 200, expected: 200, status: 'complete' },
+//     { type: 'EXTRAORDINARY', allocated: 1000, expected: 1000, status: 'complete' }
+//   ],
+//   updated_balance: { accumulated_cents: 0.50, credit_balance: 0, debit_balance: 0 }
+// }
+```
+
+**Integración con Bank Reconciliation**:
+- Se ejecuta automáticamente después de cada conciliación exitosa
+- El servicio de persistencia de reconciliación llama este use case
+- Permite que los pagos se reflejen inmediatamente en el historial
+
+### 6. GetPaymentHistoryUseCase ✨ NUEVO
+
+**Ubicación**: `src/features/payment-management/application/get-payment-history.use-case.ts`
+
+Obtiene el historial completo de pagos de una casa, opcionalmente filtrado por período.
+
+**Funcionalidades**:
+- Historial de todos los pagos registrados
+- Filtrado por período específico
+- Cálculo de diferencias (pagado vs esperado)
+- Determinación de estado de pago (complete, partial, overpaid)
+
+**Ejemplo de uso**:
+```typescript
+// Historial completo
+const history = await getPaymentHistoryUseCase.execute({
+  house_id: 5
+});
+
+// Historial de un período específico
+const periodHistory = await getPaymentHistoryUseCase.execute({
+  house_id: 5,
+  period_id: 10
+});
+```
+
+### 7. GetHouseBalanceUseCase ✨ NUEVO
+
+**Ubicación**: `src/features/payment-management/application/get-house-balance.use-case.ts`
+
+Obtiene el estado financiero actual de una casa.
+
+**Funcionalidades**:
+- Cálculo de saldo neto (crédito - deuda)
+- Determinación de estado (balanced, credited, in-debt)
+- Información de centavos acumulados
+- Creación automática del balance si no existe
+
+**Ejemplo de uso**:
+```typescript
+const balance = await getHouseBalanceUseCase.execute({ house_id: 5 });
+
+// Result:
+// {
+//   house_id: 5,
+//   house_number: 5,
+//   accumulated_cents: 0.75,
+//   credit_balance: 500,
+//   debit_balance: 1000,
+//   net_balance: -500,
+//   status: 'in-debt'
+// }
+```
+
 ## Integration with Bank Reconciliation
 
-Este módulo está diseñado para integrarse con el feature de conciliación bancaria.
+✨ **Implementado automáticamente**: El módulo está completamente integrado con el feature de conciliación bancaria.
 
-### Flujo de Integración
+### Flujo de Integración Automática ✨ NUEVO
+
+Cuando se ejecuta una conciliación bancaria exitosa, el sistema automáticamente:
 
 ```typescript
-// En el servicio de conciliación bancaria
-import { EnsurePeriodExistsUseCase } from '@/features/payment-management/application';
+// Archivo: src/features/bank-reconciliation/infrastructure/persistence/reconciliation-persistence.service.ts
 
-async reconcilePayment(transactionBank: TransactionBank, voucher: Voucher) {
-  const paymentDate = new Date(transactionBank.date);
-  const year = paymentDate.getFullYear();
-  const month = paymentDate.getMonth() + 1;
+async persistReconciliation(reconciliationResult) {
+  // Paso 1: Crear transacciones conciliadas
+  const createdTransactions = await this.createTransactionStatuses(...);
 
-  // 1. Asegurar que existe el período
-  const period = await this.ensurePeriodExistsUseCase.execute(year, month);
+  // Paso 2-5: Crear asociaciones de casas y records
+  await this.createHouseRecordAssociations(...);
 
-  // 2. Obtener configuración del período
-  const config = await this.periodConfigRepository.findById(period.periodConfigId);
+  // Paso 6: ASIGNACIÓN AUTOMÁTICA DE PAGOS ✨ NUEVO
+  for (const reconciled of reconciliationResult.conciliados) {
+    try {
+      // Obtener/crear período automáticamente
+      const period = await this.getOrCreateCurrentPeriod(reconciled.date);
 
-  // 3. Aplicar pago (usar RecordAllocation para distribución detallada)
-  await this.recordsService.allocatePayment({
-    transactionBankId: transactionBank.id,
-    houseId: voucher.houseId,
-    periodId: period.id,
-    concepts: [
-      { type: 'maintenance', amount: config.defaultMaintenanceAmount },
-      { type: 'water', amount: config.defaultWaterAmount }
-    ]
-  });
+      // Distribuir el pago automáticamente
+      await this.allocatePaymentUseCase.execute({
+        record_id: createdRecord.id,
+        house_id: reconciled.houseNumber,
+        period_id: period.id,
+        amount: reconciled.amount,
+        transaction_date: reconciled.date
+      });
+
+      // Resultado: RecordAllocation se crea automáticamente
+      // y HouseBalance se actualiza
+    } catch (error) {
+      // El error en allocations NO cancela la conciliación
+      // Solo se registra en log
+      this.logger.warn(`Asignación fallida: ${error.message}`);
+    }
+  }
 }
 ```
 
 ### Puntos de Integración
 
-1. **Creación automática de períodos**: El endpoint `POST /periods/ensure` debe llamarse desde el flujo de conciliación
-2. **Distribución de pagos**: Los pagos deben registrarse en `RecordAllocation` para trazabilidad
-3. **Centavos acumulados**: Los centavos deben acumularse en `HouseBalance`
+1. **Creación automática de períodos**: Se realiza automáticamente durante conciliación
+   - `EnsurePeriodExistsUseCase` obtiene/crea el período del mes de la transacción
+
+2. **Distribución automática de pagos**: Se ejecuta después de cada conciliación
+   - `AllocatePaymentUseCase` distribuye el monto entre conceptos
+   - Crea registros en `RecordAllocation` para trazabilidad
+   - Actualiza `HouseBalance` automáticamente
+
+3. **Centavos acumulados**: Se manejan automáticamente
+   - Los centavos se acumulan en `HouseBalance.accumulated_cents`
+   - Se aplican automáticamente al siguiente período
+   - Rango de 0.00 a 0.99
+
+### Impacto en API de Pagos
+
+Después de una conciliación exitosa, los endpoints de pago reflejan automáticamente:
+
+```bash
+# Obtener historial de pagos
+GET /payment-management/houses/5/payments
+
+# Respuesta incluye los pagos distribuidos automáticamente
+{
+  "house_id": 5,
+  "house_number": 5,
+  "total_payments": 3,
+  "payments": [
+    {
+      "id": 1,
+      "record_id": 1,
+      "house_id": 5,
+      "concept_type": "MAINTENANCE",
+      "allocated_amount": 800,
+      "expected_amount": 800,
+      "payment_status": "COMPLETE",
+      "period_year": 2025,
+      "period_month": 1
+    },
+    ...
+  ]
+}
+
+# Obtener saldo actual
+GET /payment-management/houses/5/balance
+
+# Respuesta refleja el balance actualizado
+{
+  "house_id": 5,
+  "accumulated_cents": 0.50,
+  "credit_balance": 100,
+  "debit_balance": 0,
+  "net_balance": 100,
+  "status": "credited"
+}
+```
 
 ## Business Logic
 
@@ -475,7 +655,56 @@ npm run db:check-schema
 
 ## TODOs & Next Steps
 
-### Alta Prioridad
+### ✅ Completado en Sprint 2
+
+#### ✅ AllocatePaymentUseCase - Distribución Automática de Pagos
+**Estado**: ✅ IMPLEMENTADO
+
+- Distribución inteligente entre conceptos
+- Cálculo de estados de pago
+- Aplicación de montos restantes a centavos/crédito
+- Integración automática con reconciliación bancaria
+- 64 tests unitarios (100% pasando)
+
+**Código**: `src/features/payment-management/application/allocate-payment.use-case.ts`
+
+#### ✅ GetPaymentHistoryUseCase - Historial de Pagos
+**Estado**: ✅ IMPLEMENTADO
+
+- Historial completo de pagos por casa
+- Filtrado por período específico
+- Cálculo de diferencias pagado vs esperado
+
+**Código**: `src/features/payment-management/application/get-payment-history.use-case.ts`
+
+#### ✅ GetHouseBalanceUseCase - Consulta de Saldos
+**Estado**: ✅ IMPLEMENTADO
+
+- Cálculo de saldo neto
+- Determinación de estado (balanced, credited, in-debt)
+- Información de centavos acumulados
+
+**Código**: `src/features/payment-management/application/get-house-balance.use-case.ts`
+
+#### ✅ Endpoints de Pago - API
+**Estado**: ✅ IMPLEMENTADO
+
+- `GET /payment-management/houses/:houseId/payments` - Historial completo
+- `GET /payment-management/houses/:houseId/payments/:periodId` - Por período
+- `GET /payment-management/houses/:houseId/balance` - Saldo actual
+
+**Documentación**: [API_ENDPOINTS.md](API_ENDPOINTS.md)
+
+#### ✅ Integración con Bank Reconciliation
+**Estado**: ✅ IMPLEMENTADO
+
+- Asignación automática de pagos después de conciliación
+- Creación automática de períodos
+- Actualización automática de saldos
+
+**Archivo**: `src/features/bank-reconciliation/infrastructure/persistence/reconciliation-persistence.service.ts`
+
+### Alta Prioridad - Pendiente
 
 #### 1. Aplicación de Centavos Acumulados
 **Ubicación**: `HouseBalance.accumulated_cents`
@@ -497,21 +726,23 @@ Al crear un período, debe crear automáticamente:
 
 **Archivo**: `src/features/payment-management/application/ensure-period-exists.use-case.ts`
 
-#### 3. Endpoint para Modificar Montos de Período
+#### 3. Confirmation Code en API de Pagos
+**Estado**: ✅ COMPLETADO
+
+- Campo `confirmation_code` agregado a `UnreconciledVoucherDto`
+- Incluido en respuesta de `/payment-management/houses/{id}/payments`
+- Permite trazabilidad de vouchers a través de su código de confirmación
+
+**Archivos**:
+- `src/features/payment-management/dto/unreconciled-voucher.dto.ts`
+- `src/features/payment-management/application/get-house-unreconciled-vouchers.use-case.ts`
+
+### Media Prioridad - Pendiente
+
+#### 4. Endpoint para Modificar Montos de Período
 **Endpoint**: `PATCH /payment-management/periods/:id/amounts`
 
 Permitir ajustar montos de `cta_maintenance`, `cta_water`, etc. cuando cambien precios.
-
-**Archivo**: `src/features/payment-management/controllers/payment-management.controller.ts:127-129`
-
-#### 4. Cálculo Automático de Penalidades
-Usar `PeriodConfig.payment_due_day` para detectar pagos tardíos.
-
-**Lógica**:
-- Si pago llega después del día límite → crear registro en `cta_penalties`
-- Usar `late_payment_penalty_amount` de la configuración
-
-### Media Prioridad
 
 #### 5. Validación de Pagos Completos/Incompletos
 Comparar `RecordAllocation.allocated_amount` vs `expected_amount` para generar reportes.
@@ -533,7 +764,7 @@ Si ya hay períodos en BD, migrarlos a la nueva estructura:
 - Proyección de ingresos
 - Centavos acumulados por casa
 
-### Baja Prioridad
+### Baja Prioridad - Pendiente
 
 #### 9. Optimización de Performance
 - Índices para consultas frecuentes
@@ -619,5 +850,9 @@ CREATE INDEX idx_periods_year_month ON periods(year, month);
 ---
 
 **Mantenido por**: Equipo de Desarrollo Agave
-**Última actualización**: Octubre 2025
+**Última actualización**: Enero 7, 2026 (Sprint 2 + Integración automática)
+**Últimas implementaciones**:
+- Sprint 2: AllocatePaymentUseCase, GetPaymentHistoryUseCase, GetHouseBalanceUseCase (Nov 17, 2025)
+- Integración automática: Bank Reconciliation + Payment Management (Enero 5, 2026)
+- Confirmation Code: Agregado a respuesta de API (Enero 7, 2026)
 **Feature implementado en**: Commit `bfd033c` (28 Oct 2025)
