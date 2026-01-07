@@ -10,12 +10,13 @@ import { RecordRepository } from '@/shared/database/repositories/record.reposito
 import { HouseRepository } from '@/shared/database/repositories/house.repository';
 import { UserRepository } from '@/shared/database/repositories/user.repository';
 import { HouseRecordRepository } from '@/shared/database/repositories/house-record.repository';
+import { TransactionStatusRepository } from '@/shared/database/repositories/transaction-status.repository';
 import { VoucherDuplicateDetectorService } from '../infrastructure/persistence/voucher-duplicate-detector.service';
 import { ConfirmVoucherFromFrontendDto } from '../dto/frontend-save-draft.dto';
 import { ConfirmVoucherResponseDto } from '../dto/frontend-voucher-response.dto';
 import { combineDateAndTime } from '@/shared/common/utils';
 import { generateUniqueConfirmationCode } from '../shared/helpers';
-import { Role, Status } from '@/shared/database/entities/enums';
+import { Role, Status, ValidationStatus } from '@/shared/database/entities/enums';
 import { VOUCHER_FRONTEND_MESSAGES } from '../shared/constants';
 
 export interface ConfirmVoucherFrontendInput extends ConfirmVoucherFromFrontendDto {}
@@ -47,6 +48,7 @@ export class ConfirmVoucherFrontendUseCase {
     private readonly houseRepository: HouseRepository,
     private readonly userRepository: UserRepository,
     private readonly houseRecordRepository: HouseRecordRepository,
+    private readonly transactionStatusRepository: TransactionStatusRepository,
     private readonly duplicateDetector: VoucherDuplicateDetectorService,
   ) {}
 
@@ -163,7 +165,19 @@ export class ConfirmVoucherFrontendUseCase {
         const record = manager.create('Record', recordData);
         const savedRecord = await manager.save(record);
 
-        // 9. Crear o buscar Casa y su asociación con el Record
+        // 9. Crear TransactionStatus para vincular el voucher con la casa
+        const transactionStatusData = {
+          vouchers_id: voucherId,
+          identified_house_number: casa,
+          validation_status: ValidationStatus.PENDING,
+        };
+        const transactionStatus = manager.create(
+          'TransactionStatus',
+          transactionStatusData,
+        );
+        const savedTransactionStatus = await manager.save(transactionStatus);
+
+        // 10. Crear o buscar Casa y su asociación con el Record
         await this.findOrCreateHouseAssociationWithManager(
           casa,
           userIdToUse,
@@ -199,9 +213,7 @@ export class ConfirmVoucherFrontendUseCase {
     } catch (error) {
       // ✅ transaction() automáticamente maneja rollback en caso de error
       // No es necesario llamar rollbackTransaction() manualmente
-      this.logger.error(
-        `Error confirmando voucher Frontend: ${error.message}`,
-      );
+      this.logger.error(`Errorvoucher Frontend: ${error.message}`);
       throw error;
     }
   }

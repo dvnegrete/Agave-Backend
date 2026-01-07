@@ -54,6 +54,7 @@ export class GetHouseUnreconciledVouchersUseCase {
       date: voucher.date,
       amount: voucher.amount,
       confirmation_status: voucher.confirmation_status,
+      confirmation_code: voucher.confirmation_code ?? null,
       created_at: voucher.created_at,
     };
   }

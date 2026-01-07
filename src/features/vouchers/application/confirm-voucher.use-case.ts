@@ -6,6 +6,7 @@ import { RecordRepository } from '@/shared/database/repositories/record.reposito
 import { HouseRepository } from '@/shared/database/repositories/house.repository';
 import { UserRepository } from '@/shared/database/repositories/user.repository';
 import { HouseRecordRepository } from '@/shared/database/repositories/house-record.repository';
+import { TransactionStatusRepository } from '@/shared/database/repositories/transaction-status.repository';
 import { ConversationStateService } from '../infrastructure/persistence/conversation-state.service';
 import { WhatsAppMessagingService } from '../infrastructure/whatsapp/whatsapp-messaging.service';
 import { VoucherDuplicateDetectorService } from '../infrastructure/persistence/voucher-duplicate-detector.service';
@@ -16,7 +17,7 @@ import {
   parsePhoneNumberWithCountryCode,
 } from '@/shared/common/utils';
 import { generateUniqueConfirmationCode } from '../shared/helpers';
-import { Role, Status } from '@/shared/database/entities/enums';
+import { Role, Status, ValidationStatus } from '@/shared/database/entities/enums';
 
 export interface ConfirmVoucherInput {
   phoneNumber: string;
@@ -50,6 +51,7 @@ export class ConfirmVoucherUseCase {
     private readonly houseRepository: HouseRepository,
     private readonly userRepository: UserRepository,
     private readonly houseRecordRepository: HouseRecordRepository,
+    private readonly transactionStatusRepository: TransactionStatusRepository,
     private readonly conversationState: ConversationStateService,
     private readonly whatsappMessaging: WhatsAppMessagingService,
     private readonly duplicateDetector: VoucherDuplicateDetectorService,
@@ -201,7 +203,21 @@ export class ConfirmVoucherUseCase {
           queryRunner,
         );
 
-        // 11. Buscar o crear House y asociar con Record
+        // 11. Crear TransactionStatus para vincular el voucher con la casa
+        const transactionStatus = await this.transactionStatusRepository.create(
+          {
+            vouchers_id: voucher.id,
+            identified_house_number: savedData.voucherData.casa,
+            validation_status: ValidationStatus.PENDING,
+          },
+          queryRunner,
+        );
+
+        this.logger.debug(
+          `TransactionStatus creado para voucher: id=${transactionStatus.id}, vouchers_id=${voucher.id}, house=${savedData.voucherData.casa}`,
+        );
+
+        // 12. Buscar o crear House y asociar con Record
         await this.findOrCreateHouseAssociation(
           savedData.voucherData.casa,
           user.id,

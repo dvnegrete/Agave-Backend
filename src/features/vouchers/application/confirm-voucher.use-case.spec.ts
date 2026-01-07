@@ -10,6 +10,7 @@ import { ConversationStateService } from '../infrastructure/persistence/conversa
 import { WhatsAppMessagingService } from '../infrastructure/whatsapp/whatsapp-messaging.service';
 import { VoucherDuplicateDetectorService } from '../infrastructure/persistence/voucher-duplicate-detector.service';
 import { GcsCleanupService } from '@/shared/libs/google-cloud';
+import { TransactionStatusRepository } from '@/shared/database/repositories/transaction-status.repository';
 
 describe('ConfirmVoucherUseCase - Amount Validation', () => {
   let useCase: ConfirmVoucherUseCase;
@@ -19,6 +20,7 @@ describe('ConfirmVoucherUseCase - Amount Validation', () => {
   let mockHouseRepository: any;
   let mockUserRepository: any;
   let mockHouseRecordRepository: any;
+  let mockTransactionStatusRepository: any;
   let mockConversationState: any;
   let mockWhatsappMessaging: any;
   let mockDuplicateDetector: any;
@@ -67,6 +69,15 @@ describe('ConfirmVoucherUseCase - Amount Validation', () => {
       create: jest.fn(),
     };
 
+    mockTransactionStatusRepository = {
+      create: jest.fn().mockResolvedValue({
+        id: 1,
+        vouchers_id: 1,
+        identified_house_number: 15,
+        validation_status: 'pending',
+      }),
+    };
+
     // Mock Services
     mockConversationState = {
       getVoucherDataForConfirmation: jest.fn(),
@@ -94,6 +105,7 @@ describe('ConfirmVoucherUseCase - Amount Validation', () => {
         { provide: HouseRepository, useValue: mockHouseRepository },
         { provide: UserRepository, useValue: mockUserRepository },
         { provide: HouseRecordRepository, useValue: mockHouseRecordRepository },
+        { provide: TransactionStatusRepository, useValue: mockTransactionStatusRepository },
         { provide: ConversationStateService, useValue: mockConversationState },
         {
           provide: WhatsAppMessagingService,

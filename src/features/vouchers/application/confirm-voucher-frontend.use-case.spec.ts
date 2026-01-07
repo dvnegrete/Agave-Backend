@@ -1,11 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import {
-  BadRequestException,
-  ConflictException,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import * as confirmVoucherModule from './confirm-voucher-frontend.use-case';
 import { ConfirmVoucherFrontendUseCase } from './confirm-voucher-frontend.use-case';
 import { VoucherRepository } from '@/shared/database/repositories/voucher.repository';
 import { RecordRepository } from '@/shared/database/repositories/record.repository';
@@ -13,6 +8,7 @@ import { HouseRepository } from '@/shared/database/repositories/house.repository
 import { UserRepository } from '@/shared/database/repositories/user.repository';
 import { HouseRecordRepository } from '@/shared/database/repositories/house-record.repository';
 import { VoucherDuplicateDetectorService } from '../infrastructure/persistence/voucher-duplicate-detector.service';
+import { TransactionStatusRepository } from '@/shared/database/repositories/transaction-status.repository';
 
 describe('ConfirmVoucherFrontendUseCase', () => {
   let useCase: ConfirmVoucherFrontendUseCase;
@@ -22,6 +18,7 @@ describe('ConfirmVoucherFrontendUseCase', () => {
   let mockHouseRepository: any;
   let mockUserRepository: any;
   let mockHouseRecordRepository: any;
+  let mockTransactionStatusRepository: any;
   let mockDuplicateDetector: any;
   let mockQueryRunner: any;
 
@@ -98,6 +95,15 @@ describe('ConfirmVoucherFrontendUseCase', () => {
       create: jest.fn().mockResolvedValue({ id: 1 }),
     };
 
+    mockTransactionStatusRepository = {
+      create: jest.fn().mockResolvedValue({
+        id: 1,
+        vouchers_id: 1,
+        identified_house_number: 15,
+        validation_status: 'pending',
+      }),
+    };
+
     // Mock Duplicate Detector
     mockDuplicateDetector = {
       detectDuplicate: jest.fn().mockResolvedValue({
@@ -132,6 +138,10 @@ describe('ConfirmVoucherFrontendUseCase', () => {
         {
           provide: HouseRecordRepository,
           useValue: mockHouseRecordRepository,
+        },
+        {
+          provide: TransactionStatusRepository,
+          useValue: mockTransactionStatusRepository,
         },
         {
           provide: VoucherDuplicateDetectorService,

@@ -7,6 +7,7 @@ export class UnreconciledVoucherDto {
   date: Date;
   amount: number;
   confirmation_status: boolean;
+  confirmation_code?: string | null;
   created_at: Date;
 }
 
