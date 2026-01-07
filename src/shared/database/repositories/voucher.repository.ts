@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { Repository, Between } from 'typeorm';
+import { Repository, Between, Not } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Voucher } from '../entities/voucher.entity';
+import { ValidationStatus } from '../entities/enums';
 
 export interface CreateVoucherDto {
   date: Date | string;
@@ -230,5 +231,38 @@ export class VoucherRepository {
       where: { url: filename },
     });
     return count > 0;
+  }
+
+  /**
+   * Obtiene vouchers no conciliados asociados a una casa
+   *
+   * Criterio de "no conciliado":
+   * - confirmation_status = false (aún no confirmado)
+   * - TransactionStatus.identified_house_number = numberHouse
+   * - TransactionStatus.validation_status != CONFIRMED (no está reconciliado)
+   *
+   * Utiliza relaciones de TypeORM en lugar de SQL directo.
+   * Flujo de relaciones:
+   * Voucher → TransactionStatus → identified_house_number
+   *
+   * @param numberHouse Número de casa (number_house)
+   * @returns Array de vouchers no conciliados
+   */
+  async findUnreconciledByHouseNumber(numberHouse: number): Promise<Voucher[]> {
+    return this.voucherRepository
+      .createQueryBuilder('v')
+      .leftJoinAndSelect(
+        'v.transactionStatuses',
+        'ts',
+      )
+      .where('v.confirmation_status = :confirmationStatus', {
+        confirmationStatus: false,
+      })
+      .andWhere('ts.identified_house_number = :numberHouse', { numberHouse })
+      .andWhere('ts.validation_status != :confirmedStatus', {
+        confirmedStatus: ValidationStatus.CONFIRMED,
+      })
+      .orderBy('v.created_at', 'DESC')
+      .getMany();
   }
 }

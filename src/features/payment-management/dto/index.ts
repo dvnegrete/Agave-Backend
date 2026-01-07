@@ -6,3 +6,4 @@ export * from './payment-allocation.dto';
 export * from './payment-history.dto';
 export * from './house-balance.dto';
 export * from './transaction-bank-response.dto';
+export * from './unreconciled-voucher.dto';

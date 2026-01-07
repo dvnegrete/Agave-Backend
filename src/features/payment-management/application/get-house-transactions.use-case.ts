@@ -2,19 +2,21 @@ import { Injectable } from '@nestjs/common';
 import { House } from '@/shared/database/entities';
 import { HouseTransactionsResponseDto, TransactionBankItemDto } from '../dto';
 import { TransactionBankRepository } from '@/shared/database/repositories/transaction-bank.repository';
+import { GetHouseUnreconciledVouchersUseCase } from './get-house-unreconciled-vouchers.use-case';
 
 /**
- * Use case para obtener transacciones bancarias de una casa
- * Retorna los registros puros de TransactionBank asociados a una casa
+ * Use case para obtener transacciones bancarias y vouchers no conciliados de una casa
+ * Retorna los registros puros de TransactionBank y vouchers sin reconciliar asociados a una casa
  */
 @Injectable()
 export class GetHouseTransactionsUseCase {
   constructor(
     private readonly transactionBankRepository: TransactionBankRepository,
+    private readonly getHouseUnreconciledVouchersUseCase: GetHouseUnreconciledVouchersUseCase,
   ) {}
 
   /**
-   * Ejecuta la búsqueda de transacciones bancarias de una casa
+   * Ejecuta la búsqueda de transacciones bancarias y vouchers no conciliados de una casa
    * @param house Objeto House con id y number_house
    */
   async execute(house: House): Promise<HouseTransactionsResponseDto> {
@@ -23,6 +25,10 @@ export class GetHouseTransactionsUseCase {
       await this.transactionBankRepository.findByHouseNumberHouse(
         house.number_house,
       );
+
+    // Obtener vouchers no conciliados
+    const unreconciledVouchers =
+      await this.getHouseUnreconciledVouchersUseCase.execute(house);
 
     if (transactions.length === 0) {
       return {
@@ -33,6 +39,7 @@ export class GetHouseTransactionsUseCase {
         confirmed_transactions: 0,
         pending_transactions: 0,
         transactions: [],
+        unreconciled_vouchers: unreconciledVouchers,
       };
     }
 
@@ -58,6 +65,7 @@ export class GetHouseTransactionsUseCase {
       confirmed_transactions: confirmedTransactions,
       pending_transactions: pendingTransactions,
       transactions: transactionDTOs,
+      unreconciled_vouchers: unreconciledVouchers,
     };
   }
 

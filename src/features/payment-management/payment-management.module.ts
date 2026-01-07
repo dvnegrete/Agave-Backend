@@ -14,6 +14,7 @@ import {
   GetPaymentHistoryUseCase,
   GetHouseBalanceUseCase,
   GetHouseTransactionsUseCase,
+  GetHouseUnreconciledVouchersUseCase,
 } from './application';
 
 // Infrastructure Layer - Repositories
@@ -26,6 +27,7 @@ import { HousePeriodOverrideRepository } from './infrastructure/repositories/hou
 // Shared Repositories
 import { TransactionBankRepository } from '@/shared/database/repositories/transaction-bank.repository';
 import { HouseRepository } from '@/shared/database/repositories/house.repository';
+import { VoucherRepository } from '@/shared/database/repositories/voucher.repository';
 
 // Entities
 import {
@@ -36,6 +38,7 @@ import {
   RecordAllocation,
   House,
   TransactionBank,
+  Voucher,
 } from '@/shared/database/entities';
 
 @Module({
@@ -48,6 +51,7 @@ import {
       RecordAllocation,
       House,
       TransactionBank,
+      Voucher,
     ]),
   ],
   controllers: [PaymentManagementController],
@@ -61,6 +65,7 @@ import {
     GetPaymentHistoryUseCase,
     GetHouseBalanceUseCase,
     GetHouseTransactionsUseCase,
+    GetHouseUnreconciledVouchersUseCase,
 
     // Repositories - Provide with interface tokens
     {
@@ -91,6 +96,7 @@ import {
     HousePeriodOverrideRepository,
     TransactionBankRepository,
     HouseRepository,
+    VoucherRepository,
   ],
   exports: [
     EnsurePeriodExistsUseCase, // Exportado para uso en conciliación bancaria

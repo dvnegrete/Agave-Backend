@@ -1,3 +1,5 @@
+import { UnreconciledVouchersResponseDto } from './unreconciled-voucher.dto';
+
 /**
  * DTO para cada transacción dentro del historial
  * Contiene solo los campos esenciales de la transacción bancaria
@@ -14,6 +16,7 @@ export class TransactionBankItemDto {
 
 /**
  * DTO para respuesta de historial de transacciones de una casa
+ * Incluye tanto transacciones bancarias como vouchers no conciliados
  */
 export class HouseTransactionsResponseDto {
   house_id: number;
@@ -23,4 +26,5 @@ export class HouseTransactionsResponseDto {
   confirmed_transactions: number;
   pending_transactions: number;
   transactions: TransactionBankItemDto[];
+  unreconciled_vouchers: UnreconciledVouchersResponseDto;
 }

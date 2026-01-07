@@ -23,6 +23,7 @@ import {
   GetPaymentHistoryUseCase,
   GetHouseBalanceUseCase,
   GetHouseTransactionsUseCase,
+  GetHouseUnreconciledVouchersUseCase,
 } from '../application';
 import {
   CreatePeriodDto,
@@ -46,6 +47,7 @@ export class PaymentManagementController {
     private readonly getPaymentHistoryUseCase: GetPaymentHistoryUseCase,
     private readonly getHouseBalanceUseCase: GetHouseBalanceUseCase,
     private readonly getHouseTransactionsUseCase: GetHouseTransactionsUseCase,
+    private readonly getHouseUnreconciledVouchersUseCase: GetHouseUnreconciledVouchersUseCase,
     private readonly houseRepository: HouseRepository,
   ) {}
 
