@@ -14,9 +14,6 @@ import {
   ApiResponse,
   ApiBody,
 } from '@nestjs/swagger';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { House } from '@/shared/database/entities';
 import {
   CreatePeriodUseCase,
   EnsurePeriodExistsUseCase,
@@ -25,15 +22,17 @@ import {
   AllocatePaymentUseCase,
   GetPaymentHistoryUseCase,
   GetHouseBalanceUseCase,
+  GetHouseTransactionsUseCase,
 } from '../application';
 import {
   CreatePeriodDto,
   CreatePeriodConfigDto,
   PeriodResponseDto,
   PeriodConfigResponseDto,
-  PaymentHistoryResponseDTO,
   HouseBalanceDTO,
+  HouseTransactionsResponseDto,
 } from '../dto';
+import { HouseRepository } from '@/shared/database/repositories/house.repository';
 
 @ApiTags('Payment Management')
 @Controller('payment-management')
@@ -46,8 +45,8 @@ export class PaymentManagementController {
     private readonly allocatePaymentUseCase: AllocatePaymentUseCase,
     private readonly getPaymentHistoryUseCase: GetPaymentHistoryUseCase,
     private readonly getHouseBalanceUseCase: GetHouseBalanceUseCase,
-    @InjectRepository(House)
-    private readonly houseRepository: Repository<House>,
+    private readonly getHouseTransactionsUseCase: GetHouseTransactionsUseCase,
+    private readonly houseRepository: HouseRepository,
   ) {}
 
   /**
@@ -202,22 +201,23 @@ export class PaymentManagementController {
 
   /**
    * GET /payment-management/houses/:houseId/payments
-   * Obtiene el historial completo de pagos de una casa
+   * Obtiene todas las transacciones bancarias asociadas a una casa
+   * @param houseId número de casa (number_house)
    */
   @ApiOperation({
-    summary: 'Obtener historial de pagos',
+    summary: 'Obtener transacciones bancarias de una casa',
     description:
-      'Retorna el historial completo de pagos realizados por una casa',
+      'Retorna todas las transacciones bancarias confirmadas y pendientes asociadas a una casa (identificada por número de casa)',
   })
   @ApiParam({
     name: 'houseId',
-    description: 'ID de la casa',
+    description: 'Número de casa (number_house)',
     example: 42,
   })
   @ApiResponse({
     status: 200,
-    description: 'Historial de pagos obtenido',
-    type: PaymentHistoryResponseDTO,
+    description: 'Transacciones bancarias obtenidas',
+    type: HouseTransactionsResponseDto,
   })
   @ApiResponse({
     status: 404,
@@ -226,73 +226,36 @@ export class PaymentManagementController {
   @Get('houses/:houseId/payments')
   async getPaymentHistory(
     @Param('houseId', ParseIntPipe) houseId: number,
-  ): Promise<PaymentHistoryResponseDTO> {
-    const house = await this.houseRepository.findOne({
-      where: { id: houseId },
-    });
+  ): Promise<HouseTransactionsResponseDto> {
+    const house = await this.houseRepository.findByNumberHouse(houseId);
 
     if (!house) {
-      throw new NotFoundException(`Casa con ID ${houseId} no encontrada`);
+      throw new NotFoundException(`Casa con número ${houseId} no encontrada`);
     }
 
-    return this.getPaymentHistoryUseCase.execute(houseId, house);
+    return this.getHouseTransactionsUseCase.execute(house);
   }
 
-  /**
-   * GET /payment-management/houses/:houseId/payments/:periodId
-   * Obtiene pagos de una casa en un período específico
-   */
-  @ApiOperation({
-    summary: 'Obtener pagos por período',
-    description: 'Retorna los pagos de una casa en un período específico',
-  })
-  @ApiParam({
-    name: 'houseId',
-    description: 'ID de la casa',
-    example: 42,
-  })
-  @ApiParam({
-    name: 'periodId',
-    description: 'ID del período',
-    example: 1,
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Pagos del período obtenidos',
-    type: PaymentHistoryResponseDTO,
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Casa no encontrada',
-  })
-  @Get('houses/:houseId/payments/:periodId')
-  async getPaymentHistoryByPeriod(
-    @Param('houseId', ParseIntPipe) houseId: number,
-    @Param('periodId', ParseIntPipe) periodId: number,
-  ): Promise<PaymentHistoryResponseDTO> {
-    const house = await this.houseRepository.findOne({
-      where: { id: houseId },
-    });
-
-    if (!house) {
-      throw new NotFoundException(`Casa con ID ${houseId} no encontrada`);
-    }
-
-    return this.getPaymentHistoryUseCase.executeByPeriod(houseId, periodId, house);
-  }
+  // TODO: Endpoint para obtener pagos por período necesita ser redefinido
+  // Actualmente este endpoint depende de RecordAllocations que tienen lógica incompleta de cta_*
+  // Se recomienda:
+  // 1. Mantener GET /houses/:houseId/payments para transacciones del banco (ya actualizado)
+  // 2. Definir si se necesita filtrar por período y desde qué punto (banco vs allocations)
+  // 3. Considerar usar métodos que filtren transacciones por rango de fecha
 
   /**
    * GET /payment-management/houses/:houseId/balance
    * Obtiene el saldo actual de una casa
+   * @param houseId número de casa (number_house)
    */
   @ApiOperation({
     summary: 'Obtener saldo de casa',
     description:
-      'Retorna el saldo actual (deuda, crédito, centavos acumulados) de una casa',
+      'Retorna el saldo actual (deuda, crédito, centavos acumulados) de una casa (identificada por número de casa)',
   })
   @ApiParam({
     name: 'houseId',
-    description: 'ID de la casa',
+    description: 'Número de casa (number_house)',
     example: 42,
   })
   @ApiResponse({
@@ -308,14 +271,12 @@ export class PaymentManagementController {
   async getHouseBalance(
     @Param('houseId', ParseIntPipe) houseId: number,
   ): Promise<HouseBalanceDTO> {
-    const house = await this.houseRepository.findOne({
-      where: { id: houseId },
-    });
+    const house = await this.houseRepository.findByNumberHouse(houseId);
 
     if (!house) {
-      throw new NotFoundException(`Casa con ID ${houseId} no encontrada`);
+      throw new NotFoundException(`Casa con número ${houseId} no encontrada`);
     }
 
-    return this.getHouseBalanceUseCase.execute(houseId, house);
+    return this.getHouseBalanceUseCase.execute(house.id, house);
   }
 }

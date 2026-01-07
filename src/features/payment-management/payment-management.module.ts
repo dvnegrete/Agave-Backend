@@ -13,6 +13,7 @@ import {
   AllocatePaymentUseCase,
   GetPaymentHistoryUseCase,
   GetHouseBalanceUseCase,
+  GetHouseTransactionsUseCase,
 } from './application';
 
 // Infrastructure Layer - Repositories
@@ -22,6 +23,10 @@ import { RecordAllocationRepository } from './infrastructure/repositories/record
 import { HouseBalanceRepository } from './infrastructure/repositories/house-balance.repository';
 import { HousePeriodOverrideRepository } from './infrastructure/repositories/house-period-override.repository';
 
+// Shared Repositories
+import { TransactionBankRepository } from '@/shared/database/repositories/transaction-bank.repository';
+import { HouseRepository } from '@/shared/database/repositories/house.repository';
+
 // Entities
 import {
   Period,
@@ -30,6 +35,7 @@ import {
   HousePeriodOverride,
   RecordAllocation,
   House,
+  TransactionBank,
 } from '@/shared/database/entities';
 
 @Module({
@@ -41,6 +47,7 @@ import {
       HousePeriodOverride,
       RecordAllocation,
       House,
+      TransactionBank,
     ]),
   ],
   controllers: [PaymentManagementController],
@@ -53,6 +60,7 @@ import {
     AllocatePaymentUseCase,
     GetPaymentHistoryUseCase,
     GetHouseBalanceUseCase,
+    GetHouseTransactionsUseCase,
 
     // Repositories - Provide with interface tokens
     {
@@ -81,6 +89,8 @@ import {
     RecordAllocationRepository,
     HouseBalanceRepository,
     HousePeriodOverrideRepository,
+    TransactionBankRepository,
+    HouseRepository,
   ],
   exports: [
     EnsurePeriodExistsUseCase, // Exportado para uso en conciliación bancaria

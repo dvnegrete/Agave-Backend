@@ -149,14 +149,12 @@ export class TransactionStatusRepository {
       updateData.transactions_bank_id = data.transactions_bank_id ?? undefined;
     if (data.vouchers_id !== undefined)
       updateData.vouchers_id = data.vouchers_id ?? undefined;
-    if (data.reason !== undefined)
-      updateData.reason = data.reason;
+    if (data.reason !== undefined) updateData.reason = data.reason;
     if (data.identified_house_number !== undefined)
       updateData.identified_house_number = data.identified_house_number;
     if (data.processed_at !== undefined)
       updateData.processed_at = data.processed_at;
-    if (data.metadata !== undefined)
-      updateData.metadata = data.metadata;
+    if (data.metadata !== undefined) updateData.metadata = data.metadata;
 
     await this.transactionStatusRepository.update(id, updateData);
     const updated = await this.findById(id);

@@ -225,4 +225,27 @@ export class TransactionBankRepository {
       order: { date: 'ASC', time: 'ASC' },
     });
   }
+
+  /**
+   * Obtiene todas las transacciones bancarias asociadas a una casa
+   * por su número de casa (number_house)
+   *
+   * Utiliza relaciones de TypeORM en lugar de SQL directo.
+   * Flujo de relaciones:
+   * TransactionBank → TransactionStatus → Record → HouseRecord → House
+   */
+  async findByHouseNumberHouse(
+    numberHouse: number,
+  ): Promise<TransactionBank[]> {
+    return this.transactionBankRepository
+      .createQueryBuilder('tb')
+      .leftJoinAndSelect('tb.transactionStatuses', 'ts')
+      .leftJoinAndSelect('ts.records', 'r')
+      .leftJoinAndSelect('r.houseRecords', 'hr')
+      .leftJoinAndSelect('hr.house', 'h')
+      .where('h.number_house = :numberHouse', { numberHouse })
+      .orderBy('tb.date', 'DESC')
+      .addOrderBy('tb.time', 'DESC')
+      .getMany();
+  }
 }

@@ -5,3 +5,4 @@ export * from './period-response.dto';
 export * from './payment-allocation.dto';
 export * from './payment-history.dto';
 export * from './house-balance.dto';
+export * from './transaction-bank-response.dto';
