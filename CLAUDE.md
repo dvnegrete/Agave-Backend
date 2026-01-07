@@ -92,11 +92,11 @@ Claude must analyze the existing structure before adding new code.
 
 ### Repositories
 
-- Prisma/database access only
+- TypeORM/database access only
 - No business rules
 
 ❌ Forbidden:
-- Controllers calling Prisma directly
+- Controllers calling the database directly
 - Services accessing `Request`, `Response`
 - Cross-feature imports
 
@@ -122,13 +122,15 @@ This project uses **strong TypeScript typing**.
 Claude must:
 - Explicitly type all method parameters and return values
 - Use DTOs, interfaces, or domain types
-- Reuse Prisma-generated types when possible
+- Reuse domain types and TypeORM entities when possible
+- Prefer async/await for all asynchronous logic
 
 ❌ Forbidden:
 - `any`
 - `unknown` (except at system boundaries)
 - `as any`
 - Weak or implicit typing in business logic
+- Promise chains using .then() / .catch() in application code
 
 If a type is unclear:
 - Define it
@@ -149,15 +151,21 @@ If a type is unclear:
 
 ---
 
-## Database & Prisma
+## Database & ORM (TypeORM)
 
-- Prisma is the only database access layer
-- Schema lives in `prisma/schema.prisma`
-- Reuse existing models before creating new ones
+- **TypeORM** is the only database access layer
+- Entities define the source of truth for persistence
+- Migrations are managed via TypeORM
 
 Claude must:
-- Avoid schema changes unless explicitly requested
-- Never bypass Prisma
+- Use repositories or injected `EntityManager`
+- Respect existing entities and relations
+- Reuse entities before creating new ones
+
+❌ Forbidden:
+- Direct SQL queries unless explicitly instructed
+- Bypassing TypeORM abstractions
+- Introducing a second ORM or query layer
 
 ---
 
