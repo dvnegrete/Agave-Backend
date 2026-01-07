@@ -30,6 +30,10 @@ import { RecordRepository } from './repositories/record.repository';
 import { HouseRepository } from './repositories/house.repository';
 import { UserRepository } from './repositories/user.repository';
 import { HouseRecordRepository } from './repositories/house-record.repository';
+import { CtaMaintenanceRepository } from './repositories/cta-maintenance.repository';
+import { CtaWaterRepository } from './repositories/cta-water.repository';
+import { CtaPenaltiesRepository } from './repositories/cta-penalties.repository';
+import { CtaExtraordinaryFeeRepository } from './repositories/cta-extraordinary-fee.repository';
 import { SystemUserSeed } from './seeds/system-user.seed';
 
 @Global()
@@ -74,6 +78,10 @@ import { SystemUserSeed } from './seeds/system-user.seed';
     HouseRepository,
     UserRepository,
     HouseRecordRepository,
+    CtaMaintenanceRepository,
+    CtaWaterRepository,
+    CtaPenaltiesRepository,
+    CtaExtraordinaryFeeRepository,
     SystemUserSeed, // Auto-crea usuario Sistema al iniciar
   ],
   exports: [
@@ -87,6 +95,10 @@ import { SystemUserSeed } from './seeds/system-user.seed';
     HouseRepository,
     UserRepository,
     HouseRecordRepository,
+    CtaMaintenanceRepository,
+    CtaWaterRepository,
+    CtaPenaltiesRepository,
+    CtaExtraordinaryFeeRepository,
   ],
 })
 export class DatabaseModule {}
