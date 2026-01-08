@@ -13,6 +13,7 @@ import {
   MAX_HOUSE_NUMBER,
   SYSTEM_USER_ID,
 } from '@/shared/config/business-rules.config';
+import { EnsureHouseExistsService } from '@/shared/database/services';
 import { UnclaimedDeposit, ManualValidationCase } from '../../domain';
 import { AllocatePaymentUseCase } from '@/features/payment-management/application';
 import { PeriodRepository } from '@/features/payment-management/infrastructure/repositories/period.repository';
@@ -39,6 +40,7 @@ export class ReconciliationPersistenceService implements OnModuleInit {
     private readonly periodRepository: PeriodRepository,
     private readonly ensurePeriodExistsUseCase: EnsurePeriodExistsUseCase,
     private readonly transactionBankRepository: TransactionBankRepo,
+    private readonly ensureHouseExistsService: EnsureHouseExistsService,
   ) {}
 
   /**
@@ -297,41 +299,24 @@ export class ReconciliationPersistenceService implements OnModuleInit {
   /**
    * Crea la asociación HouseRecord, creando la casa si no existe
    * Retorna la casa para uso posterior en asignación de pagos
-   * Sigue el mismo patrón que confirm-voucher.use-case.ts
+   * Usa EnsureHouseExistsService para garantizar que la casa existe
    */
   private async createHouseRecordAssociation(
     houseNumber: number,
     recordId: number,
     queryRunner: QueryRunner,
   ): Promise<any> {
-    if (!this.isValidHouseNumber(houseNumber)) {
-      throw new Error(
-        `❌ No se puede crear asociación HouseRecord con número de casa inválido: ${houseNumber}. ` +
-          `Rango válido: ${MIN_HOUSE_NUMBER}-${MAX_HOUSE_NUMBER}.`,
-      );
-    }
+    // Delegar búsqueda/creación al servicio compartido
+    // (incluye validación de rango internamente)
+    const { house } = await this.ensureHouseExistsService.execute(houseNumber, {
+      createIfMissing: true,
+      userId: SYSTEM_USER_ID,
+      queryRunner,
+    });
 
-    // Buscar casa existente por número
-    let house = await this.houseRepository.findByNumberHouse(houseNumber);
-
-    if (!house) {
-      // Casa no existe, crear nueva asignada al usuario "Sistema"
-      this.logger.log(
-        `Casa ${houseNumber} no existe, creando automáticamente (asignada a usuario Sistema)`,
-      );
-
-      house = await this.houseRepository.create(
-        {
-          number_house: houseNumber,
-          user_id: SYSTEM_USER_ID, // Usuario "Sistema" para conciliación automática
-        },
-        queryRunner,
-      );
-
-      this.logger.log(
-        `Casa ${houseNumber} creada exitosamente con ID: ${house.id} (propietario: Sistema)`,
-      );
-    }
+    this.logger.log(
+      `Asociando casa ${houseNumber} (ID: ${house.id}) con record ${recordId}`,
+    );
 
     // Crear asociación en house_records
     await this.houseRecordRepository.create(
@@ -342,7 +327,7 @@ export class ReconciliationPersistenceService implements OnModuleInit {
       queryRunner,
     );
 
-    // Retornar la casa para uso posterior
+    // Retornar la casa para uso posterior (asignación de pagos)
     return house;
   }
 

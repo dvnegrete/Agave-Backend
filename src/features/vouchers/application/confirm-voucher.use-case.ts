@@ -7,6 +7,7 @@ import { HouseRepository } from '@/shared/database/repositories/house.repository
 import { UserRepository } from '@/shared/database/repositories/user.repository';
 import { HouseRecordRepository } from '@/shared/database/repositories/house-record.repository';
 import { TransactionStatusRepository } from '@/shared/database/repositories/transaction-status.repository';
+import { EnsureHouseExistsService } from '@/shared/database/services';
 import { ConversationStateService } from '../infrastructure/persistence/conversation-state.service';
 import { WhatsAppMessagingService } from '../infrastructure/whatsapp/whatsapp-messaging.service';
 import { VoucherDuplicateDetectorService } from '../infrastructure/persistence/voucher-duplicate-detector.service';
@@ -52,6 +53,7 @@ export class ConfirmVoucherUseCase {
     private readonly userRepository: UserRepository,
     private readonly houseRecordRepository: HouseRecordRepository,
     private readonly transactionStatusRepository: TransactionStatusRepository,
+    private readonly ensureHouseExistsService: EnsureHouseExistsService,
     private readonly conversationState: ConversationStateService,
     private readonly whatsappMessaging: WhatsAppMessagingService,
     private readonly duplicateDetector: VoucherDuplicateDetectorService,
@@ -322,61 +324,37 @@ export class ConfirmVoucherUseCase {
     recordId: number,
     queryRunner: any,
   ): Promise<void> {
-    try {
-      // Buscar casa existente por número de casa
-      let house = await this.houseRepository.findByNumberHouse(numberHouse);
-
-      if (!house) {
-        // Casa no existe, crear nueva
-        console.log(`Creando nueva casa ${numberHouse} para usuario ${userId}`);
-
-        house = await this.houseRepository.create(
-          {
-            number_house: numberHouse,
-            user_id: userId,
-          },
-          queryRunner,
-        );
-
-        console.log(`Casa creada exitosamente: ${house.id}`);
-      } else {
-        console.log(
-          `Casa existente encontrada: ${house.id} (number_house: ${numberHouse})`,
-        );
-
-        // Verificar si el propietario cambió
-        if (house.user_id !== userId) {
-          console.log(
-            `Actualizando propietario de casa ${numberHouse}: ${house.user_id} → ${userId}`,
-          );
-          await queryRunner.manager.update(
-            'houses',
-            { id: house.id },
-            { user_id: userId },
-          );
-        }
-      }
-
-      // Crear asociación en house_records
-      console.log(
-        `Creando asociación house_record: house_id=${house.id}, record_id=${recordId}`,
-      );
-
-      await this.houseRecordRepository.create(
-        {
-          house_id: house.id,
-          record_id: recordId,
-        },
+    // Delegar búsqueda/creación al servicio compartido
+    const { house, wasCreated } = await this.ensureHouseExistsService.execute(
+      numberHouse,
+      {
+        createIfMissing: true,
+        userId,
         queryRunner,
-      );
+      }
+    );
 
-      console.log('Asociación house_record creada exitosamente');
-    } catch (error) {
-      console.error(
-        `Error al buscar o crear asociación de casa: ${error.message}`,
+    // Lógica específica de vouchers: actualizar propietario si cambió
+    // (solo si la casa ya existía y el propietario es diferente)
+    if (!wasCreated && house.user_id !== userId) {
+      this.logger.log(
+        `Actualizando propietario de casa ${numberHouse}: ${house.user_id} → ${userId}`,
       );
-      throw new Error(`Error al procesar casa: ${error.message}`);
+      await queryRunner.manager.update(
+        'houses',
+        { id: house.id },
+        { user_id: userId },
+      );
     }
+
+    // Crear asociación en house_records
+    await this.houseRecordRepository.create(
+      {
+        house_id: house.id,
+        record_id: recordId,
+      },
+      queryRunner,
+    );
   }
 
   /**

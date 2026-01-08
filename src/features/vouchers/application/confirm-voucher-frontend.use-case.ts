@@ -11,6 +11,7 @@ import { HouseRepository } from '@/shared/database/repositories/house.repository
 import { UserRepository } from '@/shared/database/repositories/user.repository';
 import { HouseRecordRepository } from '@/shared/database/repositories/house-record.repository';
 import { TransactionStatusRepository } from '@/shared/database/repositories/transaction-status.repository';
+import { EnsureHouseExistsService, SYSTEM_USER_ID } from '@/shared/database/services';
 import { VoucherDuplicateDetectorService } from '../infrastructure/persistence/voucher-duplicate-detector.service';
 import { ConfirmVoucherFromFrontendDto } from '../dto/frontend-save-draft.dto';
 import { ConfirmVoucherResponseDto } from '../dto/frontend-voucher-response.dto';
@@ -49,6 +50,7 @@ export class ConfirmVoucherFrontendUseCase {
     private readonly userRepository: UserRepository,
     private readonly houseRecordRepository: HouseRecordRepository,
     private readonly transactionStatusRepository: TransactionStatusRepository,
+    private readonly ensureHouseExistsService: EnsureHouseExistsService,
     private readonly duplicateDetector: VoucherDuplicateDetectorService,
   ) {}
 
@@ -395,63 +397,39 @@ export class ConfirmVoucherFrontendUseCase {
     recordId: number,
     manager: any,
   ): Promise<void> {
-    try {
-      // Buscar casa existente por número de casa
-      let house = await manager.findOne('House', {
-        where: { number_house: numberHouse },
-      });
+    // ⚠️ WORKAROUND: EnsureHouseExistsService usa QueryRunner, pero este usa EntityManager
+    // Opción temporal: usar manager.queryRunner si está disponible
+    const queryRunner = manager.queryRunner || null;
 
-      if (!house) {
-        // Casa no existe, crear nueva
-        const assignedUserId = userId || '';
+    // Determinar userId efectivo (manejo de null/undefined)
+    const effectiveUserId = userId || SYSTEM_USER_ID;
 
-        this.logger.debug(
-          `Creando nueva casa ${numberHouse}` +
-            (userId ? ` para usuario ${userId}` : ' (sin usuario asignado)'),
-        );
-
-        house = manager.create('House', {
-          number_house: numberHouse,
-          user_id: assignedUserId,
-        });
-        await manager.save(house);
-
-        this.logger.debug(`Casa creada exitosamente: ${house.id}`);
-      } else {
-        this.logger.debug(
-          `Casa existente encontrada: ${house.id} (number_house: ${numberHouse})`,
-        );
-
-        // Verificar si el propietario cambió (solo si tenemos userId)
-        if (userId && house.user_id !== userId) {
-          this.logger.debug(
-            `Actualizando propietario de casa ${numberHouse}: ${house.user_id} → ${userId}`,
-          );
-          house.user_id = userId;
-          await manager.save(house);
-        }
+    // Delegar búsqueda/creación al servicio compartido
+    const { house, wasCreated } = await this.ensureHouseExistsService.execute(
+      numberHouse,
+      {
+        createIfMissing: true,
+        userId: effectiveUserId,
+        queryRunner,
       }
+    );
 
-      // Crear asociación en house_records
+    // Lógica específica: actualizar propietario si cambió (solo si userId está definido)
+    if (!wasCreated && userId && house.user_id !== userId) {
       this.logger.debug(
-        `Creando asociación house_record: house_id=${house.id}, record_id=${recordId}`,
+        `Actualizando propietario de casa ${numberHouse}: ${house.user_id} → ${userId}`,
       );
-
-      const houseRecord = manager.create('HouseRecord', {
-        house_id: house.id,
-        record_id: recordId,
-      });
-      await manager.save(houseRecord);
-
-      this.logger.debug(`Asociación house_record creada exitosamente`);
-    } catch (error) {
-      this.logger.error(`Error al buscar o crear casa: ${error.message}`);
-      throw new Error(
-        VOUCHER_FRONTEND_MESSAGES.HOUSE_ERRORS.PROCESSING_FAILED(
-          numberHouse,
-          error.message,
-        ),
-      );
+      await manager.update('houses', { id: house.id }, { user_id: userId });
     }
+
+    // Crear asociación en house_records
+    this.logger.debug(
+      `Creando asociación house_record: house_id=${house.id}, record_id=${recordId}`,
+    );
+
+    await manager.insert('house_records', {
+      house_id: house.id,
+      record_id: recordId,
+    });
   }
 }
