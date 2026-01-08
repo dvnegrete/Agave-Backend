@@ -5,7 +5,7 @@ import { EnsurePeriodExistsUseCase } from '@/features/payment-management/applica
 import { CtaRecordCreatorService } from './cta-record-creator.service';
 import { RecordRepository } from '@/shared/database/repositories/record.repository';
 import { HouseRecordRepository } from '@/shared/database/repositories/house-record.repository';
-import { HouseRepository } from '@/shared/database/repositories/house.repository';
+import { EnsureHouseExistsService } from '@/shared/database/services';
 import { RowErrorDto } from '../../dto/row-error.dto';
 
 /**
@@ -32,7 +32,7 @@ export class HistoricalRowProcessorService {
     private readonly ctaRecordCreatorService: CtaRecordCreatorService,
     private readonly recordRepository: RecordRepository,
     private readonly houseRecordRepository: HouseRecordRepository,
-    private readonly houseRepository: HouseRepository,
+    private readonly ensureHouseExistsService: EnsureHouseExistsService,
   ) {}
 
   /**
@@ -90,24 +90,25 @@ export class HistoricalRowProcessorService {
         const houseNumber = row.getIdentifiedHouseNumber();
         this.logger.debug(`Identified house number: ${houseNumber}`);
 
-        // Verify house exists
-        const houseExists = await this.houseRepository.exists(houseNumber);
-        if (!houseExists) {
-          throw new Error(
-            `Casa ${houseNumber} no existe en el sistema. Registro fila ${row.rowNumber} no se puede asociar.`,
-          );
-        }
+        // Ensure house exists, creating if necessary
+        const ensureResult = await this.ensureHouseExistsService.execute(
+          houseNumber,
+          {
+            createIfMissing: true,
+            queryRunner,
+          },
+        );
 
-        // Get house entity (needed for house_id)
-        const house = await this.houseRepository.findByNumberHouse(houseNumber);
-        if (!house) {
-          throw new Error(`Casa ${houseNumber} no encontrada`);
+        if (ensureResult.wasCreated) {
+          this.logger.log(
+            `Casa ${houseNumber} created automatically (Row ${row.rowNumber})`,
+          );
         }
 
         // Create house-record association
         const houseRecord = await this.houseRecordRepository.create(
           {
-            house_id: house.id,
+            house_id: ensureResult.house.id,
             record_id: record.id,
           },
           queryRunner,

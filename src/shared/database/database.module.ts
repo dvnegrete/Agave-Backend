@@ -35,6 +35,7 @@ import { CtaWaterRepository } from './repositories/cta-water.repository';
 import { CtaPenaltiesRepository } from './repositories/cta-penalties.repository';
 import { CtaExtraordinaryFeeRepository } from './repositories/cta-extraordinary-fee.repository';
 import { SystemUserSeed } from './seeds/system-user.seed';
+import { EnsureHouseExistsService } from './services/ensure-house-exists.service';
 
 @Global()
 @Module({
@@ -83,6 +84,7 @@ import { SystemUserSeed } from './seeds/system-user.seed';
     CtaPenaltiesRepository,
     CtaExtraordinaryFeeRepository,
     SystemUserSeed, // Auto-crea usuario Sistema al iniciar
+    EnsureHouseExistsService,
   ],
   exports: [
     DatabaseConfigService,
@@ -99,6 +101,7 @@ import { SystemUserSeed } from './seeds/system-user.seed';
     CtaWaterRepository,
     CtaPenaltiesRepository,
     CtaExtraordinaryFeeRepository,
+    EnsureHouseExistsService,
   ],
 })
 export class DatabaseModule {}
