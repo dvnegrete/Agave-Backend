@@ -502,7 +502,7 @@ ON transactions_bank (amount) WHERE amount > 10000;
 
 **Objetivo:** Permitir múltiples pagos por casa y cambio de propietarios
 
-**Documentación completa:** [Database Integration](../features/vouchers/database-integration.md)
+**Documentación completa:** [Vouchers Feature](../features/vouchers/README.md#registro-en-base-de-datos)
 
 ## Query Examples
 

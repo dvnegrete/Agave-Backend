@@ -30,9 +30,9 @@ Documentación completa del backend de Agave, incluyendo arquitectura, features,
 
 #### Vouchers & OCR
 - [**Vouchers Feature Overview**](features/vouchers/README.md) - Módulo completo de procesamiento de comprobantes
-- [**Database Integration**](features/vouchers/database-integration.md) - Sistema transaccional multi-tabla (users, houses, records, vouchers)
-- [**OCR Implementation**](modules/vouchers/ocr-implementation.md) - Implementación de OCR con Google Cloud Vision
-- [WhatsApp Integration](features/vouchers/README.md#whatsapp-integration) - Integración con WhatsApp Business API
+- [**Technical Architecture**](features/vouchers/TECHNICAL.md) - Arquitectura, Clean Architecture, servicios y decisiones de diseño
+- [Database Integration](features/vouchers/README.md#registro-en-base-de-datos) - Sistema transaccional ACID multi-tabla
+- [WhatsApp Integration](features/vouchers/README.md#whatsapp) - Integración con WhatsApp Business API
 
 #### Bank Reconciliation
 - [**Feature Overview**](features/bank-reconciliation/README.md) - Conciliación automática de vouchers vs transacciones bancarias

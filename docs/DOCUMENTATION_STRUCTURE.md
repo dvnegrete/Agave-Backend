@@ -122,14 +122,17 @@ Módulo de gestión de períodos de facturación con:
 
 #### Vouchers & OCR
 - **Ubicación en código**: `src/features/vouchers/`
-- **Documentación General**: [modules/vouchers/README.md](modules/vouchers/README.md)
-- **Implementación OCR**: [modules/vouchers/ocr-implementation.md](modules/vouchers/ocr-implementation.md)
+- **Documentación Práctica**: [features/vouchers/README.md](features/vouchers/README.md)
+- **Documentación Técnica**: [features/vouchers/TECHNICAL.md](features/vouchers/TECHNICAL.md)
 
 Módulo de procesamiento de comprobantes con:
 - OCR con Google Cloud Vision
-- Integración con WhatsApp Business API
+- Soporte multi-canal (WhatsApp, Telegram, HTTP)
 - Gestión de conversaciones con contexto
 - Clasificación de mensajes con IA
+- Transacciones ACID multi-tabla
+- Detección automática de duplicados
+- Sistema stateless para frontend
 
 ### Base de Datos
 - **[database/schema.md](database/schema.md)** - Estructura completa de tablas
@@ -142,7 +145,7 @@ Módulo de procesamiento de comprobantes con:
 Los siguientes archivos fueron migrados a la estructura centralizada:
 
 ### Movidos
-- `IMPLEMENTACION_OCR_GCP.md` → `docs/modules/vouchers/ocr-implementation.md`
+- `IMPLEMENTACION_OCR_GCP.md` → `docs/features/vouchers/TECHNICAL.md` (consolidado)
 
 ### Copiados (mantienen versión en src/)
 - `src/shared/libs/google-cloud/README.md` → `docs/modules/google-cloud/README.md`
@@ -260,6 +263,13 @@ Si tienes dudas sobre dónde ubicar documentación:
 
 ## 📝 Actualizaciones Recientes
 
+### Enero 2026
+- ✅ Limpieza exhaustiva de documentación de Vouchers
+- ✅ Consolidación de 14 archivos en 2 (README.md + TECHNICAL.md)
+- ✅ Eliminados archivos de bugfixes y análisis históricos
+- ✅ Removida información redundante y contenido genérico
+- ✅ Documentación concisa y práctica para desarrolladores
+
 ### Noviembre 2025
 - ✅ Agregada documentación de Swagger/OpenAPI Integration
 - ✅ Implementada arquitectura híbrida de decoradores para Swagger
@@ -269,4 +279,4 @@ Si tienes dudas sobre dónde ubicar documentación:
 ---
 
 **Mantenido por**: Equipo de Desarrollo Agave
-**Última actualización**: Noviembre 2025
+**Última actualización**: Enero 2026

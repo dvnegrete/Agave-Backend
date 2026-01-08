@@ -448,5 +448,5 @@ try {
 ## Documentación Relacionada
 
 - [Vouchers Feature](../../features/vouchers/README.md) - Implementación de OCR para comprobantes
-- [OCR Implementation](../vouchers/ocr-implementation.md) - Detalles de implementación OCR
+- [Vouchers Technical Docs](../../features/vouchers/TECHNICAL.md) - Arquitectura técnica y servicios OCR
 - [Database Schema](../../database/schema.md) - Estructura de base de datos
