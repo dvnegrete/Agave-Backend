@@ -289,6 +289,14 @@ export class HistoricalExcelParserService {
       throw new Error(`${fieldName} es requerido`);
     }
 
+    // Treat dash/hyphen as zero (used in Excel to represent zero values)
+    if (typeof value === 'string' && value.trim() === '-') {
+      if (allowZero) {
+        return 0;
+      }
+      throw new Error(`${fieldName} es requerido`);
+    }
+
     let num: number;
 
     if (typeof value === 'number') {
