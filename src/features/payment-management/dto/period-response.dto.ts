@@ -6,8 +6,8 @@ export class PeriodResponseDto {
   id: number;
   year: number;
   month: number;
-  start_date: Date;
-  end_date: Date;
+  start_date: string;
+  end_date: string;
   period_config_id?: number;
   display_name: string;
   created_at: Date;

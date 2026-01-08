@@ -73,8 +73,8 @@ export class PaymentManagementController {
       id: period.id,
       year: period.year,
       month: period.month,
-      start_date: period.startDate,
-      end_date: period.endDate,
+      start_date: this.formatDateToISO(period.startDate),
+      end_date: this.formatDateToISO(period.endDate),
       period_config_id: period.periodConfigId,
       display_name: period.getDisplayName(),
       created_at: new Date(),
@@ -109,8 +109,8 @@ export class PaymentManagementController {
       id: period.id,
       year: period.year,
       month: period.month,
-      start_date: period.startDate,
-      end_date: period.endDate,
+      start_date: this.formatDateToISO(period.startDate),
+      end_date: this.formatDateToISO(period.endDate),
       period_config_id: period.periodConfigId,
       display_name: period.getDisplayName(),
       created_at: new Date(),
@@ -145,8 +145,8 @@ export class PaymentManagementController {
       id: period.id,
       year: period.year,
       month: period.month,
-      start_date: period.startDate,
-      end_date: period.endDate,
+      start_date: this.formatDateToISO(period.startDate),
+      end_date: this.formatDateToISO(period.endDate),
       period_config_id: period.periodConfigId,
       display_name: period.getDisplayName(),
       created_at: new Date(),
@@ -280,5 +280,19 @@ export class PaymentManagementController {
     }
 
     return this.getHouseBalanceUseCase.execute(house.id, house);
+  }
+
+  /**
+   * Formatea una fecha (Date o string) a ISO 8601 format
+   * Si recibe un string tipo 'YYYY-MM-DD', lo convierte a 'YYYY-MM-DDTHH:MM:SS.000Z'
+   * Si recibe un Date, usa toISOString()
+   */
+  private formatDateToISO(date: Date | string): string {
+    if (typeof date === 'string') {
+      // Si es un string 'YYYY-MM-DD', convertir a ISO completo
+      return new Date(date + 'T00:00:00Z').toISOString();
+    }
+    // Si es un Date object, usar toISOString directamente
+    return date.toISOString();
   }
 }
