@@ -9,6 +9,11 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *
  * Las casas creadas automáticamente (por centavos) se asignan a este usuario
  * hasta que se identifique al propietario real.
+ *
+ * ⚠️ NOTA: UUID hardcodeado por estabilidad de migración.
+ * Fuente de verdad: @/shared/config/business-rules.config (SYSTEM_USER_ID)
+ *
+ * Ver: docs/features/bank-reconciliation/SETUP-USUARIO-SISTEMA.md
  */
 export class EnsureSystemUser1761860000000 implements MigrationInterface {
   name = 'EnsureSystemUser1761860000000';

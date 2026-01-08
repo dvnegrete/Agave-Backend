@@ -2,13 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { QueryRunner } from 'typeorm';
 import { HouseRepository } from '../repositories/house.repository';
 import { House } from '../entities/house.entity';
-import { MIN_HOUSE_NUMBER, MAX_HOUSE_NUMBER } from '../../config/business-rules.config';
-
-/**
- * ID del usuario "Sistema" para operaciones automáticas
- * Este usuario es creado por la migración EnsureSystemUser.ts
- */
-export const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
+import {
+  MIN_HOUSE_NUMBER,
+  MAX_HOUSE_NUMBER,
+  SYSTEM_USER_ID,
+} from '../../config/business-rules.config';
 
 /**
  * Opciones para el servicio EnsureHouseExists

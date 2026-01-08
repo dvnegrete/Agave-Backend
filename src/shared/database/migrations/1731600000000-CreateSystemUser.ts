@@ -7,6 +7,9 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * durante el proceso de conciliación bancaria cuando se identifica una
  * casa por centavos (ej: $500.15 → Casa #15).
  *
+ * ⚠️ NOTA: UUID hardcodeado por estabilidad de migración.
+ * Fuente de verdad: @/shared/config/business-rules.config (SYSTEM_USER_ID)
+ *
  * Ver: docs/features/bank-reconciliation/SETUP-USUARIO-SISTEMA.md
  */
 export class CreateSystemUser1731600000000 implements MigrationInterface {

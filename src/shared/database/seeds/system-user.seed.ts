@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { SYSTEM_USER_ID, SYSTEM_USER_EMAIL } from '../../config/business-rules.config';
 
 /**
  * Seed para crear el usuario Sistema requerido por la conciliación bancaria
@@ -15,8 +16,6 @@ import { DataSource } from 'typeorm';
 @Injectable()
 export class SystemUserSeed implements OnModuleInit {
   private readonly logger = new Logger(SystemUserSeed.name);
-  private readonly SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
-  private readonly SYSTEM_USER_EMAIL = 'sistema@conciliacion.local';
 
   constructor(private readonly dataSource: DataSource) {}
 
@@ -39,7 +38,7 @@ export class SystemUserSeed implements OnModuleInit {
     // Verificar si existe
     const existingUser = await this.dataSource.query(
       'SELECT id, mail FROM users WHERE id = $1',
-      [this.SYSTEM_USER_ID],
+      [SYSTEM_USER_ID],
     );
 
     if (existingUser && existingUser.length > 0) {
@@ -60,13 +59,13 @@ export class SystemUserSeed implements OnModuleInit {
       VALUES ($1, $2, 'tenant', 'active', NOW(), NOW())
       ON CONFLICT (id) DO NOTHING
     `,
-      [this.SYSTEM_USER_ID, this.SYSTEM_USER_EMAIL],
+      [SYSTEM_USER_ID, SYSTEM_USER_EMAIL],
     );
 
     // Verificar creación
     const createdUser = await this.dataSource.query(
       'SELECT id, mail FROM users WHERE id = $1',
-      [this.SYSTEM_USER_ID],
+      [SYSTEM_USER_ID],
     );
 
     if (createdUser && createdUser.length > 0) {

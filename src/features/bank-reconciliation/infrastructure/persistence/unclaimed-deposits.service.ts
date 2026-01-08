@@ -17,16 +17,12 @@ import { ValidationStatus } from '@/shared/database/entities/enums';
 import {
   MIN_HOUSE_NUMBER,
   MAX_HOUSE_NUMBER,
+  SYSTEM_USER_ID,
 } from '@/shared/config/business-rules.config';
 import { UnclaimedDepositsPageDto, AssignHouseResponseDto } from '../../dto';
 import { AllocatePaymentUseCase } from '@/features/payment-management/application';
 import { PeriodRepository } from '@/features/payment-management/infrastructure/repositories/period.repository';
 import { EnsurePeriodExistsUseCase } from '@/features/payment-management/application';
-
-/**
- * UUID del usuario "Sistema" para casas creadas automáticamente
- */
-const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
 
 /**
  * Servicio para manejar depósitos no reclamados (estados: conflict, not-found)

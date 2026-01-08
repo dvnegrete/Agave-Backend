@@ -11,22 +11,13 @@ import { GcsCleanupService } from '@/shared/libs/google-cloud/gcs-cleanup.servic
 import {
   MIN_HOUSE_NUMBER,
   MAX_HOUSE_NUMBER,
+  SYSTEM_USER_ID,
 } from '@/shared/config/business-rules.config';
 import { UnclaimedDeposit, ManualValidationCase } from '../../domain';
 import { AllocatePaymentUseCase } from '@/features/payment-management/application';
 import { PeriodRepository } from '@/features/payment-management/infrastructure/repositories/period.repository';
 import { EnsurePeriodExistsUseCase } from '@/features/payment-management/application';
 import { TransactionBankRepository as TransactionBankRepo } from '@/shared/database/repositories/transaction-bank.repository';
-
-/**
- * UUID del usuario "Sistema" para casas creadas automáticamente por conciliación bancaria
- * Este usuario debe existir en la tabla users
- *
- * IMPORTANTE: Asegúrate de que existe un usuario con este UUID en tu base de datos.
- * Si no existe, créalo con:
- * INSERT INTO users (id, email) VALUES ('00000000-0000-0000-0000-000000000000', 'sistema@conciliacion.local');
- */
-const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000';
 
 /**
  * Servicio de infraestructura para persistencia de conciliaciones
