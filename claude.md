@@ -1,4 +1,12 @@
-# CLAUDE.md – NestJS Backend
+# claude.md – NestJS Backend
+
+## Precedence
+
+This file **extends and overrides** rules defined in `/CLAUDE.md` (global level).
+
+In case of conflict, **this file takes precedence**. For global rules not overridden here, refer to `/CLAUDE.md`.
+
+---
 
 ## Authority & Scope
 
@@ -13,23 +21,9 @@ If a suggestion conflicts with this file, **this file always wins**.
 
 ---
 
-## Git & Safety Rules (CRITICAL)
+## Git & Safety Rules
 
-Claude **must not perform Git operations**.
-
-❌ Forbidden:
-- Creating commits
-- Amending commits
-- Rebasing
-- Pushing branches
-- Running git commands that modify history
-
-Claude may:
-- Read diffs
-- Analyze changes
-- Suggest commit messages (text only)
-
-All Git actions are **manually reviewed and executed by the developer**.
+Refer to `/CLAUDE.md` for critical Git rules. **No Git operations are performed** in this project.
 
 ---
 
@@ -115,27 +109,14 @@ Claude must:
 
 ---
 
-## TypeScript Strictness (MANDATORY)
+## TypeScript Strictness
 
-This project uses **strong TypeScript typing**.
+Refer to `/CLAUDE.md` for strict TypeScript rules. This project **forbids `any` and weak typing** in business logic.
 
-Claude must:
-- Explicitly type all method parameters and return values
+Key additions for NestJS context:
 - Use DTOs, interfaces, or domain types
 - Reuse domain types and TypeORM entities when possible
 - Prefer async/await for all asynchronous logic
-
-❌ Forbidden:
-- `any`
-- `unknown` (except at system boundaries)
-- `as any`
-- Weak or implicit typing in business logic
-- Promise chains using .then() / .catch() in application code
-
-If a type is unclear:
-- Define it
-- Infer it from domain models
-- Choose the most restrictive valid type
 
 ---
 
