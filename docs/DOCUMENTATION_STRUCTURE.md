@@ -103,10 +103,11 @@ Módulo de procesamiento de transacciones bancarias con:
 - **Documentación**: [features/bank-reconciliation/README.md](features/bank-reconciliation/README.md)
 
 Módulo de conciliación bancaria automática con:
-- Matching de vouchers vs transacciones bancarias
-- Identificación de casa por centavos
-- Tres grupos de resultados (conciliados, pendientes, sobrantes)
-- Niveles de confianza y validación manual
+- Matching de transacciones con vouchers (monto+fecha, centavos, concepto con IA)
+- 4 categorías de resultados (conciliados, vouchers sin fondos, depósitos no reclamados, validación manual)
+- Gestión de casos ambiguos con validación manual
+- Asignación manual de depósitos no reclamados
+- Integración automática con Payment Management
 
 #### Payment Management
 - **Ubicación en código**: `src/features/payment-management/`
@@ -266,9 +267,10 @@ Si tienes dudas sobre dónde ubicar documentación:
 ### Enero 2026
 - ✅ Limpieza exhaustiva de documentación de Vouchers
 - ✅ Consolidación de 14 archivos en 2 (README.md + TECHNICAL.md)
-- ✅ Eliminados archivos de bugfixes y análisis históricos
-- ✅ Removida información redundante y contenido genérico
-- ✅ Documentación concisa y práctica para desarrolladores
+- ✅ Limpieza exhaustiva de documentación de Bank Reconciliation
+- ✅ Consolidación de 6 archivos en 1 (README.md)
+- ✅ Eliminados archivos históricos (QUERIES, SETUP, concept-matching-examples, MANUAL-VALIDATION, UNCLAIMED-DEPOSITS)
+- ✅ Documentación concisa, práctica y sin redundancias para desarrolladores
 
 ### Noviembre 2025
 - ✅ Agregada documentación de Swagger/OpenAPI Integration

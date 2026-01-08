@@ -1,50 +1,76 @@
-# 🏦 Bank Reconciliation - Conciliación Bancaria
+# Bank Reconciliation
 
-## 📋 Descripción
+Sistema automatizado que concilia transacciones bancarias con vouchers de pago para gestión de condominios.
 
-Sistema automatizado que **concilia transacciones bancarias con vouchers** (comprobantes de pago) para gestión de pagos de condominios.
+## Responsabilidades
 
-**Objetivo**: Emparejar automáticamente los depósitos bancarios con los comprobantes subidos por los residentes, identificando la casa correspondiente y actualizando el estado de pago.
+- Emparejar depósitos bancarios con vouchers subidos por residentes
+- Identificar la casa correspondiente usando múltiples estrategias (monto+fecha, centavos, concepto con IA)
+- Clasificar transacciones en 4 categorías: conciliadas, vouchers sin fondos, depósitos no reclamados, validación manual
+- Persistir resultados en BD actualizando estados y creando registros de pago
+- Integrar automáticamente con Payment Management para distribuir pagos entre conceptos
 
----
+## Flujo Principal
 
-## 🎯 ¿Qué Hace la Conciliación?
+1. **Obtener datos pendientes**: Transacciones bancarias (`is_deposit=true, confirmation_status=false`) y vouchers (`confirmation_status=false`)
+2. **Matching**: Emparejar usando estrategias en orden de prioridad
+3. **Clasificar**: Organizar resultados en 4 categorías
+4. **Persistir**: Guardar en BD con estados correspondientes
+5. **Asignar pagos**: Ejecutar automáticamente `AllocatePaymentUseCase` para distribuir a conceptos
 
-Cuando ejecutas `POST /bank-reconciliation/reconcile`, el sistema:
+## Estrategias de Matching
 
-1. **Obtiene transacciones pendientes**:
-   - Depósitos bancarios sin confirmar (`is_deposit=true, confirmation_status=false`)
-   - Vouchers sin confirmar (`confirmation_status=false`)
+### 1. Monto Exacto + Fecha Cercana
+Prioridad más alta. Compara monto exacto (±$0.01) y fecha dentro de ±36 horas.
 
-2. **Intenta emparejar**:
-   - Por monto exacto + fecha cercana (±36 horas)
-   - Si no hay voucher: por centavos o concepto usando IA
-   - Si hay conflicto: marca para revisión manual
+**Caso único**: Concilia automáticamente
+```
+Transacción: $1500.15 el 15-ene 10:00
+Voucher:     $1500.15 el 15-ene 09:30
+→ CONCILIADO (diferencia: 30 min)
+```
 
-3. **Clasifica en 4 categorías**:
-   - ✅ **Conciliados** (matched): Emparejados exitosamente
-   - 📄 **Unfunded Vouchers** (vouchers sin fondos): Vouchers sin transacción bancaria
-   - 🏦 **Unclaimed Deposits** (depósitos no reclamados): Transacciones sin voucher
-   - ⚠️  **Validación Manual**: Casos ambiguos
+**Múltiples candidatos**:
+- Si diferencia de similitud < 5% → Validación manual
+- Si hay ganador claro → Auto-concilia con el más cercano en fecha
 
-4. **Persiste en BD**:
-   - Crea `TransactionStatus`, `Record`, `HouseRecord`
-   - Actualiza `confirmation_status = true`
-   - Marca estado: `confirmed`, `conflict`, `not-found`, `requires-manual`
+### 2. Centavos (sin voucher)
+Identifica casa por centavos. Rango válido: 1-66.
 
----
+```
+Transacción: $1500.15 (sin voucher)
+Centavos: 15 → Casa #15
+→ CONCILIADO automáticamente
+```
 
-## 🔄 4 Categorías de Resultados
+**Excepción**: Si hay conflicto con concepto → Depósito no reclamado
 
-### ✅ 1. CONCILIADOS
+### 3. Concepto con IA (sin voucher, sin centavos)
+Usa regex + IA (OpenAI/Vertex AI) para extraer número de casa del concepto.
 
-**Qué son**: Transacciones bancarias que se emparejaron con un voucher (o se identificó la casa sin voucher).
+```
+Transacción: $1500.00 (sin centavos válidos)
+Concepto: "Pago casa 20 mantenimiento"
+IA extrae: Casa 20 (alta confianza)
+→ CONCILIADO automáticamente
+```
 
-**Tipos**:
-- **Con voucher**: Monto y fecha coinciden → Alta confianza
-- **Sin voucher (automático)**: Casa identificada por centavos (ej: $500.15 → Casa #15) o concepto claro
+**Patrones soportados**: "Casa 5", "c15", "cs-10", "Apto 5", "Lote 12"
 
-**Ejemplo**:
+### 4. Conflicto → Depósito no reclamado
+```
+Transacción: $1500.15
+Concepto: "Pago casa 20"
+Centavos: 15, Concepto: 20
+→ DEPÓSITO NO RECLAMADO (conflict)
+```
+
+## 4 Categorías de Resultados
+
+### 1. Conciliados (`conciliados`)
+Transacciones emparejadas exitosamente con voucher o identificadas sin voucher.
+
+**Con voucher**:
 ```json
 {
   "transactionBankId": "123",
@@ -55,28 +81,21 @@ Cuando ejecutas `POST /bank-reconciliation/reconcile`, el sistema:
 }
 ```
 
-**Estado en BD**: `validation_status = 'confirmed'`
+**Sin voucher** (automático):
+```json
+{
+  "transactionBankId": "124",
+  "houseNumber": 20,
+  "matchCriteria": ["CONCEPT"],
+  "confidenceLevel": "MEDIUM"
+}
+```
 
----
+**Estado BD**: `validation_status = 'confirmed'`
 
-### 📄 2. UNFUNDED VOUCHERS (Vouchers sin fondos)
+### 2. Vouchers Sin Fondos (`unfundedVouchers`)
+Vouchers que NO tienen transacción bancaria correspondiente. El dinero no se refleja en el banco.
 
-**Qué son**: **Vouchers que NO tienen transacción bancaria correspondiente**.
-
-**Property name**: `unfundedVouchers`
-
-**Significa**: Usuario subió comprobante pero el dinero no se refleja en el banco.
-
-**Origen**: Tabla `vouchers`
-
-**Razones comunes**:
-- ✅ Transferencia en proceso (24-48 hrs)
-- ✅ Pago rechazado por el banco
-- ✅ Usuario subió voucher falso
-- ✅ Pagó a cuenta equivocada
-- ✅ Estado de cuenta incompleto (faltan días recientes)
-
-**Ejemplo**:
 ```json
 {
   "voucherId": 789,
@@ -86,96 +105,46 @@ Cuando ejecutas `POST /bank-reconciliation/reconcile`, el sistema:
 }
 ```
 
-**Acción requerida**:
-- Esperar procesamiento bancario
-- Descargar nuevo estado de cuenta
-- Volver a ejecutar conciliación
+**Razones comunes**: Transferencia en proceso (24-48h), pago rechazado, voucher falso, cuenta equivocada
 
-**Estado en BD**: NO se persiste (voucher sigue `confirmation_status = false`)
+**Estado BD**: No se persiste (voucher sigue `confirmation_status = false`)
 
----
+**Acción**: Esperar procesamiento bancario, volver a ejecutar conciliación
 
-### 🏦 3. UNCLAIMED DEPOSITS (Depósitos no reclamados)
+### 3. Depósitos No Reclamados (`unclaimedDeposits`)
+Transacciones bancarias que NO tienen voucher correspondiente. Dinero entró al banco pero no hay comprobante.
 
-**Qué son**: **Transacciones bancarias que NO tienen voucher correspondiente**.
-
-**Property name**: `unclaimedDeposits`
-
-**Significa**: Dinero entró al banco pero no hay comprobante en el sistema.
-
-**Origen**: Tabla `transactions_bank`
-
-**Tipos**:
-
-#### 🟡 Tipo A: Con Conflicto
-Casa identificable pero hay contradicción entre fuentes.
-
-**Ejemplo**:
+**Tipo A: Con conflicto**
 ```json
 {
   "transactionBankId": "999",
   "amount": 1500.15,
-  "date": "2025-01-12",
   "reason": "Conflicto: concepto sugiere casa 20, centavos sugieren casa 15",
   "requiresManualReview": true,
   "houseNumber": 15
 }
 ```
+**Estado BD**: `validation_status = 'conflict'`
 
-**Razones**:
-- Centavos: Casa 15 ($1500.15)
-- Concepto: "Pago casa 20"
-- → Sistema no puede decidir automáticamente
-
-**Estado en BD**: `validation_status = 'conflict'`
-
-#### 🔴 Tipo B: Sin Información
-No se puede identificar la casa.
-
-**Ejemplo**:
+**Tipo B: Sin información**
 ```json
 {
   "transactionBankId": "888",
   "amount": 600.00,
-  "date": "2025-01-12",
   "reason": "Sin voucher, sin centavos válidos, sin concepto identificable",
   "requiresManualReview": true,
   "houseNumber": 0
 }
 ```
+**Estado BD**: `validation_status = 'not-found'`
 
-**Razones**:
-- ❌ Monto sin centavos válidos ($600.00)
-- ❌ Concepto genérico ("TRANSFERENCIA")
-- ❌ No hay voucher
+**Razones comunes**: Usuario olvidó subir comprobante, pago en efectivo, depósito de tercero, error en monto
 
-**Estado en BD**: `validation_status = 'not-found'`
+**Acción**: Contactar residentes, solicitar comprobante, asignar casa manualmente
 
-**Razones comunes de sobrantes**:
-- ✅ Usuario olvidó subir comprobante
-- ✅ Pago en efectivo sin ticket
-- ✅ Depósito de tercero (familiar pagó)
-- ✅ Error en el monto ($1500.00 vs $1500.15)
-- ✅ Depósito colectivo (varias casas juntas)
+### 4. Validación Manual (`manualValidationRequired`)
+Múltiples vouchers con similitud muy cercana (< 5%). Sistema escala a decisión humana.
 
-**Acción requerida**:
-- Contactar residentes para identificar pagador
-- Solicitar comprobante
-- Crear voucher manualmente
-- Volver a ejecutar conciliación
-
----
-
-### ⚠️ 4. VALIDACIÓN MANUAL
-
-**Qué son**: Cuando hay **múltiples vouchers con similitud muy cercana** (diferencia < 5%), el sistema escala a validación manual en lugar de adivinar.
-
-**Razones**:
-- Múltiples vouchers con mismo monto y fechas similares → ¿Cuál es el correcto?
-- Conflictos entre fuentes de información
-- Casos ambiguos que requieren decisión humana
-
-**Ejemplo**:
 ```json
 {
   "transactionBankId": "TX-001",
@@ -187,56 +156,31 @@ No se puede identificar la casa.
     },
     {
       "voucherId": 102,
-      "similarity": 0.98,        // Diferencia: 0.01 (1%) < 5%
-      "dateDifferenceHours": 0.75  // → Requiere decisión manual
+      "similarity": 0.98,
+      "dateDifferenceHours": 0.75
     }
   ],
-  "reason": "Multiple vouchers with <5% similarity difference"
+  "reason": "2 vouchers con monto exacto y similitud muy cercana"
 }
 ```
 
-**Estado en BD**: `validation_status = 'requires-manual'`
+**Estado BD**: `validation_status = 'requires-manual'`
 
-**Auditoría**: Se registra en tabla `manual_validation_approvals` (ÚNICA FUENTE DE VERDAD).
+**Auditoría**: Se registra en `manual_validation_approvals` (única fuente de verdad)
 
-**Más info**: Ver [MANUAL-VALIDATION.md](./MANUAL-VALIDATION.md) para endpoints y flujo completo.
-
----
-
-## 📊 Diferencia Clave: UNCLAIMED DEPOSITS vs UNFUNDED VOUCHERS
-
-| Aspecto | **UNCLAIMED DEPOSITS** 🏦 | **UNFUNDED VOUCHERS** 📄 |
-|---------|---------------------------|--------------------------|
-| **Property** | `unclaimedDeposits` | `unfundedVouchers` |
-| **Origen** | Transacción bancaria | Voucher |
-| **Problema** | Dinero sin comprobante | Comprobante sin dinero |
-| **Vista del Banco** | ✅ Existe | ❌ No existe |
-| **Vista del Sistema** | ❌ No existe voucher | ✅ Existe voucher |
-| **ID en respuesta** | `transactionBankId` | `voucherId` |
-| **¿Es urgente?** | 🟡 Moderado | 🔴 Urgente |
-| **¿Se resuelve solo?** | ❌ Requiere acción | ✅ A veces (si falta tiempo) |
-| **Persistencia** | `validation_status` marcado | NO persiste |
-| **¿Se reintenta?** | ❌ No | ✅ Sí (próxima conciliación) |
-
-**Resumen simple**:
-- **UNCLAIMED DEPOSIT** = "Tengo el dinero, ¿de quién es?"
-- **UNFUNDED VOUCHER** = "Tengo el comprobante, ¿dónde está el dinero?"
-
----
-
-## 🔧 API Endpoint
+## API Endpoints
 
 ### POST /bank-reconciliation/reconcile
+Ejecuta proceso de conciliación.
 
 **Request**:
 ```json
 {
-  "startDate": "2025-01-01",  // Opcional
-  "endDate": "2025-01-31"     // Opcional
+  "startDate": "2025-01-01",
+  "endDate": "2025-01-31"
 }
 ```
-
-- Sin parámetros: Procesa TODO lo pendiente
+Ambos parámetros opcionales. Sin parámetros: procesa TODO lo pendiente.
 
 **Response**:
 ```json
@@ -248,274 +192,368 @@ No se puede identificar la casa.
     "unclaimedDeposits": 8,
     "requiresManualValidation": 2
   },
-  "conciliados": [
+  "conciliados": [...],
+  "unfundedVouchers": [...],
+  "unclaimedDeposits": [...],
+  "manualValidationRequired": [...]
+}
+```
+
+### GET /bank-reconciliation/manual-validation/pending
+Lista casos que requieren validación manual.
+
+**Query params**:
+- `startDate`, `endDate`: Rango de fechas
+- `houseNumber`: Filtrar por casa
+- `page`, `limit`: Paginación (default: 1, 20)
+- `sortBy`: 'date' | 'similarity' | 'candidates'
+
+**Response**:
+```json
+{
+  "totalCount": 5,
+  "page": 1,
+  "items": [
     {
-      "transactionBankId": "123",
-      "voucherId": 456,
-      "houseNumber": 15,
-      "matchCriteria": ["AMOUNT", "DATE"],
-      "confidenceLevel": "HIGH"
-    }
-  ],
-  "unfundedVouchers": [
-    {
-      "voucherId": 789,
-      "amount": 2000.20,
-      "date": "2025-01-10",
-      "reason": "No matching bank transaction found"
-    }
-  ],
-  "unclaimedDeposits": [
-    {
-      "transactionBankId": "999",
-      "amount": 1500.15,
-      "reason": "Conflicto: concepto sugiere casa 20, centavos sugieren casa 15",
-      "requiresManualReview": true,
-      "houseNumber": 15
-    }
-  ],
-  "manualValidationRequired": [
-    {
-      "transactionBankId": "777",
-      "possibleMatches": [...],
-      "reason": "Multiple vouchers with same amount"
+      "transactionBankId": "TX-001",
+      "transactionAmount": 1500.15,
+      "possibleMatches": [
+        {
+          "voucherId": 101,
+          "similarity": 0.99,
+          "dateDifferenceHours": 0.25
+        }
+      ],
+      "reason": "...",
+      "status": "pending"
     }
   ]
 }
 ```
 
----
+### POST /bank-reconciliation/manual-validation/:transactionId/approve
+Aprueba un caso eligiendo uno de los vouchers candidatos.
 
-## 🧠 Estrategia de Matching
-
-### 1. Por Monto y Fecha (Principal)
-```
-Transacción: $1500.15 el 15-ene-2025 10:00
-Voucher:     $1500.15 el 15-ene-2025 09:30
-
-→ ✅ CONCILIADO (diferencia: 30 minutos)
-```
-
-**Tolerancia**: ±36 horas por defecto
-
-### 2. Por Centavos (Sin Voucher)
-```
-Transacción: $1500.15
-Voucher: NO EXISTE
-
-Centavos: 15 → Casa #15
-→ ✅ CONCILIADO automáticamente (sin voucher)
-```
-
-**Rango válido**: Centavos 1-66 (configurable)
-
-### 3. Por Concepto con IA (Sin Voucher)
-```
-Transacción: $1500.00 (sin centavos válidos)
-Concepto: "Pago casa 20 mantenimiento"
-Voucher: NO EXISTE
-
-IA extrae: Casa 20 (alta confianza)
-→ ✅ CONCILIADO automáticamente (sin voucher)
-```
-
-**Patrones detectados**:
-- "Casa 5", "Casa #20", "c15", "cs-10"
-- "Apto 5", "Lote 12", "Propiedad 25"
-
-### 4. Conflicto → Revisión Manual
-```
-Transacción: $1500.15
-Concepto: "Pago casa 20"
-Voucher: NO EXISTE
-
-Centavos: Casa 15
-Concepto: Casa 20
-→ ⚠️ SOBRANTE (conflicto)
-```
-
----
-
-## 🗃️ Persistencia en Base de Datos
-
-### Estados en `transaction_status.validation_status`
-
-| Estado | Significado | ¿Se volverá a procesar? |
-|--------|-------------|-------------------------|
-| `pending` | Aún no procesado | ✅ Sí |
-| `confirmed` | Conciliado exitosamente | ❌ No |
-| `conflict` | Sobrante con conflicto | ❌ No (requiere manual) |
-| `not-found` | Sobrante sin info | ❌ No (requiere manual) |
-| `requires-manual` | Múltiples candidatos | ❌ No (requiere manual) |
-
-### Datos guardados
-
-```sql
--- Ejemplo: Conciliado
-INSERT INTO transactions_status (
-  transactions_bank_id,
-  vouchers_id,
-  validation_status,
-  reason,
-  identified_house_number,
-  processed_at
-) VALUES (
-  '123',
-  456,
-  'confirmed',
-  'Conciliado con voucher',
-  15,
-  NOW()
-);
-
--- Ejemplo: Sobrante con conflicto
-INSERT INTO transactions_status (
-  transactions_bank_id,
-  vouchers_id,
-  validation_status,
-  reason,
-  identified_house_number,
-  processed_at
-) VALUES (
-  '999',
-  NULL,
-  'conflict',
-  'Conflicto: concepto sugiere casa 20, centavos sugieren casa 15',
-  15,  -- Se usa centavos como principal
-  NOW()
-);
-```
-
-### Evita Reprocesamiento
-
-El sistema **NO reprocesa** transacciones que ya tienen `TransactionStatus` (con cualquier estado). Esto mejora performance en 33%.
-
----
-
-## ⚙️ Configuración
-
-**Archivo**: `src/features/bank-reconciliation/config/reconciliation.config.ts`
-
-```typescript
-export const ReconciliationConfig = {
-  DATE_TOLERANCE_HOURS: 36,
-  TIME_TOLERANCE_MINUTES: 30,
-  MAX_HOUSE_NUMBER: 66,
-  AUTO_MATCH_SIMILARITY_THRESHOLD: 0.95,
-  ENABLE_CONCEPT_MATCHING: true,
-};
-```
-
----
-
-## 🧹 Limpieza de Archivos
-
-Cuando un voucher se concilia exitosamente, el sistema **automáticamente elimina su imagen del bucket GCS** y actualiza `voucher.url = null` para ahorrar storage.
-
----
-
-## 📚 Documentación Adicional
-
-- **[QUERIES-CONCILIACION.md](./QUERIES-CONCILIACION.md)** - 40+ queries SQL útiles para análisis
-- **[concept-matching-examples.md](./concept-matching-examples.md)** - Ejemplos de extracción de casa por concepto
-- **[SETUP-USUARIO-SISTEMA.md](./SETUP-USUARIO-SISTEMA.md)** - Configuración del usuario sistema
-
----
-
-## 🚀 Características Implementadas ✅
-
-### ✅ Validación Manual (v2.2.0)
-- [x] **Endpoints de validación manual**:
-  - `GET /bank-reconciliation/manual-validation/pending` - Listar casos
-  - `POST /bank-reconciliation/manual-validation/:transactionId/approve` - Aprobar
-  - `POST /bank-reconciliation/manual-validation/:transactionId/reject` - Rechazar
-  - `GET /bank-reconciliation/manual-validation/stats` - Estadísticas
-- [x] Tabla de auditoría (`manual_validation_approvals`) con 3NF
-- [x] Similarity scoring para detección automática de casos ambiguos
-- [x] 26/26 tests pasando (unit + controller)
-
----
-
-## 🚀 TODOs Pendientes
-
-### Media Prioridad
-- [ ] Notificaciones por email para casos manuales
-- [ ] Dashboard de métricas avanzadas
-- [ ] Exportación de reportes de validación
-
-### Baja Prioridad
-- [ ] Tests E2E completos
-- [ ] Webhooks para eventos de conciliación
-- [ ] API bulk operations
-
----
-
-**Versión**: 2.3.1
-**Última actualización**: Enero 7, 2026
-**Estado**: ✅ Production Ready
-
-### Cambios Recientes (Enero 2026)
-
-✨ **Integración automática con Payment Management**:
-- `AllocatePaymentUseCase` se ejecuta automáticamente después de cada conciliación
-- Los pagos se distribuyen automáticamente entre conceptos (mantenimiento, agua, etc.)
-- `HouseBalance` se actualiza automáticamente con cada pago conciliado
-- `RecordAllocation` se crea automáticamente para trazabilidad
-
-✨ **Confirmation Code en Vouchers**:
-- Campo `confirmation_code` agregado a respuestas de API
-- Permite trazabilidad completa de vouchers a través de su código único
-- Incluido en endpoint `/payment-management/houses/{id}/payments`
-
----
-
-## 🔌 Endpoints API Adicionales
-
-### Gestión de Depósitos No Reclamados
-
-Nuevos endpoints para listar y asignar manualmente casas a depósitos que no pudieron conciliarse automáticamente:
-
-#### 1. **GET /bank-reconciliation/unclaimed-deposits**
-Lista depósitos válidos sin casa asignada (estados: `conflict`, `not-found`).
-
-**Filtros disponibles:**
-- `startDate`, `endDate` - Rango de fechas
-- `validationStatus` - 'conflict' | 'not-found' | 'all'
-- `houseNumber` - Filtrar por casa sugerida
-- `page`, `limit` - Paginación
-- `sortBy` - 'date' | 'amount'
-
-```bash
-GET /bank-reconciliation/unclaimed-deposits?validationStatus=conflict&page=1&limit=20
-```
-
-#### 2. **POST /bank-reconciliation/unclaimed-deposits/:transactionId/assign-house**
-Asigna manualmente una casa a un depósito no reclamado.
-
-Automáticamente:
-- ✅ Valida casa (1-66)
-- ✅ Crea/busca casa (con usuario Sistema si no existe)
-- ✅ Actualiza estado a `confirmed`
-- ✅ Crea Record y HouseRecord
-- ✅ Ejecuta asignación automática de pagos
-- ✅ Registra auditoría en `manual_validation_approvals`
-
-```bash
-POST /bank-reconciliation/unclaimed-deposits/TX-12345/assign-house
+**Request**:
+```json
 {
-  "houseNumber": 15,
-  "adminNotes": "Confirmado por residente"
+  "voucherId": 101,
+  "approverNotes": "Voucher correcto, fecha coincide"
 }
 ```
 
-**📖 Ver [UNCLAIMED-DEPOSITS.md](./UNCLAIMED-DEPOSITS.md) para detalles completos.**
+**Response**:
+```json
+{
+  "message": "Caso aprobado exitosamente",
+  "reconciliation": {
+    "transactionBankId": "TX-001",
+    "voucherId": 101,
+    "houseNumber": 15,
+    "status": "confirmed"
+  },
+  "approvedAt": "2025-01-15T11:30:00Z"
+}
+```
+
+### POST /bank-reconciliation/manual-validation/:transactionId/reject
+Rechaza todos los vouchers candidatos.
+
+**Request**:
+```json
+{
+  "rejectionReason": "Ningún voucher coincide",
+  "notes": "Contactar al residente"
+}
+```
+
+### GET /bank-reconciliation/manual-validation/stats
+Retorna estadísticas agregadas.
+
+**Response**:
+```json
+{
+  "totalPending": 15,
+  "totalApproved": 127,
+  "totalRejected": 8,
+  "approvalRate": 0.94,
+  "avgApprovalTimeMinutes": 125
+}
+```
+
+### GET /bank-reconciliation/unclaimed-deposits
+Lista depósitos no reclamados (estados: conflict, not-found).
+
+**Query params**:
+- `startDate`, `endDate`: Rango de fechas
+- `validationStatus`: 'conflict' | 'not-found' | 'all'
+- `houseNumber`: Filtrar por casa sugerida
+- `page`, `limit`: Paginación
+- `sortBy`: 'date' | 'amount'
+
+**Response**:
+```json
+{
+  "totalCount": 3,
+  "items": [
+    {
+      "transactionBankId": "TX-12345",
+      "amount": 1500.15,
+      "validationStatus": "conflict",
+      "suggestedHouseNumber": 15,
+      "conceptHouseNumber": 20,
+      "reason": "Conflicto: concepto sugiere casa 20, centavos sugieren casa 15"
+    }
+  ]
+}
+```
+
+### POST /bank-reconciliation/unclaimed-deposits/:transactionId/assign-house
+Asigna manualmente una casa a un depósito.
+
+**Request**:
+```json
+{
+  "houseNumber": 15,
+  "adminNotes": "Casa 15 confirmada por el residente"
+}
+```
+
+**Automáticamente**:
+- Valida casa (1-66)
+- Crea/busca casa (con usuario Sistema si no existe)
+- Actualiza estado a `confirmed`
+- Crea Record y HouseRecord
+- Ejecuta asignación automática de pagos
+- Registra auditoría en `manual_validation_approvals`
+
+**Response**:
+```json
+{
+  "message": "Depósito asignado exitosamente a casa 15",
+  "reconciliation": {
+    "transactionBankId": "TX-12345",
+    "houseNumber": 15,
+    "status": "confirmed",
+    "paymentAllocation": {
+      "total_distributed": 1500.00,
+      "allocations": [...]
+    }
+  }
+}
+```
+
+## Integración con Payment Management
+
+Cada conciliación exitosa ejecuta automáticamente `AllocatePaymentUseCase`:
+
+1. Obtiene/crea período actual (año-mes)
+2. Distribuye monto entre conceptos (mantenimiento, agua, cuota extraordinaria)
+3. Actualiza `HouseBalance` con acumulación de centavos
+4. Crea `RecordAllocation` para trazabilidad
+
+Esto ocurre tanto para:
+- Conciliaciones con voucher
+- Conciliaciones automáticas sin voucher
+- Asignaciones manuales de depósitos no reclamados
+
+## Persistencia en Base de Datos
+
+### Estados en `transaction_status.validation_status`
+
+| Estado | Significado | Se reprocesa? |
+|--------|-------------|---------------|
+| `pending` | No procesado | Sí |
+| `confirmed` | Conciliado exitosamente | No |
+| `conflict` | Conflicto entre fuentes | No (requiere manual) |
+| `not-found` | Sin información | No (requiere manual) |
+| `requires-manual` | Múltiples candidatos | No (requiere manual) |
+
+### Auditoría de Decisiones Manuales
+
+Tabla `manual_validation_approvals` (única fuente de verdad):
+- `transaction_id`: Qué transacción
+- `voucher_id`: Qué voucher (NULL = rechazado/depósito sin voucher)
+- `approved_by_user_id`: Quién decidió
+- `approval_notes`: Por qué aprobó
+- `rejection_reason`: Por qué rechazó
+- `approved_at`: Cuándo decidió
+
+### Evita Reprocesamiento
+
+El sistema NO reprocesa transacciones que ya tienen `TransactionStatus` (con cualquier estado).
+
+## Configuración
+
+Archivo: `src/features/bank-reconciliation/config/reconciliation.config.ts`
+
+```typescript
+export const ReconciliationConfig = {
+  DATE_TOLERANCE_HOURS: 36,              // Tolerancia de fecha/hora
+  AUTO_MATCH_SIMILARITY_THRESHOLD: 0.95, // Umbral para match automático
+  SIMILARITY_THRESHOLD: 0.05,            // Umbral para validación manual (5%)
+  ENABLE_CONCEPT_MATCHING: true,         // Habilita análisis de concepto
+  ENABLE_AI_CONCEPT_ANALYSIS: true,      // Usa IA si regex no es concluyente
+  ENABLE_MANUAL_VALIDATION: true,        // Habilita validación manual
+  MAX_HOUSE_NUMBER: 66,                  // Rango válido de casas
+};
+```
+
+## Edge Cases
+
+### Múltiples vouchers con mismo monto
+Si diferencia de similitud < 5% → Validación manual
+Si diferencia > 5% → Auto-concilia con el más cercano en fecha
+
+### Conflicto centavos vs concepto
+Centavos sugiere casa 15, concepto sugiere casa 20 → Depósito no reclamado (conflict)
+
+### Monto sin centavos ni concepto
+$600.00 sin centavos válidos, concepto genérico → Depósito no reclamado (not-found)
+
+### Casa no existe
+Se crea automáticamente con usuario Sistema (`00000000-0000-0000-0000-000000000000`)
+
+**Setup requerido**: Ejecutar una vez antes de usar conciliación:
+```sql
+INSERT INTO users (id, email) VALUES
+('00000000-0000-0000-0000-000000000000', 'sistema@conciliacion.local')
+ON CONFLICT (id) DO NOTHING;
+```
+
+### Error durante asignación de pagos
+La conciliación se completa, pero se loguea error. El registro existe pero falta asignación a conceptos (requiere revisión manual).
+
+## Limpieza de Archivos
+
+Cuando un voucher se concilia exitosamente:
+- Se elimina automáticamente su imagen del bucket GCS
+- Se actualiza `voucher.url = null` para ahorrar storage
+
+## Dependencias
+
+### Módulos externos
+- `OpenAIModule`: Análisis de concepto con IA (prioridad 1)
+- `VertexAIModule`: Fallback si OpenAI falla
+- `PaymentManagementModule`: Asignación automática de pagos
+
+### Entidades
+- `TransactionBank`: Transacciones bancarias
+- `Voucher`: Comprobantes de pago
+- `TransactionStatus`: Estado de conciliación
+- `Record`: Registro de pago
+- `HouseRecord`: Asociación casa-registro
+- `House`: Casas del condominio
+
+## Workflows Típicos
+
+### Workflow 1: Conciliación Mensual
+```bash
+# 1. Ejecutar conciliación del mes
+POST /bank-reconciliation/reconcile
+{
+  "startDate": "2025-01-01",
+  "endDate": "2025-01-31"
+}
+
+# 2. Revisar vouchers sin fondos
+# (Esperar 24-48h procesamiento bancario)
+
+# 3. Revisar depósitos no reclamados
+GET /bank-reconciliation/unclaimed-deposits?validationStatus=all
+
+# 4. Asignar casas manualmente donde sea necesario
+POST /bank-reconciliation/unclaimed-deposits/TX-123/assign-house
+{
+  "houseNumber": 15,
+  "adminNotes": "Confirmado por teléfono"
+}
+
+# 5. Revisar casos de validación manual
+GET /bank-reconciliation/manual-validation/pending
+
+# 6. Aprobar/rechazar casos manuales
+POST /bank-reconciliation/manual-validation/TX-456/approve
+{
+  "voucherId": 101,
+  "approverNotes": "Fecha coincide"
+}
+```
+
+### Workflow 2: Depósito Sin Información
+```
+Depósito: $2600.00
+Centavos: 00 (no válidos)
+Concepto: "TRANSFERENCIA"
+→ Estado: not-found
+
+1. Contactar residentes para identificar pagador
+2. Solicitar comprobante de transferencia
+3. Asignar casa manualmente vía endpoint
+```
+
+### Workflow 3: Conflicto Centavos-Concepto
+```
+Depósito: $1500.15
+Centavos: 15
+Concepto: "Pago casa 20"
+→ Estado: conflict
+
+1. Revisar historial de pagos de ambas casas
+2. Contactar residente si es necesario
+3. Decidir fuente correcta (centavos o concepto)
+4. Asignar casa manualmente
+```
+
+## Mejores Prácticas
+
+1. **Ejecutar conciliación regularmente**: Semanal o mensualmente
+2. **Procesar casos manuales rápido**: Evitar acumulación de decisiones pendientes
+3. **Revisar depósitos no reclamados**: Contactar residentes para resolver
+4. **Validar estados de cuenta**: Asegurar que están completos antes de conciliar
+5. **Monitorear tasa de éxito**: Alto % de conciliados indica buena calidad de datos
+
+## Queries SQL Útiles
+
+### Ver conciliaciones recientes
+```sql
+SELECT
+  validation_status,
+  COUNT(*) as total,
+  ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (), 2) as porcentaje
+FROM transaction_status
+WHERE processed_at > NOW() - INTERVAL '1 hour'
+GROUP BY validation_status;
+```
+
+### Ver depósitos no reclamados pendientes
+```sql
+SELECT
+  tb.id,
+  tb.amount,
+  tb.date,
+  ts.validation_status,
+  ts.reason
+FROM transactions_bank tb
+JOIN transaction_status ts ON tb.id = ts.transactions_bank_id
+WHERE ts.validation_status IN ('conflict', 'not-found');
+```
+
+### Ver auditoría de decisiones manuales
+```sql
+SELECT
+  mva.transaction_id,
+  tb.amount,
+  mva.approved_by_user_id,
+  mva.approval_notes,
+  mva.approved_at
+FROM manual_validation_approvals mva
+JOIN transactions_bank tb ON tb.id = mva.transaction_id
+ORDER BY mva.approved_at DESC
+LIMIT 20;
+```
 
 ---
 
-## 📚 Documentación
-
-- **[MANUAL-VALIDATION.md](./MANUAL-VALIDATION.md)** - Validación manual para múltiples vouchers candidatos
-- **[UNCLAIMED-DEPOSITS.md](./UNCLAIMED-DEPOSITS.md)** - Gestión de depósitos no reclamados (NUEVO)
-- **[QUERIES-CONCILIACION.md](./QUERIES-CONCILIACION.md)** - 40+ queries SQL útiles para análisis
-- **[concept-matching-examples.md](./concept-matching-examples.md)** - Ejemplos de extracción de casa por concepto
-- **[SETUP-USUARIO-SISTEMA.md](./SETUP-USUARIO-SISTEMA.md)** - Configuración del usuario sistema
+**Última actualización**: Enero 2026
+**Estado**: Production Ready
