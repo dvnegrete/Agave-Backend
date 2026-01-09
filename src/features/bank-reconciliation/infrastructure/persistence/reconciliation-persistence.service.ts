@@ -50,7 +50,7 @@ export class ReconciliationPersistenceService implements OnModuleInit {
   async onModuleInit() {
     try {
       const result = await this.dataSource.query(
-        'SELECT id, mail FROM users WHERE id = $1',
+        'SELECT id, email FROM users WHERE id = $1',
         [SYSTEM_USER_ID],
       );
 
@@ -65,7 +65,7 @@ export class ReconciliationPersistenceService implements OnModuleInit {
       }
 
       this.logger.log(
-        `✅ Usuario Sistema verificado: ${result[0].mail} (${result[0].id})`,
+        `✅ Usuario Sistema verificado: ${result[0].email} (${result[0].id})`,
       );
     } catch (error) {
       if (error.message.includes('Usuario Sistema no encontrado')) {

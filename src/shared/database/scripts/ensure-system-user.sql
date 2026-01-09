@@ -7,7 +7,7 @@
 -- =====================================================
 
 -- Crear usuario Sistema si no existe
-INSERT INTO users (id, mail, role, status, created_at, updated_at)
+INSERT INTO users (id, email, role, status, created_at, updated_at)
 VALUES (
   '00000000-0000-0000-0000-000000000000',
   'sistema@conciliacion.local',
@@ -25,7 +25,7 @@ SELECT
     ELSE '❌ Error: Usuario Sistema no pudo ser creado'
   END as status,
   id,
-  mail,
+  email,
   role,
   status as user_status,
   created_at
