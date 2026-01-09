@@ -10,7 +10,7 @@ Este documento describe el esquema de base de datos completo del sistema Agave *
 
 **Última actualización**: Enero 2026
 **Versión del esquema**: 3.1.0
-**Total de tablas**: 22
+**Total de tablas**: 19
 **Total de ENUMs**: 6
 
 ## Core Tables
@@ -23,23 +23,28 @@ Tabla de usuarios del sistema con autenticación Supabase.
 ```sql
 CREATE TABLE users (
     id              UUID PRIMARY KEY,
-    cel_phone       NUMERIC UNIQUE NOT NULL,
-    email           VARCHAR(255),
-    role            user_role NOT NULL DEFAULT 'tenant',
-    status          user_status NOT NULL DEFAULT 'active',
-    created_at      TIMESTAMP DEFAULT now(),
-    updated_at      TIMESTAMP DEFAULT now()
+    role            role_t NOT NULL DEFAULT 'tenant',
+    status          status_t NOT NULL DEFAULT 'active',
+    name            VARCHAR(255),
+    mail            VARCHAR(255),
+    cel_phone       NUMERIC,
+    avatar          TEXT,
+    last_login      TIMESTAMPTZ,
+    observations    TEXT,
+    created_at      TIMESTAMPTZ DEFAULT now(),
+    updated_at      TIMESTAMPTZ DEFAULT now()
 );
-
-CREATE TYPE user_role AS ENUM ('tenant', 'admin', 'super_admin');
-CREATE TYPE user_status AS ENUM ('active', 'inactive', 'suspended');
 ```
 
 **Columnas Principales:**
-- `id`: UUID generado manualmente (uuid v4) o por Supabase Auth
-- `cel_phone`: Número de teléfono en formato E.164 (incluye código de país)
-- `role`: Rol del usuario (inquilino, admin, super admin)
-- `status`: Estado del usuario
+- `id`: UUID primario (de Supabase Auth)
+- `role`: Rol del usuario (admin, owner, tenant)
+- `status`: Estado de la cuenta (active, suspend, inactive)
+- `mail`: Correo electrónico del usuario
+- `cel_phone`: Número de teléfono internacional (NUMERIC)
+- `avatar`: URL del avatar del usuario
+- `last_login`: Último login registrado
+- `observations`: Notas sobre el usuario
 
 #### houses
 Tabla de casas/propiedades en el sistema.
@@ -48,9 +53,9 @@ Tabla de casas/propiedades en el sistema.
 CREATE TABLE houses (
     id              SERIAL PRIMARY KEY,
     number_house    INT UNIQUE NOT NULL,
-    user_id         UUID REFERENCES users(id) ON DELETE SET NULL,
-    created_at      TIMESTAMP DEFAULT now(),
-    updated_at      TIMESTAMP DEFAULT now()
+    user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at      TIMESTAMPTZ DEFAULT now(),
+    updated_at      TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE INDEX idx_houses_user_id ON houses(user_id);
@@ -63,57 +68,59 @@ CREATE INDEX idx_houses_number_house ON houses(number_house);
 - `user_id`: Propietario actual (puede cambiar con el tiempo)
 
 #### vouchers
-Tabla de comprobantes de pago procesados vía WhatsApp.
+Tabla de comprobantes de pago enviados por usuarios (OCR procesado).
 
 ```sql
 CREATE TABLE vouchers (
-    id                      BIGSERIAL PRIMARY KEY,
-    image_url               TEXT,
-    amount                  FLOAT,
-    date                    DATE,
-    time                    TIME,
-    casa                    INTEGER,
-    no_referencia           VARCHAR(50),
-    confirmation_status     BOOLEAN DEFAULT false,
+    id                      SERIAL PRIMARY KEY,
+    date                    TIMESTAMPTZ NOT NULL,
+    authorization_number    VARCHAR(255),
     confirmation_code       VARCHAR(20) UNIQUE,
-    created_at              TIMESTAMP DEFAULT now(),
-    updated_at              TIMESTAMP DEFAULT now()
+    amount                  FLOAT NOT NULL,
+    confirmation_status     BOOLEAN DEFAULT false,
+    url                     TEXT,
+    created_at              TIMESTAMPTZ DEFAULT now(),
+    updated_at              TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE INDEX idx_vouchers_casa ON vouchers(casa);
+CREATE INDEX idx_vouchers_date ON vouchers(date);
 CREATE INDEX idx_vouchers_confirmation_status ON vouchers(confirmation_status);
+CREATE INDEX idx_vouchers_confirmation_code ON vouchers(confirmation_code);
 ```
 
 **Columnas Principales:**
+- `date`: Fecha y hora del comprobante
+- `authorization_number`: Número de autorización del pago
+- `confirmation_code`: Código único generado para el comprobante
 - `amount`: Monto del pago
-- `casa`: Número de casa asociada (validación obligatoria)
-- `confirmation_status`: Estado de confirmación del voucher
-- `confirmation_code`: Código único generado para el voucher
+- `confirmation_status`: Estado de confirmación
+- `url`: URL del archivo en Google Cloud Storage (se elimina tras conciliación)
 
 #### records
-Tabla central que relaciona vouchers con casas y estados de transacción.
+Tabla central que relaciona pagos con estados de transacción y conceptos.
 
 ```sql
 CREATE TABLE records (
     id                          SERIAL PRIMARY KEY,
-    vouchers_id                 BIGINT REFERENCES vouchers(id) ON DELETE CASCADE,
-    transaction_status_id       INT REFERENCES transaction_status(id) ON DELETE SET NULL,
-    cta_water_id               INT,
-    cta_maintenance_id         INT,
-    cta_ordinary_fee_id        INT,
-    cta_extraordinary_fee_id   INT,
-    created_at                 TIMESTAMP DEFAULT now(),
-    updated_at                 TIMESTAMP DEFAULT now()
+    transaction_status_id       INT REFERENCES transactions_status(id) ON DELETE CASCADE,
+    vouchers_id                 INT REFERENCES vouchers(id) ON DELETE SET NULL,
+    cta_extraordinary_fee_id    INT REFERENCES cta_extraordinary_fee(id) ON DELETE CASCADE,
+    cta_maintence_id            INT REFERENCES cta_maintenance(id) ON DELETE CASCADE,
+    cta_penalities_id           INT REFERENCES cta_penalties(id) ON DELETE CASCADE,
+    cta_water_id                INT REFERENCES cta_water(id) ON DELETE CASCADE,
+    cta_other_payments_id       INT REFERENCES cta_other_payments(id) ON DELETE CASCADE,
+    created_at                  TIMESTAMPTZ DEFAULT now(),
+    updated_at                  TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE INDEX idx_records_vouchers_id ON records(vouchers_id);
 CREATE INDEX idx_records_transaction_status_id ON records(transaction_status_id);
+CREATE INDEX idx_records_vouchers_id ON records(vouchers_id);
 ```
 
 **Columnas Principales:**
-- `vouchers_id`: FK al voucher asociado
-- `transaction_status_id`: Estado de la transacción (null inicialmente)
-- `cta_*`: Campos para asociar cuentas específicas (null inicialmente, se llenan con transactions-bank)
+- `transaction_status_id`: FK a estado de validación de transacción
+- `vouchers_id`: FK al voucher asociado (nullable para conciliaciones automáticas)
+- `cta_*_id`: FKs a los conceptos de cargo (maintenance, water, penalties, extraordinary_fee, other)
 
 #### house_records
 **🆕 Tabla intermedia** que permite múltiples registros (pagos) por casa.
@@ -153,13 +160,15 @@ CREATE TABLE periods (
     id              SERIAL PRIMARY KEY,
     year            INT NOT NULL,
     month           INT NOT NULL,
-    start_date      DATE GENERATED ALWAYS AS (date_trunc('month', make_date(year, month, 1))::date) STORED,
-    end_date        DATE GENERATED ALWAYS AS ((date_trunc('month', make_date(year, month, 1)) + interval '1 month' - interval '1 day')::date) STORED,
+    period_config_id INT REFERENCES period_config(id),
+    start_date      DATE GENERATED ALWAYS AS (make_date(year, month, 1)) STORED,
+    end_date        DATE GENERATED ALWAYS AS ((make_date(year, month, 1) + interval '1 month - 1 day')::date) STORED,
     created_at      TIMESTAMPTZ DEFAULT now(),
     updated_at      TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE UNIQUE INDEX idx_periods_year_month ON periods(year, month);
+CREATE INDEX idx_periods_config_id ON periods(period_config_id);
 ```
 
 **Columnas Principales:**
@@ -170,25 +179,36 @@ CREATE UNIQUE INDEX idx_periods_year_month ON periods(year, month);
 - `end_date`: Fecha generada automáticamente del último día del mes
 
 #### period_config
-Tabla de configuración de montos por concepto a nivel del período (configuración global).
+Tabla de configuración versionada de montos por período (reglas de pago globales).
 
 ```sql
-CREATE TABLE period_configs (
-    id                  SERIAL PRIMARY KEY,
-    period_id           INT NOT NULL REFERENCES periods(id),
-    concept_type        VARCHAR(50) NOT NULL,  -- 'maintenance', 'water', 'extraordinary_fee'
-    default_amount      FLOAT NOT NULL,
-    created_at          TIMESTAMPTZ DEFAULT now(),
-    updated_at          TIMESTAMPTZ DEFAULT now()
+CREATE TABLE period_config (
+    id                                  SERIAL PRIMARY KEY,
+    default_maintenance_amount          FLOAT NOT NULL DEFAULT 800,
+    default_water_amount                FLOAT DEFAULT 200,
+    default_extraordinary_fee_amount    FLOAT DEFAULT 1000,
+    payment_due_day                     INT NOT NULL DEFAULT 10,
+    late_payment_penalty_amount         FLOAT NOT NULL DEFAULT 100,
+    effective_from                      DATE NOT NULL,
+    effective_until                     DATE,
+    is_active                           BOOLEAN NOT NULL DEFAULT true,
+    created_at                          TIMESTAMPTZ DEFAULT now(),
+    updated_at                          TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE UNIQUE INDEX idx_period_configs_period_concept ON period_configs(period_id, concept_type);
+CREATE INDEX idx_period_config_effective_dates ON period_config(effective_from, effective_until);
+CREATE INDEX idx_period_config_active ON period_config(is_active);
 ```
 
 **Columnas Principales:**
-- `period_id`: FK al período
-- `concept_type`: Tipo de concepto (mantenimiento, agua, cuota extraordinaria)
-- `default_amount`: Monto por defecto para este concepto en este período
+- `default_maintenance_amount`: Monto por defecto de mantenimiento
+- `default_water_amount`: Monto por defecto de agua
+- `default_extraordinary_fee_amount`: Monto por defecto de cuota extraordinaria
+- `payment_due_day`: Día límite de pago del mes
+- `late_payment_penalty_amount`: Penalidad por pago tardío
+- `effective_from`: Fecha desde la cual esta configuración es válida
+- `effective_until`: Fecha hasta la cual es válida (NULL = indefinido)
+- `is_active`: Indica si esta configuración está activa
 
 #### house_balances
 Tabla que mantiene los saldos acumulados de cada casa (centavos, saldo a favor, deuda).
@@ -216,9 +236,9 @@ Tabla que permite montos personalizados por casa/período (convenios de pago, de
 ```sql
 CREATE TABLE house_period_overrides (
     id              SERIAL PRIMARY KEY,
-    house_id        INT NOT NULL REFERENCES houses(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    period_id       INT NOT NULL REFERENCES periods(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    concept_type    VARCHAR(50) NOT NULL,  -- 'maintenance', 'water', 'extraordinary_fee'
+    house_id        INT NOT NULL REFERENCES houses(id) ON DELETE CASCADE,
+    period_id       INT NOT NULL REFERENCES periods(id) ON DELETE CASCADE,
+    concept_type    house_period_overrides_concept_type_enum NOT NULL,
     custom_amount   FLOAT NOT NULL,
     reason          TEXT,
     created_at      TIMESTAMPTZ DEFAULT now(),
@@ -226,12 +246,14 @@ CREATE TABLE house_period_overrides (
 );
 
 CREATE UNIQUE INDEX idx_house_period_overrides_unique ON house_period_overrides(house_id, period_id, concept_type);
+CREATE INDEX idx_house_period_overrides_house_id ON house_period_overrides(house_id);
+CREATE INDEX idx_house_period_overrides_period_id ON house_period_overrides(period_id);
 ```
 
 **Columnas Principales:**
 - `house_id`: FK a house
 - `period_id`: FK a period
-- `concept_type`: Tipo de concepto a sobrescribir
+- `concept_type`: Tipo de concepto a sobrescribir (maintenance, water, extraordinary_fee)
 - `custom_amount`: Monto personalizado para esta casa en este período
 - `reason`: Razón del ajuste (ej: convenio, descuento)
 
@@ -241,31 +263,34 @@ Tabla que registra la distribución detallada de pagos a conceptos y períodos.
 ```sql
 CREATE TABLE record_allocations (
     id              SERIAL PRIMARY KEY,
-    record_id       INT NOT NULL REFERENCES records(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    house_id        INT NOT NULL REFERENCES houses(id) ON DELETE CASCADE ON UPDATE CASCADE,
-    period_id       INT NOT NULL REFERENCES periods(id) ON DELETE NO ACTION ON UPDATE CASCADE,
-    concept_type    VARCHAR(50) NOT NULL,  -- 'maintenance', 'water', 'extraordinary_fee', 'penalties', 'other'
-    concept_id      INT NOT NULL,  -- ID del concepto específico (cta_maintenance_id, etc.)
+    record_id       INT NOT NULL REFERENCES records(id) ON DELETE CASCADE,
+    house_id        INT NOT NULL REFERENCES houses(id) ON DELETE CASCADE,
+    period_id       INT NOT NULL REFERENCES periods(id) ON DELETE NO ACTION,
+    concept_type    record_allocations_concept_type_enum NOT NULL,
+    concept_id      INT NOT NULL,
     allocated_amount FLOAT NOT NULL,
     expected_amount FLOAT NOT NULL,
-    payment_status  VARCHAR(50) NOT NULL,  -- 'complete', 'partial', 'overpaid'
-    created_at      TIMESTAMPTZ DEFAULT now()
+    payment_status  record_allocations_payment_status_enum NOT NULL,
+    created_at      TIMESTAMPTZ DEFAULT now(),
+    updated_at      TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE INDEX idx_record_allocations_record_id ON record_allocations(record_id);
 CREATE INDEX idx_record_allocations_house_id ON record_allocations(house_id);
 CREATE INDEX idx_record_allocations_period_id ON record_allocations(period_id);
+CREATE INDEX idx_record_allocations_payment_status ON record_allocations(payment_status);
 ```
 
 **Columnas Principales:**
 - `record_id`: FK al registro de pago
 - `house_id`: FK a la casa
 - `period_id`: FK al período
-- `concept_type`: Tipo de concepto (mantenimiento, agua, etc.)
+- `concept_type`: Tipo de concepto (maintenance, water, extraordinary_fee, penalties, other)
 - `concept_id`: ID del concepto específico (relaciona con tabla CTA)
 - `allocated_amount`: Monto aplicado del pago
 - `expected_amount`: Monto esperado del concepto
-- `payment_status`: Estado del pago (completo, parcial, sobrepagado)
+- `payment_status`: Estado del pago (complete, partial, overpaid)
+- `created_at` y `updated_at`: Auditoría de cambios
 
 #### CTA Tables (Concept Tables)
 Tablas que definen los conceptos/ítems de pago.
@@ -313,23 +338,31 @@ CREATE TABLE cta_other_payments (
 ```
 
 #### manual_validation_approvals
-Tabla de auditoría para validaciones manuales de transacciones con conflictos (v3.1+).
+Tabla de auditoría para validaciones manuales de transacciones (v3.1+) - **ÚNICA FUENTE DE VERDAD** para aprobaciones.
 
 ```sql
 CREATE TABLE manual_validation_approvals (
     id                      SERIAL PRIMARY KEY,
-    transaction_id          BIGINT NOT NULL REFERENCES transactions_bank(id),
-    voucher_id              BIGINT REFERENCES vouchers(id),
-    approved_by_user_id     UUID NOT NULL REFERENCES users(id),
-    reconciliation_status   VARCHAR(50) NOT NULL,
-    reconciliation_notes    TEXT,
-    created_at              TIMESTAMPTZ DEFAULT now(),
-    updated_at              TIMESTAMPTZ DEFAULT now()
+    transaction_id          BIGINT NOT NULL REFERENCES transactions_bank(id) ON DELETE RESTRICT,
+    voucher_id              INT REFERENCES vouchers(id) ON DELETE SET NULL,
+    approved_by_user_id     UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    approval_notes          TEXT,
+    rejection_reason        TEXT,
+    approved_at             TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_manual_validation_transaction_id ON manual_validation_approvals(transaction_id);
-CREATE INDEX idx_manual_validation_voucher_id ON manual_validation_approvals(voucher_id);
+CREATE INDEX idx_manual_validation_approvals_transaction ON manual_validation_approvals(transaction_id);
+CREATE INDEX idx_manual_validation_approvals_user ON manual_validation_approvals(approved_by_user_id);
+CREATE INDEX idx_manual_validation_approvals_created ON manual_validation_approvals(approved_at);
 ```
+
+**Columnas Principales:**
+- `transaction_id`: FK a la transacción bancaria revisada
+- `voucher_id`: FK al voucher elegido (NULL si fue rechazado)
+- `approved_by_user_id`: FK al usuario que aprobó/rechazó
+- `approval_notes`: Notas opcionales del operador
+- `rejection_reason`: Razón específica del rechazo (si aplica)
+- `approved_at`: Timestamp de la aprobación/rechazo (CreateDateColumn, no editable)
 
 ### Transactions Bank Module
 

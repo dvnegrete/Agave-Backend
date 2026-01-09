@@ -167,7 +167,7 @@ Table transactions_status {
 
 Table manual_validation_approvals {
   id serial [pk, not null, note: 'ID único del registro de aprobación/rechazo']
-  transaction_id varchar [not null, ref: > transactions_bank.id, note: 'ID de la transacción bancaria revisada']
+  transaction_id bigint [not null, ref: > transactions_bank.id, note: 'ID de la transacción bancaria revisada']
   voucher_id int [ref: > vouchers.id, note: 'ID del voucher elegido (NULL si fue rechazado)']
   approved_by_user_id uuid [not null, ref: > users.id, note: 'ID del usuario que aprobó/rechazó']
   approval_notes text [note: 'Notas opcionales del operador sobre la decisión']
@@ -319,6 +319,7 @@ Table record_allocations {
   expected_amount float [not null, note: 'Monto esperado del concepto']
   payment_status record_allocations_payment_status_enum [not null, note: 'complete, partial, overpaid']
   created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
 
   Note: 'Distribución detallada de pagos entre conceptos'
 

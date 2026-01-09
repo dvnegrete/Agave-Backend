@@ -5,6 +5,7 @@ import {
   ManyToOne,
   JoinColumn,
   CreateDateColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 import { Record } from './record.entity';
 import { Period } from './period.entity';
@@ -64,6 +65,9 @@ export class RecordAllocation {
 
   @CreateDateColumn()
   created_at: Date;
+
+  @UpdateDateColumn()
+  updated_at: Date;
 
   @ManyToOne(() => Record, (record) => record.allocations, {
     onUpdate: 'CASCADE',

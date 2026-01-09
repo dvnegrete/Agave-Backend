@@ -8,7 +8,7 @@ Este documento explica cómo visualizar el esquema de la base de datos de Agave 
 
 **Ubicación**: `/agave-database.dbml`
 **Formato**: DBML (Database Markup Language)
-**Versión**: 3.0.0
+**Versión**: 3.1.0
 
 ### ¿Qué es DBML?
 
@@ -36,7 +36,7 @@ DBML es un lenguaje de marcado diseñado para definir y documentar esquemas de b
    - Click en "Import"
 
 3. **Resultado**
-   - Verás el diagrama completo con 18 tablas
+   - Verás el diagrama completo con 19 tablas
    - Todas las relaciones (foreign keys) visualizadas
    - Agrupadas por funcionalidad
 
@@ -50,7 +50,7 @@ https://www.drawdb.app/import?url=https://raw.githubusercontent.com/[user]/[repo
 
 ## Contenido del Esquema
 
-### Tablas Principales (18 total)
+### Tablas Principales (19 total)
 
 #### 1. Core (Usuarios y Casas)
 - **users**: Usuarios del sistema (UUID de Supabase)
@@ -61,6 +61,7 @@ https://www.drawdb.app/import?url=https://raw.githubusercontent.com/[user]/[repo
 - **vouchers**: Comprobantes de pago (OCR)
 - **transactions_status**: Estado de validación
 - **last_transaction_bank**: Tracking de última transacción
+- **manual_validation_approvals**: Auditoría de validaciones manuales (v3.1)
 
 #### 3. Records (Sistema de Registros)
 - **records**: Registros de pagos
@@ -166,15 +167,15 @@ El archivo DBML debe reflejar:
 ```bash
 # 1. Contar tablas en DBML
 grep "^Table " agave-database.dbml | wc -l
-# Debe ser: 18
+# Debe ser: 19
 
 # 2. Contar tablas en bd_initial.sql
 grep "CREATE TABLE" bd_initial.sql | wc -l
-# Debe ser: 18
+# Debe ser: 19
 
 # 3. Contar entidades en código
 ls -1 src/shared/database/entities/*.entity.ts | wc -l
-# Debe ser: 19 (incluye enums.ts)
+# Debe ser: 19 (sin contar enums.ts)
 ```
 
 ## Tips de Visualización
@@ -321,6 +322,6 @@ dbml2json agave-database.dbml -o schema.json
 
 ---
 
-**Última actualización**: Octubre 30, 2025
-**Versión del esquema**: 3.0.0
+**Última actualización**: Enero 2026
+**Versión del esquema**: 3.1.0
 **Mantenido por**: Equipo de Desarrollo Agave

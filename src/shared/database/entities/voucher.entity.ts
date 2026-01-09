@@ -15,7 +15,7 @@ export class Voucher {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ type: 'timestamptz', nullable: true })
+  @Column({ type: 'timestamptz' })
   date: Date;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
