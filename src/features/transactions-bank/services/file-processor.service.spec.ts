@@ -36,7 +36,7 @@ describe('FileProcessorService', () => {
       'text/csv',
     );
     const options: UploadFileDto = {
-      bank: 'Santander',
+      bankName: 'Santander',
       model: 'SantanderXlsx',
     } as any;
     const result = await service.parseFile(file, options);
@@ -105,7 +105,7 @@ describe('FileProcessorService', () => {
       'application/json',
     );
     const result = await service.parseFile(file, {
-      bank: 'Santander',
+      bankName: 'Santander',
     } as any);
     expect(result.length).toBe(1);
     expect(result[0].amount).toBe(100);
@@ -136,7 +136,7 @@ describe('FileProcessorService', () => {
     );
 
     const result = await service.parseFile(file, {
-      bank: 'Santander',
+      bankName: 'Santander',
     } as any);
 
     // Debe procesar solo las 2 filas de datos después del encabezado

@@ -34,10 +34,10 @@ export function ApiUploadBankFile() {
     }),
     ApiConsumes('multipart/form-data'),
     ApiQuery({
-      name: 'bank',
+      name: 'bankName',
       required: false,
-      description: 'Nombre del banco (opcional, puede venir en el body)',
-      example: 'Santander',
+      description: 'Nombre del banco origen (opcional, puede venir en el body)',
+      example: 'Santander-2025',
     }),
     ApiBody({
       description: 'Archivo y opciones de procesamiento',
@@ -54,10 +54,10 @@ export function ApiUploadBankFile() {
             description: 'Descripción del upload',
             example: 'Estado de cuenta Enero 2025',
           },
-          bank: {
+          bankName: {
             type: 'string',
-            description: 'Nombre del banco',
-            example: 'Santander',
+            description: 'Nombre del banco origen',
+            example: 'Santander-2025',
           },
           model: {
             type: 'string',

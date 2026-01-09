@@ -47,7 +47,7 @@ export class TransactionsBankService {
       );
 
       // Determinar el nombre del banco del archivo actual
-      const currentBankName = options?.bank || options?.bankName || '';
+      const currentBankName = options?.bankName || '';
 
       // Validar transacciones
       const validationResults = await Promise.all(

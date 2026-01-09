@@ -170,7 +170,7 @@ export class FileProcessorService {
     }
 
     // Determine bank name from options
-    const bankName = options?.bank || options?.bankName || '';
+    const bankName = options?.bankName || '';
 
     return {
       date: dateStr.trim(),

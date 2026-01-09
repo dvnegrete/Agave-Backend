@@ -75,13 +75,13 @@ export class TransactionsBankController {
     )
     file: Express.Multer.File,
     @Body() uploadFileDto: UploadFileDto,
-    @Query('bank') bank?: string,
+    @Query('bankName') bankName?: string,
   ) {
     try {
-      // Combinar el parámetro bank del query con las opciones del DTO
+      // Combinar el parámetro bankName del query con las opciones del DTO
       const options: UploadFileDto = {
         ...uploadFileDto,
-        bank: bank || uploadFileDto.bank,
+        bankName: bankName || uploadFileDto.bankName,
       };
 
       //TODO: Validar que el campo previouslyProcessedTransactions contenga información válida o eliminarlo si no es necesario

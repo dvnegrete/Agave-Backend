@@ -77,12 +77,12 @@ POST /transactions-bank/upload
 
 ### Upload File
 ```http
-POST /transactions-bank/upload
+POST /transactions-bank/upload?bankName=Santander-2025
 Content-Type: multipart/form-data
 
 {
   "file": [archivo],
-  "bank": "santander",
+  "bankName": "Santander-2025",
   "validateOnly": false
 }
 ```

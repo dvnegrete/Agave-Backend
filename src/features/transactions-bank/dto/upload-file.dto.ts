@@ -18,20 +18,12 @@ export class UploadFileDto {
   description?: string;
 
   @ApiPropertyOptional({
-    description: 'Nombre del banco',
-    example: 'Santander',
+    description: 'Nombre del banco (origen de las transacciones)',
+    example: 'Santander-2025',
   })
   @IsOptional()
   @IsString()
   bankName?: string;
-
-  @ApiPropertyOptional({
-    description: 'Banco (alternativa a bankName)',
-    example: 'Santander',
-  })
-  @IsOptional()
-  @IsString()
-  bank?: string;
 
   @ApiPropertyOptional({
     description: 'Número de cuenta',
