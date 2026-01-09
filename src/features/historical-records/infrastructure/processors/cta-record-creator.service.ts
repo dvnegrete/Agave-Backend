@@ -37,7 +37,7 @@ export class CtaRecordCreatorService {
    * @param row Historical record row to process
    * @param periodId Period ID to associate with cta records
    * @param queryRunner Database query runner for transactions
-   * @returns Object with IDs of created cta_* records
+   * @returns Object with IDs of created cta_* records (empty if no cta_* to create)
    */
   async createCtaRecords(
     row: HistoricalRecordRow,
@@ -46,6 +46,15 @@ export class CtaRecordCreatorService {
   ): Promise<CtaRecordIds> {
     const ids: CtaRecordIds = {};
     const activeTypes = row.getActiveCtaTypes();
+
+    // If no active cta types (sum = 0), skip cta creation
+    // This is valid for registered payments without concept assignment
+    if (activeTypes.length === 0) {
+      this.logger.debug(
+        `Row ${row.rowNumber}: No cta_* records to create (sum of cta_* = 0)`,
+      );
+      return ids; // Return empty object
+    }
 
     this.logger.debug(
       `Creating ${activeTypes.length} cta_* records for row ${row.rowNumber}`,

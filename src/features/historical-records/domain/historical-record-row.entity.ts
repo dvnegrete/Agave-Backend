@@ -60,15 +60,34 @@ export class HistoricalRecordRow {
   }
 
   /**
-   * Business rule: Validate that floor(deposito) equals sum of cta_* amounts
-   * cta_* amounts are always integers, deposito can have decimals (cents for house identification)
-   * Rule: floor(DEPOSITO) == sum(cta_maintenance + cta_water + cta_penalties + cta_extraordinary_fee)
+   * Get sum of cta_* amounts
+   */
+  getSumCtaAmounts(): number {
+    return this.cuotaExtra + this.mantto + this.penalizacion + this.agua;
+  }
+
+  /**
+   * Business rule: Validate amount distribution based on casa and cta_* amounts
+   *
+   * Rules:
+   * - If Casa = 0 (unidentified): Sum(cta_*) must also be 0 (no conceptos asignados, será conciliado manualmente)
+   * - If Casa > 0 (identified):
+   *   - If Sum(cta_*) = 0: OK (dinero queda en suspense, sin conceptos asignados)
+   *   - If Sum(cta_*) > 0: floor(DEPOSITO) must equal Sum(cta_*)
    */
   isValidAmountDistribution(): boolean {
     const expectedTotal = Math.floor(this.deposito);
-    const actualTotal = this.cuotaExtra + this.mantto + this.penalizacion + this.agua;
-    // Exact comparison - cta_* are always integers after parsing
-    return expectedTotal === actualTotal;
+    const actualTotal = this.getSumCtaAmounts();
+
+    // Case 1: Casa = 0 (unidentified payment)
+    if (this.casa === 0) {
+      // Must have no cta_* assigned (will be reconciled manually)
+      return actualTotal === 0;
+    }
+
+    // Case 2: Casa > 0 (identified payment)
+    // Either no cta_* (sum = 0) or exact match with floor(deposito)
+    return actualTotal === 0 || expectedTotal === actualTotal;
   }
 
   /**
@@ -116,15 +135,6 @@ export class HistoricalRecordRow {
   validate(): { isValid: boolean; errors: string[] } {
     const errors: string[] = [];
 
-    // Validate amount distribution: floor(DEPOSITO) == sum(cta_*)
-    if (!this.isValidAmountDistribution()) {
-      const expectedTotal = Math.floor(this.deposito);
-      const actualTotal = this.cuotaExtra + this.mantto + this.penalizacion + this.agua;
-      errors.push(
-        `Row ${this.rowNumber}: Amount distribution error - floor(DEPOSITO: ${this.deposito}) = ${expectedTotal} but sum(cta_*) = ${actualTotal}`,
-      );
-    }
-
     // Validate deposito is positive
     if (this.deposito <= 0) {
       errors.push(`Row ${this.rowNumber}: DEPOSITO must be positive, got ${this.deposito}`);
@@ -135,15 +145,24 @@ export class HistoricalRecordRow {
       errors.push(`Row ${this.rowNumber}: Casa cannot be negative, got ${this.casa}`);
     }
 
-    // Validate at least one cta_* has amount > 0
-    const activeCtaTypes = this.getActiveCtaTypes();
-    if (activeCtaTypes.length === 0) {
-      errors.push(`Row ${this.rowNumber}: At least one cta_* amount must be > 0`);
-    }
-
     // Validate concepto is not empty
     if (!this.concepto || this.concepto.trim().length === 0) {
       errors.push(`Row ${this.rowNumber}: CONCEPTO cannot be empty`);
+    }
+
+    // Validate amount distribution based on casa
+    if (!this.isValidAmountDistribution()) {
+      const expectedTotal = Math.floor(this.deposito);
+      const actualTotal = this.getSumCtaAmounts();
+      if (this.casa === 0) {
+        errors.push(
+          `Row ${this.rowNumber}: Casa is 0 (unidentified) but cta_* amounts are assigned (sum = ${actualTotal}, expected 0)`,
+        );
+      } else {
+        errors.push(
+          `Row ${this.rowNumber}: Amount distribution error - floor(DEPOSITO: ${this.deposito}) = ${expectedTotal} but sum(cta_*) = ${actualTotal}`,
+        );
+      }
     }
 
     return { isValid: errors.length === 0, errors };

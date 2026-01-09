@@ -84,6 +84,7 @@ export class TransactionsBankController {
         bank: bank || uploadFileDto.bank,
       };
 
+      //TODO: Validar que el campo previouslyProcessedTransactions contenga información válida o eliminarlo si no es necesario
       const result = await this.transactionsBankService.processFile(
         file,
         options,
