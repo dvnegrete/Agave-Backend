@@ -75,10 +75,11 @@ export class UploadHistoricalRecordsUseCase {
       );
     }
 
-    // Step 3: Process valid rows with limited concurrency (max 5 parallel)
+    // Step 3: Process valid rows with limited concurrency (max 3 parallel)
+    // Limited to 3 to account for nested DB operations in ensurePeriodExistsUseCase
     let successfulCount = 0;
     const createdRecordIds: number[] = [];
-    const CONCURRENCY_LIMIT = 5;
+    const CONCURRENCY_LIMIT = 3;
 
     // Process rows with limited concurrency to avoid exhausting connection pool
     const results = await this.processRowsWithLimitedConcurrency(
@@ -129,15 +130,18 @@ export class UploadHistoricalRecordsUseCase {
     const results: RowProcessingResult[] = new Array(rows.length);
     const queue = rows.map((row, index) => ({ row, index }));
     let processing = 0;
+    let completed = 0;
 
     return new Promise((resolve, reject) => {
       const processNext = async () => {
         while (queue.length > 0 && processing < concurrencyLimit) {
           processing++;
+          const remaining = queue.length;
           const { row, index } = queue.shift()!;
 
-          this.logger.debug(
-            `Processing row ${row.rowNumber} (${index + 1}/${rows.length})`,
+          const progressStr = `[${completed + processing}/${rows.length}] (${processing} active, ${remaining} pending)`;
+          this.logger.log(
+            `▶ Processing row ${row.rowNumber} ${progressStr}`,
           );
 
           try {
@@ -145,7 +149,7 @@ export class UploadHistoricalRecordsUseCase {
             results[index] = result;
           } catch (error) {
             this.logger.error(
-              `Unexpected error processing row ${row.rowNumber}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+              `✗ Row ${row.rowNumber} failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
             );
             results[index] = {
               success: false,
@@ -157,10 +161,18 @@ export class UploadHistoricalRecordsUseCase {
             };
           } finally {
             processing--;
+            completed++;
+            const nextProgress = `[${completed}/${rows.length}] (${processing} active)`;
+
+            if (results[index]?.success) {
+              this.logger.log(`✓ Row ${row.rowNumber} completed ${nextProgress}`);
+            }
+
             if (queue.length > 0 || processing > 0) {
               processNext().catch(reject);
             } else {
               // All done
+              this.logger.log(`Processing complete: ${completed}/${rows.length} rows processed`);
               resolve(results);
             }
           }
@@ -171,6 +183,7 @@ export class UploadHistoricalRecordsUseCase {
       if (rows.length === 0) {
         resolve([]);
       } else {
+        this.logger.log(`Starting processing of ${rows.length} rows with concurrency limit: ${concurrencyLimit}`);
         processNext().catch(reject);
       }
     });
