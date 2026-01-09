@@ -104,8 +104,11 @@ export class EnsureHouseExistsService {
       );
     }
 
-    // Buscar casa existente
-    let house = await this.houseRepository.findByNumberHouse(houseNumber);
+    // Buscar casa existente (within transaction if queryRunner provided)
+    let house = await this.houseRepository.findByNumberHouse(
+      houseNumber,
+      queryRunner,
+    );
 
     if (house) {
       this.logger.debug(`Casa ${houseNumber} ya existe (ID: ${house.id})`);

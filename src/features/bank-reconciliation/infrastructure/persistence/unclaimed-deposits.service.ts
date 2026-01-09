@@ -201,8 +201,11 @@ export class UnclaimedDepositsService {
         );
       }
 
-      // 3. Validar o crear casa usando repositorio
-      let house = await this.houseRepository.findByNumberHouse(houseNumber);
+      // 3. Validar o crear casa usando repositorio (within transaction)
+      let house = await this.houseRepository.findByNumberHouse(
+        houseNumber,
+        queryRunner,
+      );
 
       if (!house) {
         // Crear casa con usuario Sistema dentro de la transacción

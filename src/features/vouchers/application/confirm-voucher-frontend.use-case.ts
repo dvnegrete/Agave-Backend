@@ -321,8 +321,11 @@ export class ConfirmVoucherFrontendUseCase {
     queryRunner: any,
   ): Promise<void> {
     try {
-      // Buscar casa existente por número de casa
-      let house = await this.houseRepository.findByNumberHouse(numberHouse);
+      // Buscar casa existente por número de casa (within transaction if queryRunner provided)
+      let house = await this.houseRepository.findByNumberHouse(
+        numberHouse,
+        queryRunner,
+      );
 
       if (!house) {
         // Casa no existe, crear nueva

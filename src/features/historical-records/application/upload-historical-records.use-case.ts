@@ -3,10 +3,19 @@ import { HistoricalExcelParserService } from '../infrastructure/parsers/historic
 import { HistoricalRowProcessorService } from '../infrastructure/processors/historical-row-processor.service';
 import { ProcessingResult } from '../domain/processing-result.value-object';
 import { RowErrorDto } from '../dto/row-error.dto';
+import { HistoricalRecordRow } from '../domain/historical-record-row.entity';
+
+interface RowProcessingResult {
+  success: boolean;
+  recordId?: number;
+  error?: RowErrorDto;
+}
 
 /**
  * Use case: Upload and process historical records Excel file
  * Orchestrates parsing, validation, and batch processing with error handling
+ *
+ * Uses limited concurrency (max 5 parallel) to prevent connection pool exhaustion
  */
 @Injectable()
 export class UploadHistoricalRecordsUseCase {
@@ -66,15 +75,20 @@ export class UploadHistoricalRecordsUseCase {
       );
     }
 
-    // Step 3: Process valid rows (one by one with transactions)
+    // Step 3: Process valid rows with limited concurrency (max 5 parallel)
     let successfulCount = 0;
     const createdRecordIds: number[] = [];
+    const CONCURRENCY_LIMIT = 5;
 
-    for (const row of validRows) {
-      this.logger.debug(`Processing row ${row.rowNumber}`);
+    // Process rows with limited concurrency to avoid exhausting connection pool
+    const results = await this.processRowsWithLimitedConcurrency(
+      validRows,
+      bankName,
+      CONCURRENCY_LIMIT,
+    );
 
-      const result = await this.rowProcessor.processRow(row, bankName);
-
+    // Collect results
+    for (const result of results) {
       if (result.success) {
         successfulCount++;
         if (result.recordId) {
@@ -97,5 +111,68 @@ export class UploadHistoricalRecordsUseCase {
       errors,
       createdRecordIds,
     );
+  }
+
+  /**
+   * Process rows with limited concurrency to avoid exhausting connection pool
+   * Maintains order of results matching input rows
+   * @param rows Rows to process
+   * @param bankName Bank name for each row
+   * @param concurrencyLimit Maximum number of parallel operations
+   * @returns Array of processing results in same order as input rows
+   */
+  private async processRowsWithLimitedConcurrency(
+    rows: HistoricalRecordRow[],
+    bankName: string,
+    concurrencyLimit: number,
+  ): Promise<RowProcessingResult[]> {
+    const results: RowProcessingResult[] = new Array(rows.length);
+    const queue = rows.map((row, index) => ({ row, index }));
+    let processing = 0;
+
+    return new Promise((resolve, reject) => {
+      const processNext = async () => {
+        while (queue.length > 0 && processing < concurrencyLimit) {
+          processing++;
+          const { row, index } = queue.shift()!;
+
+          this.logger.debug(
+            `Processing row ${row.rowNumber} (${index + 1}/${rows.length})`,
+          );
+
+          try {
+            const result = await this.rowProcessor.processRow(row, bankName);
+            results[index] = result;
+          } catch (error) {
+            this.logger.error(
+              `Unexpected error processing row ${row.rowNumber}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            );
+            results[index] = {
+              success: false,
+              error: {
+                row_number: row.rowNumber,
+                error_type: 'database',
+                message: error instanceof Error ? error.message : 'Unknown error',
+              },
+            };
+          } finally {
+            processing--;
+            if (queue.length > 0 || processing > 0) {
+              processNext().catch(reject);
+            } else {
+              // All done
+              resolve(results);
+            }
+          }
+        }
+      };
+
+      // Start initial batch
+      if (rows.length === 0) {
+        resolve([]);
+      } else {
+        processNext().catch(reject);
+      }
+    });
   }
 }

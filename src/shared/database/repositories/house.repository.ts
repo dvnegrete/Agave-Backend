@@ -49,8 +49,20 @@ export class HouseRepository {
 
   /**
    * Busca una casa por su número de casa
+   * @param numberHouse Número de la casa a buscar
+   * @param queryRunner QueryRunner para buscar dentro de una transacción (opcional)
    */
-  async findByNumberHouse(numberHouse: number): Promise<House | null> {
+  async findByNumberHouse(
+    numberHouse: number,
+    queryRunner?: QueryRunner,
+  ): Promise<House | null> {
+    if (queryRunner) {
+      return queryRunner.manager.findOne(House, {
+        where: { number_house: numberHouse },
+        relations: ['user', 'houseRecords'],
+      });
+    }
+
     return this.houseRepository.findOne({
       where: { number_house: numberHouse },
       relations: ['user', 'houseRecords'],

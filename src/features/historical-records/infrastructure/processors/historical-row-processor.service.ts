@@ -48,7 +48,10 @@ export class HistoricalRowProcessorService {
    * @param bankName Name of the bank source for this historical record
    * @returns Result with success status and either recordId or error details
    */
-  async processRow(row: HistoricalRecordRow, bankName: string): Promise<RowProcessingResult> {
+  async processRow(
+    row: HistoricalRecordRow,
+    bankName: string,
+  ): Promise<RowProcessingResult> {
     // Validate row first (no DB operations)
     const validation = row.validate();
     if (!validation.isValid) {
@@ -89,7 +92,8 @@ export class HistoricalRowProcessorService {
         TransactionBank,
         transactionBankData,
       );
-      const savedTransactionBank = await queryRunner.manager.save(transactionBank);
+      const savedTransactionBank =
+        await queryRunner.manager.save(transactionBank);
       this.logger.debug(`Created TransactionBank ID: ${savedTransactionBank.id}`);
 
       // Step 1.6: Create TransactionStatus record
