@@ -32,9 +32,8 @@ export class User {
   @Column({ type: 'varchar', length: 255, nullable: true })
   name: string;
 
-  //TODO: review database with name "mail" vs "email"
   @Column({ type: 'varchar', length: 255, nullable: true })
-  mail: string;
+  email: string;
 
   @Column({ type: 'numeric', nullable: true })
   cel_phone: number;

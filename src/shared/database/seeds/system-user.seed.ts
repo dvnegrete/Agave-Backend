@@ -37,13 +37,13 @@ export class SystemUserSeed implements OnModuleInit {
   private async ensureSystemUserExists(): Promise<void> {
     // Verificar si existe
     const existingUser = await this.dataSource.query(
-      'SELECT id, mail FROM users WHERE id = $1',
+      'SELECT id, email FROM users WHERE id = $1',
       [SYSTEM_USER_ID],
     );
 
     if (existingUser && existingUser.length > 0) {
       this.logger.log(
-        `✅ Usuario Sistema ya existe: ${existingUser[0].mail} (${existingUser[0].id})`,
+        `✅ Usuario Sistema ya existe: ${existingUser[0].email} (${existingUser[0].id})`,
       );
       return;
     }
@@ -55,7 +55,7 @@ export class SystemUserSeed implements OnModuleInit {
 
     await this.dataSource.query(
       `
-      INSERT INTO users (id, mail, role, status, created_at, updated_at)
+      INSERT INTO users (id, email, role, status, created_at, updated_at)
       VALUES ($1, $2, 'tenant', 'active', NOW(), NOW())
       ON CONFLICT (id) DO NOTHING
     `,
@@ -64,13 +64,13 @@ export class SystemUserSeed implements OnModuleInit {
 
     // Verificar creación
     const createdUser = await this.dataSource.query(
-      'SELECT id, mail FROM users WHERE id = $1',
+      'SELECT id, email FROM users WHERE id = $1',
       [SYSTEM_USER_ID],
     );
 
     if (createdUser && createdUser.length > 0) {
       this.logger.log(
-        `✅ Usuario Sistema creado exitosamente: ${createdUser[0].mail}`,
+        `✅ Usuario Sistema creado exitosamente: ${createdUser[0].email}`,
       );
       this.logger.log(
         '   Este usuario se usará para casas creadas automáticamente en conciliación bancaria',

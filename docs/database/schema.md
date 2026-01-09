@@ -26,7 +26,7 @@ CREATE TABLE users (
     role            role_t NOT NULL DEFAULT 'tenant',
     status          status_t NOT NULL DEFAULT 'active',
     name            VARCHAR(255),
-    mail            VARCHAR(255),
+    email           VARCHAR(255),
     cel_phone       NUMERIC,
     avatar          TEXT,
     last_login      TIMESTAMPTZ,
@@ -40,7 +40,7 @@ CREATE TABLE users (
 - `id`: UUID primario (de Supabase Auth)
 - `role`: Rol del usuario (admin, owner, tenant)
 - `status`: Estado de la cuenta (active, suspend, inactive)
-- `mail`: Correo electrónico del usuario
+- `email`: Correo electrónico del usuario
 - `cel_phone`: Número de teléfono internacional (NUMERIC)
 - `avatar`: URL del avatar del usuario
 - `last_login`: Último login registrado

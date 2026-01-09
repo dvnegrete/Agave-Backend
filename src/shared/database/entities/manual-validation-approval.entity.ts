@@ -113,7 +113,7 @@ export class ManualValidationApproval {
     const action = this.isApproved()
       ? `Aprobado con Voucher #${this.voucher_id}`
       : 'Rechazado';
-    const user = this.approvedByUser?.mail || 'Usuario desconocido';
+    const user = this.approvedByUser?.email || 'Usuario desconocido';
     const date = this.approved_at.toLocaleDateString('es-AR');
 
     return `${action} por ${user} el ${date}`;

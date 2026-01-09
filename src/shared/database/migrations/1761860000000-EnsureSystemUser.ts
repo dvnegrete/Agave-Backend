@@ -27,7 +27,7 @@ export class EnsureSystemUser1761860000000 implements MigrationInterface {
     if (!userExists[0].exists) {
       // Insertar usuario del sistema
       await queryRunner.query(`
-        INSERT INTO users (id, mail, role, status, created_at, updated_at)
+        INSERT INTO users (id, email, role, status, created_at, updated_at)
         VALUES (
           '00000000-0000-0000-0000-000000000000',
           'sistema@conciliacion.local',

@@ -70,7 +70,7 @@ Table users {
   role role_t [not null, default: 'tenant']
   status status_t [not null, default: 'active']
   name varchar(255)
-  mail varchar(255)
+  email varchar(255)
   cel_phone numeric [note: 'Número telefónico internacional']
   avatar text
   last_login timestamptz

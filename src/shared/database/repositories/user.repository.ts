@@ -10,7 +10,7 @@ export interface CreateUserDto {
   role?: Role;
   status?: Status;
   name?: string;
-  mail?: string;
+  email?: string;
   avatar?: string;
   observations?: string;
 }
@@ -19,7 +19,7 @@ export interface UpdateUserDto {
   role?: Role;
   status?: Status;
   name?: string;
-  mail?: string;
+  email?: string;
   cel_phone?: number;
   avatar?: string;
   last_login?: Date;
@@ -43,7 +43,7 @@ export class UserRepository {
       role: data.role ?? Role.TENANT,
       status: data.status ?? Status.ACTIVE,
       name: data.name,
-      mail: data.mail,
+      email: data.email,
       avatar: data.avatar,
       observations: data.observations,
     };
@@ -79,7 +79,7 @@ export class UserRepository {
    */
   async findByEmail(email: string): Promise<User | null> {
     return this.userRepository.findOne({
-      where: { mail: email },
+      where: { email },
     });
   }
 

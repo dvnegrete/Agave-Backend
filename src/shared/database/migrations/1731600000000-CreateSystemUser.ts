@@ -15,7 +15,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 export class CreateSystemUser1731600000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
-      INSERT INTO users (id, mail, role, status, created_at, updated_at)
+      INSERT INTO users (id, email, role, status, created_at, updated_at)
       VALUES (
         '00000000-0000-0000-0000-000000000000',
         'sistema@conciliacion.local',
@@ -29,12 +29,12 @@ export class CreateSystemUser1731600000000 implements MigrationInterface {
 
     // Log para confirmar
     const result = await queryRunner.query(`
-      SELECT id, mail FROM users
+      SELECT id, email FROM users
       WHERE id = '00000000-0000-0000-0000-000000000000';
     `);
 
     if (result && result.length > 0) {
-      console.log('✅ Usuario Sistema creado/verificado:', result[0].mail);
+      console.log('✅ Usuario Sistema creado/verificado:', result[0].email);
     }
   }
 
