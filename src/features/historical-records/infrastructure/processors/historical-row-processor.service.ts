@@ -5,7 +5,11 @@ import { EnsurePeriodExistsUseCase } from '@/features/payment-management/applica
 import { CtaRecordCreatorService } from './cta-record-creator.service';
 import { RecordRepository } from '@/shared/database/repositories/record.repository';
 import { HouseRecordRepository } from '@/shared/database/repositories/house-record.repository';
+import { TransactionBankRepository } from '@/shared/database/repositories/transaction-bank.repository';
+import { TransactionStatusRepository } from '@/shared/database/repositories/transaction-status.repository';
 import { EnsureHouseExistsService } from '@/shared/database/services';
+import { TransactionBank } from '@/shared/database/entities/transaction-bank.entity';
+import { ValidationStatus } from '@/shared/database/entities/enums';
 import { RowErrorDto } from '../../dto/row-error.dto';
 
 /**
@@ -32,6 +36,8 @@ export class HistoricalRowProcessorService {
     private readonly ctaRecordCreatorService: CtaRecordCreatorService,
     private readonly recordRepository: RecordRepository,
     private readonly houseRecordRepository: HouseRecordRepository,
+    private readonly transactionBankRepository: TransactionBankRepository,
+    private readonly transactionStatusRepository: TransactionStatusRepository,
     private readonly ensureHouseExistsService: EnsureHouseExistsService,
   ) {}
 
@@ -39,9 +45,10 @@ export class HistoricalRowProcessorService {
    * Process a single row with full transaction support
    * If any step fails, entire row is rolled back
    * @param row Historical record row to process
+   * @param bankName Name of the bank source for this historical record
    * @returns Result with success status and either recordId or error details
    */
-  async processRow(row: HistoricalRecordRow): Promise<RowProcessingResult> {
+  async processRow(row: HistoricalRecordRow, bankName: string): Promise<RowProcessingResult> {
     // Validate row first (no DB operations)
     const validation = row.validate();
     if (!validation.isValid) {
@@ -67,6 +74,40 @@ export class HistoricalRowProcessorService {
       const period = await this.ensurePeriodExistsUseCase.execute(year, month);
       this.logger.debug(`Period ${year}-${month} ID: ${period.id}`);
 
+      // Step 1.5: Create TransactionBank record
+      const transactionBankData = {
+        date: row.fecha,
+        time: row.hora,
+        amount: row.deposito,
+        concept: row.concepto,
+        is_deposit: true,
+        currency: 'MXN',
+        bank_name: bankName,
+        confirmation_status: true,
+      };
+      const transactionBank = queryRunner.manager.create(
+        TransactionBank,
+        transactionBankData,
+      );
+      const savedTransactionBank = await queryRunner.manager.save(transactionBank);
+      this.logger.debug(`Created TransactionBank ID: ${savedTransactionBank.id}`);
+
+      // Step 1.6: Create TransactionStatus record
+      const transactionStatus = await this.transactionStatusRepository.create(
+        {
+          transactions_bank_id: Number(savedTransactionBank.id),
+          vouchers_id: null,
+          validation_status: ValidationStatus.CONFIRMED,
+          identified_house_number: row.isIdentifiedPayment()
+            ? row.getIdentifiedHouseNumber()
+            : undefined,
+          processed_at: row.fecha,
+          reason: 'Registro histórico importado',
+        },
+        queryRunner,
+      );
+      this.logger.debug(`Created TransactionStatus ID: ${transactionStatus.id}`);
+
       // Step 2: Create cta_* records (within transaction)
       const ctaIds = await this.ctaRecordCreatorService.createCtaRecords(
         row,
@@ -74,10 +115,10 @@ export class HistoricalRowProcessorService {
         queryRunner,
       );
 
-      // Step 3: Create Record with cta_* FK IDs
+      // Step 3: Create Record with cta_* FK IDs and transaction_status_id
       const record = await this.recordRepository.create(
         {
-          transaction_status_id: null,
+          transaction_status_id: transactionStatus.id,
           vouchers_id: null,
           ...ctaIds,
         },

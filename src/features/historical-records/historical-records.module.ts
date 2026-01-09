@@ -21,6 +21,8 @@ import {
   CtaWaterRepository,
   CtaPenaltiesRepository,
   CtaExtraordinaryFeeRepository,
+  TransactionBankRepository,
+  TransactionStatusRepository,
 } from '@/shared/database/repositories';
 
 // Shared Entities
@@ -33,6 +35,8 @@ import {
   CtaWater,
   CtaPenalties,
   CtaExtraordinaryFee,
+  TransactionBank,
+  TransactionStatus,
 } from '@/shared/database/entities';
 
 // External Feature Modules
@@ -56,6 +60,8 @@ import { PaymentManagementModule } from '@/features/payment-management/payment-m
       CtaWater,
       CtaPenalties,
       CtaExtraordinaryFee,
+      TransactionBank,
+      TransactionStatus,
     ]),
     // Import PaymentManagement for EnsurePeriodExistsUseCase
     PaymentManagementModule,
@@ -78,6 +84,8 @@ import { PaymentManagementModule } from '@/features/payment-management/payment-m
     CtaWaterRepository,
     CtaPenaltiesRepository,
     CtaExtraordinaryFeeRepository,
+    TransactionBankRepository,
+    TransactionStatusRepository,
   ],
   exports: [UploadHistoricalRecordsUseCase],
 })

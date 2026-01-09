@@ -2,7 +2,7 @@ import { UnreconciledVouchersResponseDto } from './unreconciled-voucher.dto';
 
 /**
  * DTO para cada transacción dentro del historial
- * Contiene solo los campos esenciales de la transacción bancaria
+ * Contiene solo los campos esenciales de la transacción bancaria o registro histórico
  */
 export class TransactionBankItemDto {
   date: Date;
@@ -12,6 +12,7 @@ export class TransactionBankItemDto {
   currency: string | null;
   bank_name: string | null;
   confirmation_status: boolean;
+  source: 'bank' | 'historical';
 }
 
 /**

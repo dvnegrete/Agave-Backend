@@ -21,13 +21,15 @@ export class UploadHistoricalRecordsUseCase {
    * Execute the file upload and processing
    * @param buffer Excel file buffer from upload
    * @param validateOnly If true, only validate without inserting to DB
+   * @param bankName Name of the bank source for these historical records
    * @returns ProcessingResult with statistics and error details
    */
   async execute(
     buffer: Buffer,
     validateOnly: boolean = false,
+    bankName: string,
   ): Promise<ProcessingResult> {
-    this.logger.log(`Starting historical records processing. Validate only: ${validateOnly}`);
+    this.logger.log(`Starting historical records processing. Validate only: ${validateOnly}, Bank: ${bankName}`);
 
     // Step 1: Parse Excel file
     const rows = await this.excelParser.parseFile(buffer);
@@ -71,7 +73,7 @@ export class UploadHistoricalRecordsUseCase {
     for (const row of validRows) {
       this.logger.debug(`Processing row ${row.rowNumber}`);
 
-      const result = await this.rowProcessor.processRow(row);
+      const result = await this.rowProcessor.processRow(row, bankName);
 
       if (result.success) {
         successfulCount++;

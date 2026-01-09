@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Query,
   UploadedFile,
   UseInterceptors,
   BadRequestException,
@@ -16,6 +17,7 @@ import {
   ApiConsumes,
   ApiBody,
   ApiResponse,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { UploadHistoricalRecordsUseCase } from '../application/upload-historical-records.use-case';
 import { UploadHistoricalFileDto, HistoricalRecordResponseDto } from '../dto';
@@ -64,6 +66,13 @@ export class HistoricalRecordsController {
     description:
       'Procesa un archivo Excel con registros históricos y crea records en el sistema. ' +
       'Archivo debe ser .xlsx con columnas: FECHA, HORA, CONCEPTO, DEPOSITO, Casa, Cuota Extra, Mantto, Penalizacion, Agua.',
+  })
+  @ApiQuery({
+    name: 'bankName',
+    required: true,
+    description: 'Nombre del banco origen de los registros históricos',
+    example: 'BBVA',
+    type: String,
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -152,17 +161,23 @@ export class HistoricalRecordsController {
       }),
     )
     file: Express.Multer.File,
+    @Query('bankName') bankName: string,
     @Body() uploadDto: UploadHistoricalFileDto,
   ): Promise<HistoricalRecordResponseDto> {
     try {
+      if (!bankName || bankName.trim().length === 0) {
+        throw new BadRequestException('bankName query parameter is required');
+      }
+
       this.logger.log(
-        `Processing historical records file: ${file.originalname} (${file.size} bytes)`,
+        `Processing historical records file: ${file.originalname} (${file.size} bytes) from bank: ${bankName}`,
       );
 
       const validateOnly = uploadDto.validateOnly || false;
       const result = await this.uploadHistoricalRecordsUseCase.execute(
         file.buffer,
         validateOnly,
+        bankName,
       );
 
       this.logger.log(

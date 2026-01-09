@@ -107,4 +107,24 @@ export class RecordRepository {
   async delete(id: number): Promise<void> {
     await this.recordRepository.delete(id);
   }
+
+  /**
+   * Obtiene todos los records (históricos) asociados a una casa
+   * Utiliza relaciones de TypeORM a través de HouseRecord
+   * Carga también las relaciones cta_* para obtener montos
+   * Retorna records ordenados por fecha de creación (DESC)
+   */
+  async findByHouseId(houseId: number): Promise<Record[]> {
+    return this.recordRepository
+      .createQueryBuilder('r')
+      .leftJoinAndSelect('r.houseRecords', 'hr')
+      .leftJoinAndSelect('r.ctaExtraordinaryFee', 'cta_fee')
+      .leftJoinAndSelect('r.ctaMaintenance', 'cta_maint')
+      .leftJoinAndSelect('r.ctaPenalties', 'cta_pen')
+      .leftJoinAndSelect('r.ctaWater', 'cta_water')
+      .leftJoinAndSelect('r.ctaOtherPayments', 'cta_other')
+      .where('hr.house_id = :houseId', { houseId })
+      .orderBy('r.created_at', 'DESC')
+      .getMany();
+  }
 }
