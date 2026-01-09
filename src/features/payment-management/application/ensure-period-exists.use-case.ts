@@ -1,4 +1,6 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
+import { DataSource } from 'typeorm';
+import { Period } from '@/shared/database/entities';
 import { PeriodDomain } from '../domain';
 import { IPeriodRepository } from '../interfaces';
 import { IPeriodConfigRepository } from '../interfaces';
@@ -21,6 +23,7 @@ export class EnsurePeriodExistsUseCase {
     private readonly periodRepository: IPeriodRepository,
     @Inject('IPeriodConfigRepository')
     private readonly periodConfigRepository: IPeriodConfigRepository,
+    private readonly dataSource: DataSource,
   ) {}
 
   async execute(year: number, month: number): Promise<PeriodDomain> {
@@ -57,8 +60,10 @@ export class EnsurePeriodExistsUseCase {
     const activeConfig =
       await this.periodConfigRepository.findActiveForDate(periodDate);
 
-    // 3. Crear el nuevo período
-    const newPeriod = await this.periodRepository.create(
+    // 3. Crear el nuevo período usando inserteo directo para evitar transacciones anidadas
+    // TypeORM's repository.save() inicia una transacción automática, causando deadlocks
+    // cuando se llama desde dentro de otra transacción
+    const newPeriod = await this.createPeriodDirect(
       year,
       month,
       activeConfig?.id,
@@ -78,6 +83,30 @@ export class EnsurePeriodExistsUseCase {
     this.periodCache.set(cacheKey, periodDomain);
     this.logger.log(`Period ${cacheKey} created and cached`);
     return periodDomain;
+  }
+
+  /**
+   * Crea un período directamente sin usar repository.save()
+   * Evita transacciones anidadas que causan deadlocks
+   * @private
+   */
+  private async createPeriodDirect(
+    year: number,
+    month: number,
+    configId?: number,
+  ): Promise<Period> {
+    const result = await this.dataSource.query(
+      `INSERT INTO "periods" ("year", "month", "period_config_id", "created_at", "updated_at")
+       VALUES ($1, $2, $3, NOW(), NOW())
+       RETURNING "id", "year", "month", "start_date", "end_date", "period_config_id", "created_at", "updated_at"`,
+      [year, month, configId || null],
+    );
+
+    if (!result || result.length === 0) {
+      throw new Error(`Failed to create period ${year}-${month}`);
+    }
+
+    return result[0] as Period;
   }
 
   /**

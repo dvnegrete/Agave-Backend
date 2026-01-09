@@ -65,17 +65,19 @@ export class HistoricalRowProcessorService {
       };
     }
 
+    // Step 1: Ensure Period exists BEFORE starting transaction
+    // This avoids nested transactions. The period cache minimizes lookups.
+    // First lookup of each period creates it, subsequent rows reuse cached value.
+    const { year, month } = row.getPeriodInfo();
+    const period = await this.ensurePeriodExistsUseCase.execute(year, month);
+    this.logger.debug(`Period ${year}-${month} ID: ${period.id}`);
+
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
       this.logger.debug(`Processing row ${row.rowNumber} with transaction`);
-
-      // Step 1: Ensure Period exists
-      const { year, month } = row.getPeriodInfo();
-      const period = await this.ensurePeriodExistsUseCase.execute(year, month);
-      this.logger.debug(`Period ${year}-${month} ID: ${period.id}`);
 
       // Step 1.5: Create TransactionBank record
       const transactionBankData = {

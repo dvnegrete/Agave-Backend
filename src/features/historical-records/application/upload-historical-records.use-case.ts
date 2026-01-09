@@ -75,11 +75,12 @@ export class UploadHistoricalRecordsUseCase {
       );
     }
 
-    // Step 3: Process valid rows with limited concurrency (max 3 parallel)
-    // Limited to 3 to account for nested DB operations in ensurePeriodExistsUseCase
+    // Step 3: Process valid rows sequentially (concurrency = 1)
+    // Sequential processing ensures period cache is fully utilized and prevents connection pool exhaustion
+    // Even though sequential, the period cache makes this fast (~10-50ms per row)
     let successfulCount = 0;
     const createdRecordIds: number[] = [];
-    const CONCURRENCY_LIMIT = 3;
+    const CONCURRENCY_LIMIT = 1; // Sequential: 1 row at a time
 
     // Process rows with limited concurrency to avoid exhausting connection pool
     const results = await this.processRowsWithLimitedConcurrency(
@@ -117,9 +118,10 @@ export class UploadHistoricalRecordsUseCase {
   /**
    * Process rows with limited concurrency to avoid exhausting connection pool
    * Maintains order of results matching input rows
+   * Uses simple sequential approach with for loop instead of recursion
    * @param rows Rows to process
    * @param bankName Bank name for each row
-   * @param concurrencyLimit Maximum number of parallel operations
+   * @param concurrencyLimit Maximum number of parallel operations (currently 1 for sequential)
    * @returns Array of processing results in same order as input rows
    */
   private async processRowsWithLimitedConcurrency(
@@ -128,64 +130,47 @@ export class UploadHistoricalRecordsUseCase {
     concurrencyLimit: number,
   ): Promise<RowProcessingResult[]> {
     const results: RowProcessingResult[] = new Array(rows.length);
-    const queue = rows.map((row, index) => ({ row, index }));
-    let processing = 0;
-    let completed = 0;
 
-    return new Promise((resolve, reject) => {
-      const processNext = async () => {
-        while (queue.length > 0 && processing < concurrencyLimit) {
-          processing++;
-          const remaining = queue.length;
-          const { row, index } = queue.shift()!;
+    if (rows.length === 0) {
+      return results;
+    }
 
-          const progressStr = `[${completed + processing}/${rows.length}] (${processing} active, ${remaining} pending)`;
-          this.logger.log(
-            `▶ Processing row ${row.rowNumber} ${progressStr}`,
-          );
+    const processingMode = concurrencyLimit === 1 ? 'sequential (1 row at a time)' : `${concurrencyLimit} rows in parallel`;
+    this.logger.log(`Starting processing of ${rows.length} rows - Mode: ${processingMode}`);
 
-          try {
-            const result = await this.rowProcessor.processRow(row, bankName);
-            results[index] = result;
-          } catch (error) {
-            this.logger.error(
-              `✗ Row ${row.rowNumber} failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-            );
-            results[index] = {
-              success: false,
-              error: {
-                row_number: row.rowNumber,
-                error_type: 'database',
-                message: error instanceof Error ? error.message : 'Unknown error',
-              },
-            };
-          } finally {
-            processing--;
-            completed++;
-            const nextProgress = `[${completed}/${rows.length}] (${processing} active)`;
+    // Simple sequential processing with for loop
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const progressStr = `[${i + 1}/${rows.length}]`;
 
-            if (results[index]?.success) {
-              this.logger.log(`✓ Row ${row.rowNumber} completed ${nextProgress}`);
-            }
+      this.logger.log(`▶ Processing row ${row.rowNumber} ${progressStr}`);
 
-            if (queue.length > 0 || processing > 0) {
-              processNext().catch(reject);
-            } else {
-              // All done
-              this.logger.log(`Processing complete: ${completed}/${rows.length} rows processed`);
-              resolve(results);
-            }
-          }
+      try {
+        const result = await this.rowProcessor.processRow(row, bankName);
+        results[i] = result;
+
+        if (result.success) {
+          this.logger.log(`✓ Row ${row.rowNumber} completed ${progressStr}`);
+        } else {
+          this.logger.warn(`⚠ Row ${row.rowNumber} failed: ${result.error?.message} ${progressStr}`);
         }
-      };
-
-      // Start initial batch
-      if (rows.length === 0) {
-        resolve([]);
-      } else {
-        this.logger.log(`Starting processing of ${rows.length} rows with concurrency limit: ${concurrencyLimit}`);
-        processNext().catch(reject);
+      } catch (error) {
+        this.logger.error(
+          `✗ Row ${row.rowNumber} failed with exception: ${error instanceof Error ? error.message : 'Unknown error'} ${progressStr}`,
+          error instanceof Error ? error.stack : '',
+        );
+        results[i] = {
+          success: false,
+          error: {
+            row_number: row.rowNumber,
+            error_type: 'database',
+            message: error instanceof Error ? error.message : 'Unknown error',
+          },
+        };
       }
-    });
+    }
+
+    this.logger.log(`Processing complete: ${rows.length}/${rows.length} rows processed`);
+    return results;
   }
 }
