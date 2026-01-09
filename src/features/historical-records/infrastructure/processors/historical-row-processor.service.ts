@@ -97,16 +97,21 @@ export class HistoricalRowProcessorService {
       this.logger.debug(`Created TransactionBank ID: ${savedTransactionBank.id}`);
 
       // Step 1.6: Create TransactionStatus record
+      // Use NOT_FOUND for unidentified payments (casa = 0) so they appear in unclaimed-deposits
+      // Use CONFIRMED for identified payments (casa > 0)
+      const isIdentified = row.isIdentifiedPayment();
       const transactionStatus = await this.transactionStatusRepository.create(
         {
           transactions_bank_id: Number(savedTransactionBank.id),
           vouchers_id: null,
-          validation_status: ValidationStatus.CONFIRMED,
-          identified_house_number: row.isIdentifiedPayment()
-            ? row.getIdentifiedHouseNumber()
-            : undefined,
+          validation_status: isIdentified
+            ? ValidationStatus.CONFIRMED
+            : ValidationStatus.NOT_FOUND,
+          identified_house_number: isIdentified ? row.casa : undefined,
           processed_at: row.fecha,
-          reason: 'Registro histórico importado',
+          reason: isIdentified
+            ? 'Registro histórico importado - Con casa asignada'
+            : 'Registro histórico importado - Sin casa (será conciliado manualmente)',
         },
         queryRunner,
       );
@@ -119,20 +124,24 @@ export class HistoricalRowProcessorService {
         queryRunner,
       );
 
-      // Step 3: Create Record with cta_* FK IDs and transaction_status_id
-      const record = await this.recordRepository.create(
-        {
-          transaction_status_id: transactionStatus.id,
-          vouchers_id: null,
-          ...ctaIds,
-        },
-        queryRunner,
-      );
-      this.logger.debug(`Created Record ID: ${record.id}`);
+      // Step 3: Create Record and HouseRecord association
+      let recordId: number | null = null;
 
-      // Step 4: Create HouseRecord association (only if casa is identified)
       if (row.isIdentifiedPayment()) {
-        const houseNumber = row.getIdentifiedHouseNumber();
+        // Casa > 0: Create Record and HouseRecord (will appear in unclaimed-deposits if no conceptos)
+        const record = await this.recordRepository.create(
+          {
+            transaction_status_id: transactionStatus.id,
+            vouchers_id: null,
+            ...ctaIds,
+          },
+          queryRunner,
+        );
+        recordId = record.id;
+        this.logger.debug(`Created Record ID: ${record.id}`);
+
+        // Get house number (from casa column, not from cents)
+        const houseNumber = row.casa;
         this.logger.debug(`Identified house number: ${houseNumber}`);
 
         // Ensure house exists, creating if necessary
@@ -160,16 +169,26 @@ export class HistoricalRowProcessorService {
         );
         this.logger.debug(`Created HouseRecord ID: ${houseRecord.id}`);
       } else {
-        this.logger.debug(`Row ${row.rowNumber}: Casa not identified, skipping HouseRecord`);
+        // Casa = 0: NO Record, NO HouseRecord
+        // Transaction will be pending in unclaimed-deposits, ready to be assigned via endpoint
+        this.logger.debug(
+          `Row ${row.rowNumber}: Casa = 0 (unidentified), Record not created. Will appear in unclaimed-deposits.`,
+        );
       }
 
       // Commit transaction on success
       await queryRunner.commitTransaction();
-      this.logger.log(`Row ${row.rowNumber} processed successfully (Record ID: ${record.id})`);
+      if (recordId) {
+        this.logger.log(`Row ${row.rowNumber} processed successfully (Record ID: ${recordId})`);
+      } else {
+        this.logger.log(
+          `Row ${row.rowNumber} processed successfully (No Record created - Casa = 0, pending unclaimed-deposits)`,
+        );
+      }
 
       return {
         success: true,
-        recordId: record.id,
+        recordId: recordId ?? undefined,
       };
     } catch (error: any) {
       // Rollback on any error
