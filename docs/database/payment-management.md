@@ -751,8 +751,8 @@ El dinero excedente se aplica en este orden:
 
 ## Documentación Relacionada
 
-- **Schema Completo:** `docs/database/schema.md`
-- **Changelog de Versiones:** `docs/database/SCHEMA-UPDATES-V3.md`
+- **Documentation Index:** `docs/database/README.md` (navigation guide)
+- **Schema Completo:** `docs/database/schema.md` (includes complete version history)
 - **Reconciliación Bancaria:** `docs/features/bank-reconciliation/`
 - **Entidades TypeORM:** `src/shared/database/entities/`
 

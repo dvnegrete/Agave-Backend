@@ -2,7 +2,16 @@
 
 ## Overview
 
-Este documento describe el esquema de base de datos completo del sistema Agave, incluyendo transacciones bancarias, vouchers, usuarios y casas.
+Este documento describe el esquema de base de datos completo del sistema Agave **versión 3.1.0**, incluyendo:
+- Transacciones bancarias y vouchers
+- Usuarios y casas
+- Sistema de gestión de pagos por período (Payment Management v3.0+)
+- Sistema de validación manual con auditoría (v3.1)
+
+**Última actualización**: Enero 2026
+**Versión del esquema**: 3.1.0
+**Total de tablas**: 22
+**Total de ENUMs**: 6
 
 ## Core Tables
 
@@ -592,11 +601,55 @@ ORDER BY p.year DESC, p.month DESC;
 
 ## ENUM Types
 
-### AllocationConceptType
+### role_t
+Roles de usuarios en el sistema.
+
+```sql
+CREATE TYPE role_t AS ENUM ('admin', 'owner', 'tenant');
+```
+
+**Valores:**
+- `admin`: Administrador del sistema
+- `owner`: Propietario de casa
+- `tenant`: Inquilino
+
+### status_t
+Estados de cuentas de usuarios.
+
+```sql
+CREATE TYPE status_t AS ENUM ('active', 'suspend', 'inactive');
+```
+
+**Valores:**
+- `active`: Usuario activo
+- `suspend`: Usuario suspendido temporalmente
+- `inactive`: Usuario inactivo
+
+### validation_status_t
+Estados de validación de transacciones en `transactions_status`.
+
+```sql
+CREATE TYPE validation_status_t AS ENUM (
+    'not-found',             -- Transacción no encontrada en registros
+    'pending',               -- Pendiente de validación manual
+    'confirmed',             -- Confirmada automáticamente
+    'requires-manual',       -- Requiere validación manual
+    'conflict'               -- Conflicto detectado
+);
+```
+
+**Valores:**
+- `not-found`: No se encontró registro coincidente
+- `pending`: En espera de validación manual
+- `confirmed`: Validada automáticamente
+- `requires-manual`: Requiere revisión manual (múltiples coincidencias)
+- `conflict`: Conflicto entre voucher y transacción
+
+### record_allocations_concept_type_enum
 Tipos de conceptos para distribución de pagos en `record_allocations`.
 
 ```sql
-CREATE TYPE allocation_concept_type AS ENUM (
+CREATE TYPE record_allocations_concept_type_enum AS ENUM (
     'maintenance',           -- Mantenimiento/cuota ordinaria
     'water',                 -- Agua
     'extraordinary_fee',     -- Cuota extraordinaria
@@ -612,11 +665,11 @@ CREATE TYPE allocation_concept_type AS ENUM (
 - `penalties`: Multas, mora o intereses
 - `other`: Otros conceptos no clasificados
 
-### PaymentStatus
+### record_allocations_payment_status_enum
 Estados de pago en `record_allocations`.
 
 ```sql
-CREATE TYPE payment_status AS ENUM (
+CREATE TYPE record_allocations_payment_status_enum AS ENUM (
     'complete',              -- Pago completo del concepto
     'partial',               -- Pago parcial (falta dinero)
     'overpaid'               -- Pago en exceso (sobrepagado)
@@ -628,11 +681,11 @@ CREATE TYPE payment_status AS ENUM (
 - `partial`: El monto aplicado es menor al esperado (deuda)
 - `overpaid`: El monto aplicado es mayor al esperado (exceso)
 
-### ConceptType
+### house_period_overrides_concept_type_enum
 Tipos de conceptos para montos personalizados en `house_period_overrides`.
 
 ```sql
-CREATE TYPE concept_type AS ENUM (
+CREATE TYPE house_period_overrides_concept_type_enum AS ENUM (
     'maintenance',           -- Mantenimiento/cuota ordinaria
     'water',                 -- Agua
     'extraordinary_fee'      -- Cuota extraordinaria
@@ -643,26 +696,6 @@ CREATE TYPE concept_type AS ENUM (
 - `maintenance`: Cuota ordinaria personalizada
 - `water`: Consumo de agua personalizado
 - `extraordinary_fee`: Cuota extraordinaria personalizada
-
-### ValidationStatus
-Estados de validación en `manual_validation_approvals`.
-
-```sql
-CREATE TYPE validation_status AS ENUM (
-    'not-found',             -- Transacción no encontrada en registros
-    'pending',               -- Pendiente de validación manual
-    'confirmed',             -- Confirmada automáticamente
-    'requires-manual',       -- Requiere validación manual
-    'conflict'               -- Conflicto detectado
-);
-```
-
-**Valores:**
-- `not-found`: No se encontró registro coincidente
-- `pending`: En espera de validación manual
-- `confirmed`: Validada automáticamente
-- `requires-manual`: Requiere revisión manual (múltiples coincidencias)
-- `conflict`: Conflicto entre voucher y transacción
 
 ## Relaciones v3.1
 

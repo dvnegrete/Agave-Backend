@@ -255,7 +255,7 @@ Esto permitiría ajustar sin recompilar.
 
 ## 📚 Documentación Relacionada
 
-- `docs/database/connection-pool-optimization.md` - Guía detallada de optimización
+- `docs/database/README.md` - Database documentation index and navigation guide
 - `docs/api/ECONNRESET-fix.md` - Fix para error ECONNRESET (raíz del pool reordenamiento)
 - `docs/api/frontend-voucher-processing.md` - API documentation
 
@@ -286,7 +286,7 @@ Esto permitiría ajustar sin recompilar.
 ## 📞 Soporte
 
 Para preguntas sobre estos cambios:
-- Revisar `connection-pool-optimization.md` para detalles técnicos
+- Revisar `docs/database/README.md` para índice de documentación de base de datos
 - Revisar tests para ejemplos de uso
 - Revisar `ECONNRESET-fix.md` para contexto histórico
 
