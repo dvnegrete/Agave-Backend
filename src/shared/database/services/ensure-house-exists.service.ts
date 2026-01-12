@@ -88,11 +88,6 @@ export class EnsureHouseExistsService {
    * @throws Error si la casa no existe y createIfMissing=false
    * @throws Error si el número de casa está fuera del rango válido
    */
-  @Retry({
-    maxAttempts: 3,
-    delayMs: 1000,
-    backoffMultiplier: 2,
-  })
   async execute(
     houseNumber: number,
     options: EnsureHouseExistsOptions = {},

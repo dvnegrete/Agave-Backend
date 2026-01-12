@@ -36,6 +36,7 @@ import { CtaPenaltiesRepository } from './repositories/cta-penalties.repository'
 import { CtaExtraordinaryFeeRepository } from './repositories/cta-extraordinary-fee.repository';
 import { SystemUserSeed } from './seeds/system-user.seed';
 import { EnsureHouseExistsService } from './services/ensure-house-exists.service';
+import { TransactionalRetryService } from './services/transactional-retry.service';
 
 @Global()
 @Module({
@@ -85,6 +86,7 @@ import { EnsureHouseExistsService } from './services/ensure-house-exists.service
     CtaExtraordinaryFeeRepository,
     SystemUserSeed, // Auto-crea usuario Sistema al iniciar
     EnsureHouseExistsService,
+    TransactionalRetryService,
   ],
   exports: [
     DatabaseConfigService,
@@ -102,6 +104,7 @@ import { EnsureHouseExistsService } from './services/ensure-house-exists.service
     CtaPenaltiesRepository,
     CtaExtraordinaryFeeRepository,
     EnsureHouseExistsService,
+    TransactionalRetryService,
   ],
 })
 export class DatabaseModule {}
