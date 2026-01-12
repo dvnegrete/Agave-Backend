@@ -31,7 +31,6 @@ export class EnsurePeriodExistsUseCase {
     const cacheKey = `${year}-${month}`;
     const cachedPeriod = this.periodCache.get(cacheKey);
     if (cachedPeriod) {
-      this.logger.debug(`Period ${cacheKey} found in cache`);
       return cachedPeriod;
     }
 
@@ -51,7 +50,6 @@ export class EnsurePeriodExistsUseCase {
         periodConfigId: existingPeriod.period_config_id,
       });
       this.periodCache.set(cacheKey, periodDomain);
-      this.logger.debug(`Period ${cacheKey} found in DB and cached`);
       return periodDomain;
     }
 
@@ -114,6 +112,5 @@ export class EnsurePeriodExistsUseCase {
    */
   clearCache(): void {
     this.periodCache.clear();
-    this.logger.debug('Period cache cleared');
   }
 }

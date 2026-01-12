@@ -32,7 +32,6 @@ export class AddHouseRecordTableAndUpdateRelations1729113600000
     `);
 
     if (!tableExists[0].exists) {
-      console.log('Creando tabla house_records...');
       await queryRunner.query(`
         CREATE TABLE "house_records" (
           "id" SERIAL NOT NULL,
@@ -43,8 +42,6 @@ export class AddHouseRecordTableAndUpdateRelations1729113600000
           CONSTRAINT "PK_house_records" PRIMARY KEY ("id")
         )
       `);
-    } else {
-      console.log('⚠️  Tabla house_records ya existe, saltando creación...');
     }
 
     // 2. Migrar datos existentes de houses a house_records antes de modificar la tabla
@@ -62,10 +59,6 @@ export class AddHouseRecordTableAndUpdateRelations1729113600000
       `);
 
       if (hasData[0].count > 0) {
-        console.log(
-          `Migrando ${hasData[0].count} registros de houses a house_records...`,
-        );
-
         // Insertar registros existentes en house_records
         await queryRunner.query(`
           INSERT INTO "house_records" ("house_id", "record_id", "created_at", "updated_at")
@@ -78,8 +71,6 @@ export class AddHouseRecordTableAndUpdateRelations1729113600000
           WHERE "record_id" IS NOT NULL
         `);
       }
-    } else {
-      console.log('⚠️  Columna record_id no existe en houses, saltando migración de datos...');
     }
 
     // 3. Modificar tabla houses
@@ -92,8 +83,6 @@ export class AddHouseRecordTableAndUpdateRelations1729113600000
     `);
 
     if (!hasIdColumn[0].exists) {
-      console.log('Modificando tabla houses...');
-
       // 3.1. Eliminar constraint de FK de record_id (si existe)
       await queryRunner.query(`
         ALTER TABLE "houses"
@@ -129,8 +118,6 @@ export class AddHouseRecordTableAndUpdateRelations1729113600000
         ALTER TABLE "houses"
         DROP COLUMN IF EXISTS "record_id"
       `);
-    } else {
-      console.log('⚠️  Tabla houses ya tiene columna id, saltando modificación...');
     }
 
     // 4. Actualizar los house_id en house_records para usar los nuevos IDs generados
@@ -141,7 +128,6 @@ export class AddHouseRecordTableAndUpdateRelations1729113600000
       `);
 
       if (hasData[0].count > 0) {
-        console.log('Actualizando house_id en house_records...');
         await queryRunner.query(`
           UPDATE "house_records" hr
           SET "house_id" = h."id"
@@ -195,8 +181,6 @@ export class AddHouseRecordTableAndUpdateRelations1729113600000
       CREATE INDEX IF NOT EXISTS "IDX_houses_number_house"
       ON "houses" ("number_house")
     `);
-
-    console.log('✅ Migración completada exitosamente');
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
@@ -276,7 +260,5 @@ export class AddHouseRecordTableAndUpdateRelations1729113600000
 
     // 10. Eliminar tabla house_records
     await queryRunner.query(`DROP TABLE IF EXISTS "house_records"`);
-
-    console.log('✅ Rollback completado exitosamente');
   }
 }

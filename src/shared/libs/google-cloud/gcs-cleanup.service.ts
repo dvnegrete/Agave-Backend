@@ -56,7 +56,7 @@ export class GcsCleanupService {
 
     try {
       this.logger.log(
-        `🧹 Eliminando archivo ${fileType} de GCS por: ${reason}`,
+        `Eliminando archivo ${fileType} de GCS por: ${reason}`,
       );
       this.logger.debug(`Archivo: ${filename}`);
 
@@ -96,7 +96,7 @@ export class GcsCleanupService {
       return { successful: [], failed: [] };
     }
 
-    this.logger.log(`🧹 Eliminando ${filenames.length} archivos de GCS...`);
+    this.logger.log(`Eliminando ${filenames.length} archivos de GCS...`);
 
     const results = await Promise.allSettled(
       filenames.map((filename) => this.deleteFile(filename, options)),
@@ -153,7 +153,7 @@ export class GcsCleanupService {
       `⚠️ ADVERTENCIA: Intento de eliminar archivo permanente. Esto no debería suceder automáticamente.`,
     );
     this.logger.warn(
-      `Archivo: ${filename} - Contacta a un administrador si esto fue intencional`,
+      `⚠️ Archivo: ${filename} - Contacta a un administrador si esto fue intencional`,
     );
     // No se ejecuta la eliminación automáticamente
   }

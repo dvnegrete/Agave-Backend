@@ -71,7 +71,7 @@ export class FileProcessorService {
           transactions.push(transaction);
         }
       } catch (error: any) {
-        console.warn(`Error en línea ${i + 1}: ${error.message}`);
+        // Skip malformed lines silently
       }
     }
 
@@ -108,7 +108,7 @@ export class FileProcessorService {
           transactions.push(transaction);
         }
       } catch (error: any) {
-        console.warn(`Error en fila ${i + 1}: ${error.message}`);
+        // Skip malformed rows silently
       }
     }
 
@@ -135,7 +135,7 @@ export class FileProcessorService {
           transactions.push(transaction);
         }
       } catch (error: any) {
-        console.warn(`Error en línea ${i + 1}: ${error.message}`);
+        // Skip malformed lines silently
       }
     }
 

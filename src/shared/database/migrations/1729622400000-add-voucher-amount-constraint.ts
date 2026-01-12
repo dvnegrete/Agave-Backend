@@ -18,8 +18,6 @@ export class AddVoucherAmountConstraint1729622400000
   implements MigrationInterface
 {
   public async up(queryRunner: QueryRunner): Promise<void> {
-    console.log('📋 Iniciando migración: add-voucher-amount-constraint...');
-
     // Paso 1: Verificar si hay registros existentes con valores inválidos
     const invalidRecords = await queryRunner.query(`
       SELECT
@@ -36,21 +34,6 @@ export class AddVoucherAmountConstraint1729622400000
     `);
 
     if (invalidRecords && invalidRecords.length > 0) {
-      console.warn(
-        `⚠️  Se encontraron ${invalidRecords.length} registros con valores inválidos en amount:`,
-      );
-      invalidRecords.forEach((record: any) => {
-        console.warn(
-          `   - ID ${record.id}: amount=${record.amount}, confirmation_code=${record.confirmation_code}`,
-        );
-      });
-      console.warn(
-        `⚠️  Estos registros deben ser corregidos antes de aplicar el constraint.`,
-      );
-      console.warn(
-        `⚠️  Ejecuta: UPDATE vouchers SET amount = 0, confirmation_status = false WHERE amount = 'NaN'::float OR amount <= 0;`,
-      );
-
       throw new Error(
         `No se puede aplicar el constraint. ${invalidRecords.length} registros tienen amount inválido. Corrígelos primero.`,
       );
@@ -66,21 +49,13 @@ export class AddVoucherAmountConstraint1729622400000
         amount = amount                 -- Rechaza NaN (NaN != NaN)
       );
     `);
-
-    console.log('✅ Constraint check_amount_valid agregado correctamente');
-    console.log('   - Rechaza: NaN, Infinity, -Infinity, valores <= 0');
-    console.log('   - Acepta: Solo números positivos válidos');
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    console.log('📋 Revertiendo migración: add-voucher-amount-constraint...');
-
     // Eliminar constraint
     await queryRunner.query(`
       ALTER TABLE vouchers
       DROP CONSTRAINT IF EXISTS check_amount_valid;
     `);
-
-    console.log('✅ Constraint check_amount_valid eliminado');
   }
 }

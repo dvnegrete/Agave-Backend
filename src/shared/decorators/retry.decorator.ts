@@ -79,17 +79,6 @@ export function Retry(options: RetryOptions = {}) {
 
       for (let attempt = 1; attempt <= config.maxAttempts!; attempt++) {
         try {
-          // Log de intento
-          if (this.logger?.debug) {
-            this.logger.debug(
-              `[${requestId}] ${methodName} - Attempt ${attempt}/${config.maxAttempts}`,
-            );
-          } else {
-            console.debug(
-              `[${requestId}] ${methodName} - Attempt ${attempt}/${config.maxAttempts}`,
-            );
-          }
-
           return await originalMethod.apply(this, args);
         } catch (error: unknown) {
           lastError = error;

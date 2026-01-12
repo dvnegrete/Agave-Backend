@@ -43,7 +43,6 @@ export class TelegramApiService {
 
     try {
       const botInfo = await this.bot!.getMe();
-      this.logger.debug(`Bot info: @${botInfo.username}`);
       return botInfo;
     } catch (error) {
       this.logger.error(`Error getting bot info: ${error.message}`);
@@ -87,7 +86,6 @@ export class TelegramApiService {
 
     try {
       const info = await this.bot!.getWebHookInfo();
-      this.logger.debug(`Webhook info: ${JSON.stringify(info)}`);
       return info;
     } catch (error) {
       this.logger.error(`Error getting webhook info: ${error.message}`);
@@ -129,9 +127,7 @@ export class TelegramApiService {
     }
 
     try {
-      this.logger.debug(`Sending message to chat ${chatId}: ${text.substring(0, 50)}...`);
       const message = await this.bot!.sendMessage(chatId, text, options);
-      this.logger.debug(`Message sent successfully to ${chatId}`);
       return message;
     } catch (error) {
       this.logger.error(`Error sending message to ${chatId}: ${error.message}`);
@@ -155,9 +151,7 @@ export class TelegramApiService {
     }
 
     try {
-      this.logger.debug(`Sending photo to chat ${chatId}`);
       const message = await this.bot!.sendPhoto(chatId, photo, options);
-      this.logger.debug(`Photo sent successfully to ${chatId}`);
       return message;
     } catch (error) {
       this.logger.error(`Error sending photo to ${chatId}: ${error.message}`);
@@ -176,7 +170,6 @@ export class TelegramApiService {
     }
 
     try {
-      this.logger.debug(`Getting file info for: ${fileId}`);
       const file = await this.bot!.getFile(fileId);
       return file;
     } catch (error) {
@@ -196,8 +189,6 @@ export class TelegramApiService {
     }
 
     try {
-      this.logger.debug(`Downloading file: ${fileId}`);
-
       // Obtener información del archivo (incluye file_path)
       const file = await this.getFile(fileId);
 
@@ -208,8 +199,6 @@ export class TelegramApiService {
       // Construir URL de descarga
       const fileUrl = `${this.apiUrl}/file/bot${this.botToken}/${file.file_path}`;
 
-      this.logger.debug(`Downloading from URL: ${fileUrl}`);
-
       const response = await fetch(fileUrl);
 
       if (!response.ok) {
@@ -218,8 +207,6 @@ export class TelegramApiService {
 
       const arrayBuffer = await response.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
-
-      this.logger.debug(`File downloaded successfully (${buffer.length} bytes)`);
 
       return buffer;
     } catch (error) {

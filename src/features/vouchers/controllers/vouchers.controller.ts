@@ -134,9 +134,6 @@ export class VouchersController {
           action: 'read',
         });
       } catch (error) {
-        console.error(
-          `⚠️  Error al generar URL de visualización para voucher ${id}: ${error.message}`,
-        );
         viewUrl = null;
       }
     }
@@ -207,7 +204,6 @@ export class VouchersController {
     // No esperamos a que termine para responder a WhatsApp
 
     this.handleWhatsAppWebhookUseCase.execute(body as any).catch((error) => {
-      console.error('❌ Error procesando mensaje de WhatsApp:', error);
       // IMPORTANTE: No re-lanzamos el error para que el controlador
       // siempre responda 200 a WhatsApp y evite reintentos
     });
@@ -238,7 +234,6 @@ export class VouchersController {
 
     // Procesar el update de forma asíncrona (fire-and-forget)
     this.handleTelegramWebhookUseCase.execute(body).catch((error) => {
-      console.error('❌ Error procesando update de Telegram:', error);
       // IMPORTANTE: No re-lanzamos el error para que el controlador
       // siempre responda 200 a Telegram
     });

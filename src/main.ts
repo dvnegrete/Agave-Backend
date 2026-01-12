@@ -68,9 +68,9 @@ async function bootstrap() {
   await app.listen(port);
 
   console.log(`✅ Servidor iniciado en puerto ${port}`);
-  console.log(`📚 Swagger UI available at: http://localhost:${port}/api/docs`);
+  console.log(`Swagger UI available at: http://localhost:${port}/api/docs`);
   console.log(
-    `📄 OpenAPI JSON available at: http://localhost:${port}/api/docs-json`,
+    `OpenAPI JSON available at: http://localhost:${port}/api/docs-json`,
   );
 }
 

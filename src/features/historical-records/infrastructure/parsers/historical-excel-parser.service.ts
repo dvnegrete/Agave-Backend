@@ -27,7 +27,6 @@ export class HistoricalExcelParserService {
    */
   async parseFile(buffer: Buffer): Promise<HistoricalRecordRow[]> {
     try {
-      this.logger.debug('Starting Excel file parsing');
       const workbook = XLSX.read(buffer, { type: 'buffer' });
       const sheetName = workbook.SheetNames[0];
 
@@ -35,7 +34,6 @@ export class HistoricalExcelParserService {
         throw new BadRequestException('El archivo Excel está vacío');
       }
 
-      this.logger.debug(`Processing sheet: ${sheetName}`);
       const worksheet = workbook.Sheets[sheetName];
       const data = XLSX.utils.sheet_to_json(worksheet, {
         header: 1,
@@ -51,7 +49,6 @@ export class HistoricalExcelParserService {
         );
       }
 
-      this.logger.debug(`Header row found at index: ${headerRowIndex}`);
       const headers = data[headerRowIndex] as string[];
       const dataRows = data.slice(headerRowIndex + 1) as any[][];
 
@@ -63,7 +60,6 @@ export class HistoricalExcelParserService {
 
         // Skip empty rows
         if (!row || row.length === 0 || row.every((cell) => !cell)) {
-          this.logger.debug(`Skipping empty row ${actualRowNumber}`);
           continue;
         }
 

@@ -50,7 +50,7 @@ export class SystemUserSeed implements OnModuleInit {
 
     // No existe, crearlo
     this.logger.log(
-      '🔨 Usuario Sistema no encontrado, creando automáticamente...',
+      'Usuario Sistema no encontrado, creando automáticamente...',
     );
 
     await this.dataSource.query(
@@ -77,7 +77,7 @@ export class SystemUserSeed implements OnModuleInit {
       );
     } else {
       this.logger.warn(
-        '⚠️  No se pudo crear el usuario Sistema. Verifica permisos de base de datos.',
+        '⚠️ No se pudo crear el usuario Sistema. Verifica permisos de base de datos.',
       );
     }
   }

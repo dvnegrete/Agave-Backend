@@ -151,9 +151,6 @@ export class CorrectVoucherDataUseCase {
       this.conversationState.getVoucherDataForConfirmation(phoneNumber);
 
     if (!savedData) {
-      console.warn(
-        `[handleCancellation] No se encontraron datos guardados para ${phoneNumber}`,
-      );
       await this.sendWhatsAppMessage(
         phoneNumber,
         'Hubo un problema al procesar tu solicitud. Por favor intenta nuevamente.',
@@ -163,14 +160,10 @@ export class CorrectVoucherDataUseCase {
     }
 
     // Eliminar archivo GCS si existe
-    if (savedData?.gcsFilename) {   
+    if (savedData?.gcsFilename) {
       const deleteResult = await this.gcsCleanupService.deleteTemporaryProcessingFile(
         savedData.gcsFilename,
         'cancelacion-usuario',
-      );
-    } else {
-      console.warn(
-        `[handleCancellation] No se encontró gcsFilename para ${phoneNumber}`,
       );
     }
 

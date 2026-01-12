@@ -41,7 +41,7 @@ export class DatabaseHealthService {
       try {
         this.logger.log(`Verificando BD (intento ${attempt}/${maxAttempts})...`);
         if (await this.isHealthy()) {
-          this.logger.log('✓ Base de datos disponible');
+          this.logger.log('Base de datos disponible');
           return;
         }
       } catch (error: any) {

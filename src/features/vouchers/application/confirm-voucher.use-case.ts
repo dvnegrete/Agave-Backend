@@ -252,13 +252,9 @@ export class ConfirmVoucherUseCase {
       } catch (transactionError) {
         // ROLLBACK - Algo falló en la transacción
         await queryRunner.rollbackTransaction();
-        console.error(
-          `Error en transacción de confirmación de voucher: ${transactionError.message}`,
-        );
         throw transactionError;
       }
     } catch (error) {
-      console.error(`Error confirmando voucher: ${error.message}`);
       await this.sendWhatsAppMessage(
         input.phoneNumber,
         'Hubo un error al registrar tu pago. Por favor intenta nuevamente más tarde.',
@@ -288,9 +284,6 @@ export class ConfirmVoucherUseCase {
       if (!user) {
         // Usuario no existe, crear nuevo con UUID manual
         const uuid = uuidv4();
-        console.log(
-          `Creando nuevo usuario con UUID: ${uuid}, cel_phone: ${celPhone}`,
-        );
 
         user = await this.userRepository.create(
           {
@@ -301,15 +294,10 @@ export class ConfirmVoucherUseCase {
           },
           queryRunner,
         );
-
-        console.log(`Usuario creado exitosamente: ${user.id}`);
-      } else {
-        console.log(`Usuario existente encontrado: ${user.id}`);
       }
 
       return user;
     } catch (error) {
-      console.error(`Error al buscar o crear usuario: ${error.message}`);
       throw new Error(`Error al procesar usuario: ${error.message}`);
     }
   }

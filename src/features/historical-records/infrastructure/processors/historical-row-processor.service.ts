@@ -74,15 +74,12 @@ export class HistoricalRowProcessorService {
     // First lookup of each period creates it, subsequent rows reuse cached value.
     const { year, month } = row.getPeriodInfo();
     const period = await this.ensurePeriodExistsUseCase.execute(year, month);
-    this.logger.debug(`Period ${year}-${month} ID: ${period.id}`);
 
     try {
       // Ejecutar toda la operación de transacción con reintentos seguros
       // Si falla de forma transitoria, reintentar la transacción completa
       const recordId = await this.transactionalRetryService.executeWithRetry(
         async (queryRunner: QueryRunner) => {
-          this.logger.debug(`Processing row ${row.rowNumber} with transaction`);
-
           // Step 1.5: Create TransactionBank record
           const transactionBankData = {
             date: row.fecha,
@@ -100,7 +97,6 @@ export class HistoricalRowProcessorService {
           );
           const savedTransactionBank =
             await queryRunner.manager.save(transactionBank);
-          this.logger.debug(`Created TransactionBank ID: ${savedTransactionBank.id}`);
 
           // Step 1.6: Create TransactionStatus record
           // Use NOT_FOUND for unidentified payments (casa = 0) so they appear in unclaimed-deposits
@@ -121,7 +117,6 @@ export class HistoricalRowProcessorService {
             },
             queryRunner,
           );
-          this.logger.debug(`Created TransactionStatus ID: ${transactionStatus.id}`);
 
           // Step 2: Create cta_* records (within transaction)
           const ctaIds = await this.ctaRecordCreatorService.createCtaRecords(
@@ -144,11 +139,9 @@ export class HistoricalRowProcessorService {
               queryRunner,
             );
             resultRecordId = record.id;
-            this.logger.debug(`Created Record ID: ${record.id}`);
 
             // Get house number (from casa column, not from cents)
             const houseNumber = row.casa;
-            this.logger.debug(`Identified house number: ${houseNumber}`);
 
             // Ensure house exists, creating if necessary
             const ensureResult = await this.ensureHouseExistsService.execute(
@@ -166,20 +159,16 @@ export class HistoricalRowProcessorService {
             }
 
             // Create house-record association
-            const houseRecord = await this.houseRecordRepository.create(
+            await this.houseRecordRepository.create(
               {
                 house_id: ensureResult.house.id,
                 record_id: record.id,
               },
               queryRunner,
             );
-            this.logger.debug(`Created HouseRecord ID: ${houseRecord.id}`);
           } else {
             // Casa = 0: NO Record, NO HouseRecord
             // Transaction will be pending in unclaimed-deposits, ready to be assigned via endpoint
-            this.logger.debug(
-              `Row ${row.rowNumber}: Casa = 0 (unidentified), Record not created. Will appear in unclaimed-deposits.`,
-            );
           }
 
           // Return recordId (will be committed by TransactionalRetryService)

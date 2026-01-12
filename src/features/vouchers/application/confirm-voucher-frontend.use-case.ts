@@ -67,8 +67,6 @@ export class ConfirmVoucherFrontendUseCase {
       userId,
     } = input;
 
-    this.logger.debug(`
-      Confirmando voucher Frontend: casa=${casa}, monto=${monto}`);
 
     // 1. Validar y parsear datos (ANTES de cualquier conexión BD)
     const amount = parseFloat(monto);
@@ -92,9 +90,6 @@ export class ConfirmVoucherFrontendUseCase {
     );
 
     if (duplicateCheck.isDuplicate) {
-      this.logger.warn(
-        `⚠️  Duplicado detectado. Casa=${casa}, Monto=${amount}. ${duplicateCheck.message}`,
-      );
       throw new ConflictException(
         VOUCHER_FRONTEND_MESSAGES.BUSINESS_ERRORS.DUPLICATE_VOUCHER(
           duplicateCheck.message,
@@ -187,10 +182,6 @@ export class ConfirmVoucherFrontendUseCase {
           manager,
         );
 
-        this.logger.debug(
-          `Voucher confirmado exitosamente: id=${voucherId}, code=${confirmationCode}, casa=${casa}`,
-        );
-
         // Retornar los datos para la respuesta fuera de la transacción
         return {
           voucherId,
@@ -240,8 +231,6 @@ export class ConfirmVoucherFrontendUseCase {
       if (!user) {
         // Usuario no existe, crear nuevo
         // IMPORTANTE: cel_phone es requerido pero lo pasamos como 0 since no hay teléfono desde Frontend
-        this.logger.debug(`Creando nuevo usuario con ID: ${userId}`);
-
         user = await this.userRepository.create(
           {
             id: userId,
@@ -251,10 +240,6 @@ export class ConfirmVoucherFrontendUseCase {
           },
           queryRunner,
         );
-
-        this.logger.debug(`Usuario creado exitosamente: ${user.id}`);
-      } else {
-        this.logger.debug(`Usuario existente encontrado: ${user.id}`);
       }
 
       return user;
@@ -285,8 +270,6 @@ export class ConfirmVoucherFrontendUseCase {
 
       if (!user) {
         // Usuario no existe, crear nuevo
-        this.logger.debug(`Creando nuevo usuario con ID: ${userId}`);
-
         user = manager.create('User', {
           id: userId,
           cel_phone: 0, // Placeholder - no tenemos teléfono desde Frontend
@@ -294,10 +277,6 @@ export class ConfirmVoucherFrontendUseCase {
           status: Status.ACTIVE,
         });
         await manager.save(user);
-
-        this.logger.debug(`Usuario creado exitosamente: ${user.id}`);
-      } else {
-        this.logger.debug(`Usuario existente encontrado: ${user.id}`);
       }
 
       return user;
@@ -332,11 +311,6 @@ export class ConfirmVoucherFrontendUseCase {
         // Si no tenemos userId, usar una string vacía (requerido en CreateHouseDto)
         const assignedUserId = userId || '';
 
-        this.logger.debug(
-          `Creando nueva casa ${numberHouse}` +
-            (userId ? ` para usuario ${userId}` : ' (sin usuario asignado)'),
-        );
-
         house = await this.houseRepository.create(
           {
             number_house: numberHouse,
@@ -344,18 +318,9 @@ export class ConfirmVoucherFrontendUseCase {
           },
           queryRunner,
         );
-
-        this.logger.debug(`Casa creada exitosamente: ${house.id}`);
       } else {
-        this.logger.debug(
-          `Casa existente encontrada: ${house.id} (number_house: ${numberHouse})`,
-        );
-
         // Verificar si el propietario cambió (solo si tenemos userId)
         if (userId && house.user_id !== userId) {
-          this.logger.debug(
-            `Actualizando propietario de casa ${numberHouse}: ${house.user_id} → ${userId}`,
-          );
           await queryRunner.manager.update(
             'houses',
             { id: house.id },
@@ -365,10 +330,6 @@ export class ConfirmVoucherFrontendUseCase {
       }
 
       // Crear asociación en house_records
-      this.logger.debug(
-        `Creando asociación house_record: house_id=${house.id}, record_id=${recordId}`,
-      );
-
       await this.houseRecordRepository.create(
         {
           house_id: house.id,
@@ -376,8 +337,6 @@ export class ConfirmVoucherFrontendUseCase {
         },
         queryRunner,
       );
-
-      this.logger.debug(`Asociación house_record creada exitosamente`);
     } catch (error) {
       this.logger.error(`Error al buscar o crear casa: ${error.message}`);
       throw new Error(
@@ -419,17 +378,10 @@ export class ConfirmVoucherFrontendUseCase {
 
     // Lógica específica: actualizar propietario si cambió (solo si userId está definido)
     if (!wasCreated && userId && house.user_id !== userId) {
-      this.logger.debug(
-        `Actualizando propietario de casa ${numberHouse}: ${house.user_id} → ${userId}`,
-      );
       await manager.update('houses', { id: house.id }, { user_id: userId });
     }
 
     // Crear asociación en house_records
-    this.logger.debug(
-      `Creando asociación house_record: house_id=${house.id}, record_id=${recordId}`,
-    );
-
     await manager.insert('house_records', {
       house_id: house.id,
       record_id: recordId,

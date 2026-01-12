@@ -150,13 +150,13 @@ export class UploadHistoricalRecordsUseCase {
         results[i] = result;
 
         if (result.success) {
-          this.logger.log(`✓ Row ${row.rowNumber} completed ${progressStr}`);
+          this.logger.log(`Row ${row.rowNumber} completed ${progressStr}`);
         } else {
-          this.logger.warn(`⚠ Row ${row.rowNumber} failed: ${result.error?.message} ${progressStr}`);
+          this.logger.warn(`Row ${row.rowNumber} failed: ${result.error?.message} ${progressStr}`);
         }
       } catch (error) {
         this.logger.error(
-          `✗ Row ${row.rowNumber} failed with exception: ${error instanceof Error ? error.message : 'Unknown error'} ${progressStr}`,
+          `Row ${row.rowNumber} failed with exception: ${error instanceof Error ? error.message : 'Unknown error'} ${progressStr}`,
           error instanceof Error ? error.stack : '',
         );
         results[i] = {

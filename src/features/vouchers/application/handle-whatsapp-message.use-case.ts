@@ -86,7 +86,6 @@ export class HandleWhatsAppMessageUseCase {
         });
 
       default:
-        console.log(`Estado no manejado: ${context.state}`);
         this.conversationState.clearContext(phoneNumber);
         return { success: false, message: 'Estado no reconocido' };
     }

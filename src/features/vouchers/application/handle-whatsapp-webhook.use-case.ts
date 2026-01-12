@@ -102,7 +102,6 @@ export class HandleWhatsAppWebhookUseCase {
           return await this.handleUnsupportedMessage(phoneNumber, type);
       }
     } catch (error) {
-      console.error('Error procesando mensaje de WhatsApp:', error);
       throw new BadRequestException('Error processing WhatsApp message');
     }
   }
@@ -141,11 +140,6 @@ export class HandleWhatsAppWebhookUseCase {
 
     const image: WhatsAppImageDto = data.image;
     const mediaId = image.id;
-    const caption = image.caption || '';
-
-    if (caption) {
-      console.log(`Caption recibido: ${caption}`);
-    }
 
     await this.processVoucher.execute({
       phoneNumber,
@@ -220,7 +214,6 @@ export class HandleWhatsAppWebhookUseCase {
     const context = this.conversationState.getContext(phoneNumber);
 
     if (context) {
-      console.log(`Contexto activo detectado: ${context.state}`);
       await this.handleMessage.execute({
         phoneNumber,
         messageText: userResponse,
@@ -244,14 +237,12 @@ export class HandleWhatsAppWebhookUseCase {
 
     const text: WhatsAppTextDto = data.text;
     const messageText = text.body || '';
-    console.log('Mensaje de texto recibido:', messageText);
 
     // Verificar si hay contexto activo
     const context = this.conversationState.getContext(phoneNumber);
 
     if (context) {
       // Hay contexto activo, manejar según el estado de conversación
-      console.log(`Contexto activo detectado: ${context.state}`);
       await this.handleMessage.execute({
         phoneNumber,
         messageText,
@@ -260,14 +251,8 @@ export class HandleWhatsAppWebhookUseCase {
     }
 
     // Sin contexto activo, usar clasificador de IA
-    console.log('No hay contexto activo, clasificando mensaje...');
     const classification =
       await this.messageClassifier.classifyMessage(messageText);
-
-    console.log('Clasificación:', {
-      intent: classification.intent,
-      confidence: classification.confidence,
-    });
 
     await this.whatsappMessaging.sendTextMessage(
       phoneNumber,
@@ -284,7 +269,6 @@ export class HandleWhatsAppWebhookUseCase {
     phoneNumber: string,
     messageType: string,
   ): Promise<HandleWhatsAppWebhookOutput> {
-    console.log(`Tipo de mensaje no soportado: ${messageType}`);
     await this.whatsappMessaging.sendTextMessage(
       phoneNumber,
       ErrorMessages.unsupportedMessageType,

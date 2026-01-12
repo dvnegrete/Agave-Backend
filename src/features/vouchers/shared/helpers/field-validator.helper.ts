@@ -42,10 +42,8 @@ import { StructuredDataWithCasa } from '../../infrastructure/ocr/voucher-process
  * const result = validateAndUpdateVoucherField(voucherData, 'hora_transaccion', '14:30');
  * if (result.isValid) {
  *   // El campo ya está actualizado en voucherData
- *   console.log(voucherData.hora_transaccion); // '14:30'
  * } else {
  *   // Usuario recibe error descriptivo
- *   console.error(result.error); // 'La hora de transacción es obligatoria...'
  * }
  */
 export function validateAndUpdateVoucherField(

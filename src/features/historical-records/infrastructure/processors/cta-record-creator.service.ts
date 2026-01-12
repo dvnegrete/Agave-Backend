@@ -50,15 +50,8 @@ export class CtaRecordCreatorService {
     // If no active cta types (sum = 0), skip cta creation
     // This is valid for registered payments without concept assignment
     if (activeTypes.length === 0) {
-      this.logger.debug(
-        `Row ${row.rowNumber}: No cta_* records to create (sum of cta_* = 0)`,
-      );
       return ids; // Return empty object
     }
-
-    this.logger.debug(
-      `Creating ${activeTypes.length} cta_* records for row ${row.rowNumber}`,
-    );
 
     for (const ctaType of activeTypes) {
       try {
@@ -70,9 +63,6 @@ export class CtaRecordCreatorService {
                 queryRunner,
               );
             ids.cta_extraordinary_fee_id = extraordinaryFee.id;
-            this.logger.debug(
-              `Created cta_extraordinary_fee ID: ${extraordinaryFee.id}`,
-            );
             break;
 
           case 'maintenance':
@@ -81,7 +71,6 @@ export class CtaRecordCreatorService {
               queryRunner,
             );
             ids.cta_maintence_id = maintenance.id;
-            this.logger.debug(`Created cta_maintenance ID: ${maintenance.id}`);
             break;
 
           case 'penalties':
@@ -94,7 +83,6 @@ export class CtaRecordCreatorService {
               queryRunner,
             );
             ids.cta_penalities_id = penalties.id;
-            this.logger.debug(`Created cta_penalties ID: ${penalties.id}`);
             break;
 
           case 'water':
@@ -103,7 +91,6 @@ export class CtaRecordCreatorService {
               queryRunner,
             );
             ids.cta_water_id = water.id;
-            this.logger.debug(`Created cta_water ID: ${water.id}`);
             break;
         }
       } catch (error) {

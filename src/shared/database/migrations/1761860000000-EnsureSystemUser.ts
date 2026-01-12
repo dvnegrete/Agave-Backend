@@ -37,12 +37,6 @@ export class EnsureSystemUser1761860000000 implements MigrationInterface {
           NOW()
         )
       `);
-
-      console.log('✅ Usuario del sistema creado exitosamente');
-      console.log('   UUID: 00000000-0000-0000-0000-000000000000');
-      console.log('   Email: sistema@conciliacion.local');
-    } else {
-      console.log('✓ Usuario del sistema ya existe');
     }
   }
 
@@ -55,14 +49,6 @@ export class EnsureSystemUser1761860000000 implements MigrationInterface {
     const count = parseInt(housesCount[0].count);
 
     if (count > 0) {
-      console.warn(
-        `⚠️ ADVERTENCIA: Hay ${count} casa(s) asignada(s) al usuario del sistema.`,
-      );
-      console.warn(
-        '   Estas casas quedarán huérfanas si eliminas este usuario.',
-      );
-      console.warn('   Considera reasignarlas antes de revertir esta migración.');
-
       // No eliminar el usuario si hay casas asignadas
       throw new Error(
         `No se puede eliminar el usuario del sistema porque tiene ${count} casa(s) asignada(s). Reasigna las casas primero.`,
@@ -73,7 +59,5 @@ export class EnsureSystemUser1761860000000 implements MigrationInterface {
     await queryRunner.query(
       `DELETE FROM users WHERE id = '00000000-0000-0000-0000-000000000000'`,
     );
-
-    console.log('✅ Usuario del sistema eliminado');
   }
 }

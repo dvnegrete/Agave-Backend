@@ -47,10 +47,6 @@ export async function generateUniqueConfirmationCode(
         confirmation_code: confirmationCode,
       });
 
-      console.log(
-        `✅ Voucher registrado: ID ${voucher.id}, Código ${voucher.confirmation_code}`,
-      );
-
       return {
         success: true,
         code: confirmationCode,
@@ -64,14 +60,7 @@ export async function generateUniqueConfirmationCode(
         error.message?.includes('unique constraint');
 
       if (isDuplicateError) {
-        console.warn(
-          `⚠️ Colisión detectada en intento ${attempt}: Código ${confirmationCode} ya existe. Regenerando...`,
-        );
-
         if (attempt >= maxRetries) {
-          console.error(
-            `❌ No se pudo generar un código único después de ${maxRetries} intentos`,
-          );
           return {
             success: false,
             error: 'No se pudo generar un código único',
@@ -80,7 +69,6 @@ export async function generateUniqueConfirmationCode(
         // Continuar al siguiente intento
       } else {
         // Error diferente, no reintentar
-        console.error('❌ Error al insertar voucher en BD:', error);
         return {
           success: false,
           error: error.message || 'Error al registrar voucher',

@@ -68,11 +68,6 @@ export class WhatsAppDeduplicationService {
       }
     }
 
-    if (deletedCount > 0) {
-      console.log(
-        `🧹 Limpieza de cache: ${deletedCount} mensajes eliminados (${sizeBefore} -> ${this.processedMessages.size})`,
-      );
-    }
   }
 
   /**
@@ -82,10 +77,6 @@ export class WhatsAppDeduplicationService {
     setInterval(() => {
       this.cleanup();
     }, this.CLEANUP_INTERVAL_MS);
-
-    console.log(
-      '🔄 Servicio de deduplicación de WhatsApp iniciado (limpieza cada hora)',
-    );
   }
 
   /**

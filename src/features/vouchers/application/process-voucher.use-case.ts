@@ -95,9 +95,6 @@ export class ProcessVoucherUseCase {
 
       return { success: true };
     } catch (error) {
-      console.log(error);
-      console.error(`Error procesando voucher: ${error.message}`);
-
       // Eliminar el archivo del bucket si fue subido exitosamente antes del error
       if (gcsFilename) {
         await this.cleanupUploadedFile(gcsFilename);

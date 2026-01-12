@@ -13,8 +13,6 @@ export class AddConfirmationCodeToVouchers implements MigrationInterface {
     `);
 
     if (!columnExists[0].exists) {
-      console.log('Agregando columna confirmation_code a vouchers...');
-
       // Agregar la columna confirmation_code a la tabla vouchers
       await queryRunner.query(`
         ALTER TABLE "vouchers"
@@ -26,10 +24,6 @@ export class AddConfirmationCodeToVouchers implements MigrationInterface {
         CREATE UNIQUE INDEX "idx_voucher_confirmation_code"
         ON "vouchers" ("confirmation_code");
       `);
-
-      console.log('✅ Columna confirmation_code agregada exitosamente');
-    } else {
-      console.log('⚠️  Columna confirmation_code ya existe, saltando...');
     }
   }
 
