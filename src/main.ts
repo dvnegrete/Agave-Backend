@@ -2,9 +2,24 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { DatabaseHealthService } from './shared/health/database-health.service';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Verificar que la BD está disponible antes de continuar
+  // Reintentos automáticos con backoff exponencial: 1 intento inicial,
+  // luego espera 2s, 4s, 8s si es necesario
+  console.log('🔍 Verificando conectividad con la Base de Datos...');
+  const databaseHealthService = app.get(DatabaseHealthService);
+  try {
+    await databaseHealthService.waitForDatabase(3, 2000);
+  } catch (error) {
+    console.error(
+      '❌ No se puede conectar a la Base de Datos. Deteniendo aplicación.',
+    );
+    process.exit(1);
+  }
 
   // Habilitar validación global
   app.useGlobalPipes(
@@ -52,10 +67,14 @@ async function bootstrap() {
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
 
+  console.log(`✅ Servidor iniciado en puerto ${port}`);
   console.log(`📚 Swagger UI available at: http://localhost:${port}/api/docs`);
   console.log(
     `📄 OpenAPI JSON available at: http://localhost:${port}/api/docs-json`,
   );
 }
 
-bootstrap();
+bootstrap().catch(error => {
+  console.error('❌ Error fatal durante el bootstrap:', error.message);
+  process.exit(1);
+});

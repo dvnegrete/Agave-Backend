@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Repository, QueryRunner } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { House } from '../entities/house.entity';
+import { Retry } from '../../decorators/retry.decorator';
 
 export interface CreateHouseDto {
   number_house: number;
@@ -22,6 +23,11 @@ export class HouseRepository {
   /**
    * Crea una nueva casa en la base de datos
    */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+    backoffMultiplier: 2,
+  })
   async create(
     data: CreateHouseDto,
     queryRunner?: QueryRunner,
@@ -43,6 +49,10 @@ export class HouseRepository {
   /**
    * Busca una casa por su ID
    */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
   async findById(id: number): Promise<House | null> {
     return this.houseRepository.findOne({ where: { id } });
   }
@@ -52,6 +62,10 @@ export class HouseRepository {
    * @param numberHouse Número de la casa a buscar
    * @param queryRunner QueryRunner para buscar dentro de una transacción (opcional)
    */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
   async findByNumberHouse(
     numberHouse: number,
     queryRunner?: QueryRunner,
@@ -72,6 +86,10 @@ export class HouseRepository {
   /**
    * Busca todas las casas de un usuario
    */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
   async findByUserId(userId: string): Promise<House[]> {
     return this.houseRepository.find({
       where: { user_id: userId },
@@ -83,6 +101,10 @@ export class HouseRepository {
   /**
    * Obtiene todas las casas
    */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
   async findAll(): Promise<House[]> {
     return this.houseRepository.find({
       relations: ['user', 'houseRecords'],
@@ -93,6 +115,11 @@ export class HouseRepository {
   /**
    * Actualiza una casa por su ID (ej: cambiar de propietario)
    */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+    backoffMultiplier: 2,
+  })
   async update(id: number, data: UpdateHouseDto): Promise<House> {
     await this.houseRepository.update(id, data);
     const updated = await this.findById(id);
@@ -105,6 +132,11 @@ export class HouseRepository {
   /**
    * Actualiza el propietario de una casa por número de casa
    */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+    backoffMultiplier: 2,
+  })
   async updateOwner(numberHouse: number, userId: string): Promise<House> {
     const house = await this.findByNumberHouse(numberHouse);
     if (!house) {
@@ -116,6 +148,10 @@ export class HouseRepository {
   /**
    * Elimina una casa por su ID
    */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
   async delete(id: number): Promise<void> {
     await this.houseRepository.delete(id);
   }
@@ -123,6 +159,10 @@ export class HouseRepository {
   /**
    * Verifica si una casa existe
    */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
   async exists(numberHouse: number): Promise<boolean> {
     const count = await this.houseRepository.count({
       where: { number_house: numberHouse },

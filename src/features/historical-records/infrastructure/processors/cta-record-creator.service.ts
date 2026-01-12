@@ -5,6 +5,7 @@ import { CtaMaintenanceRepository } from '@/shared/database/repositories/cta-mai
 import { CtaWaterRepository } from '@/shared/database/repositories/cta-water.repository';
 import { CtaPenaltiesRepository } from '@/shared/database/repositories/cta-penalties.repository';
 import { CtaExtraordinaryFeeRepository } from '@/shared/database/repositories/cta-extraordinary-fee.repository';
+import { Retry } from '@/shared/decorators/retry.decorator';
 
 /**
  * Interface representing the IDs of created cta_* records
@@ -39,6 +40,11 @@ export class CtaRecordCreatorService {
    * @param queryRunner Database query runner for transactions
    * @returns Object with IDs of created cta_* records (empty if no cta_* to create)
    */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 2000,
+    backoffMultiplier: 2,
+  })
   async createCtaRecords(
     row: HistoricalRecordRow,
     periodId: number,

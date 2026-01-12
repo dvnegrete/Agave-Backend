@@ -13,6 +13,7 @@ import { DatabaseModule } from './shared/database/database.module';
 import { GoogleCloudModule } from './shared/libs/google-cloud';
 import { OpenAIModule } from './shared/libs/openai/openai.module';
 import { VertexAIModule } from './shared/libs/vertex-ai/vertex-ai.module';
+import { HealthModule } from './shared/health/health.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { VertexAIModule } from './shared/libs/vertex-ai/vertex-ai.module';
     GoogleCloudModule,
     OpenAIModule,
     DatabaseModule,
+    HealthModule,
     AuthModule,
     VouchersModule,
     TransactionsBankModule,

@@ -7,6 +7,7 @@ import {
   UpdateTransactionBankDto,
 } from '../../../features/transactions-bank/dto/transaction-bank.dto';
 import { Between } from 'typeorm';
+import { Retry } from '../../decorators/retry.decorator';
 
 @Injectable()
 export class TransactionBankRepository {
@@ -15,6 +16,11 @@ export class TransactionBankRepository {
     private transactionBankRepository: Repository<TransactionBank>,
   ) {}
 
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+    backoffMultiplier: 2,
+  })
   async create(data: CreateTransactionBankDto): Promise<TransactionBank> {
     // If data.date is already an ISO string (YYYY-MM-DD), create Date in local timezone to avoid UTC offset
     let date: Date;
@@ -41,6 +47,11 @@ export class TransactionBankRepository {
     return this.transactionBankRepository.save(transactionBank);
   }
 
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1500,
+    backoffMultiplier: 2,
+  })
   async createMany(
     data: CreateTransactionBankDto[],
   ): Promise<TransactionBank[]> {
@@ -71,22 +82,38 @@ export class TransactionBankRepository {
     return this.transactionBankRepository.save(transactionBanks);
   }
 
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
   async findAll(): Promise<TransactionBank[]> {
     return this.transactionBankRepository.find({
       order: { created_at: 'DESC' },
     });
   }
 
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
   async findById(id: string): Promise<TransactionBank | null> {
     return this.transactionBankRepository.findOne({
       where: { id },
     });
   }
 
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
   async findByStatus(): Promise<TransactionBank[]> {
     return this.findAll();
   }
 
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
   async findByDateRange(
     startDate: Date,
     endDate: Date,
@@ -99,6 +126,11 @@ export class TransactionBankRepository {
     });
   }
 
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+    backoffMultiplier: 2,
+  })
   async update(
     id: string,
     data: UpdateTransactionBankDto,
@@ -136,6 +168,10 @@ export class TransactionBankRepository {
     return updated;
   }
 
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
   async delete(id: string): Promise<TransactionBank> {
     const transactionBank = await this.transactionBankRepository.findOne({
       where: { id },
@@ -207,6 +243,10 @@ export class TransactionBankRepository {
     return duplicates.map((d) => d.concept).filter((c): c is string => !!c);
   }
 
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
   async findTransactionsByDateAndBank(
     date: Date,
     bankName: string,
@@ -234,6 +274,10 @@ export class TransactionBankRepository {
    * Flujo de relaciones:
    * TransactionBank → TransactionStatus → Record → HouseRecord → House
    */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
   async findByHouseNumberHouse(
     numberHouse: number,
   ): Promise<TransactionBank[]> {

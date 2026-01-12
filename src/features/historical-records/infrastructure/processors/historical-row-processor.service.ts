@@ -11,6 +11,7 @@ import { EnsureHouseExistsService } from '@/shared/database/services';
 import { TransactionBank } from '@/shared/database/entities/transaction-bank.entity';
 import { ValidationStatus } from '@/shared/database/entities/enums';
 import { RowErrorDto } from '../../dto/row-error.dto';
+import { Retry } from '@/shared/decorators/retry.decorator';
 
 /**
  * Result of processing a single row
@@ -48,6 +49,11 @@ export class HistoricalRowProcessorService {
    * @param bankName Name of the bank source for this historical record
    * @returns Result with success status and either recordId or error details
    */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 2000,
+    backoffMultiplier: 2,
+  })
   async processRow(
     row: HistoricalRecordRow,
     bankName: string,

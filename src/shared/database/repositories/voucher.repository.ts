@@ -3,6 +3,7 @@ import { Repository, Between, Not } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Voucher } from '../entities/voucher.entity';
 import { ValidationStatus } from '../entities/enums';
+import { Retry } from '../../decorators/retry.decorator';
 
 export interface CreateVoucherDto {
   date: Date | string;
@@ -29,6 +30,11 @@ export class VoucherRepository {
   /**
    * Crea un nuevo voucher en la base de datos
    */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+    backoffMultiplier: 2,
+  })
   async create(data: CreateVoucherDto): Promise<Voucher> {
     // Convertir string a Date si es necesario
     // Si ya es Date object (con hora incluida), se usa directamente
@@ -63,6 +69,10 @@ export class VoucherRepository {
   /**
    * Busca un voucher por su ID
    */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
   async findById(id: number): Promise<Voucher | null> {
     return this.voucherRepository.findOne({ where: { id } });
   }
@@ -70,6 +80,10 @@ export class VoucherRepository {
   /**
    * Busca un voucher por su ID con información de casa asociada
    */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
   async findByIdWithHouse(id: number): Promise<Voucher | null> {
     return this.voucherRepository.findOne({
       where: { id },
@@ -86,6 +100,10 @@ export class VoucherRepository {
   /**
    * Busca un voucher por su código de confirmación
    */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
   async findByConfirmationCode(
     confirmationCode: string,
   ): Promise<Voucher | null> {
@@ -97,6 +115,10 @@ export class VoucherRepository {
   /**
    * Obtiene todos los vouchers
    */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
   async findAll(): Promise<Voucher[]> {
     return this.voucherRepository.find({
       order: { created_at: 'DESC' },
@@ -107,6 +129,10 @@ export class VoucherRepository {
    * Obtiene todos los vouchers con información de casa asociada
    * Incluye las relaciones: voucher -> records -> house_records -> house
    */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
   async findAllWithHouse(): Promise<Voucher[]> {
     return this.voucherRepository.find({
       relations: {
@@ -123,6 +149,10 @@ export class VoucherRepository {
   /**
    * Obtiene vouchers por estado de confirmación
    */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
   async findByConfirmationStatus(confirmed: boolean): Promise<Voucher[]> {
     return this.voucherRepository.find({
       where: { confirmation_status: confirmed },
@@ -133,6 +163,10 @@ export class VoucherRepository {
   /**
    * Obtiene vouchers por estado de confirmación con información de casa asociada
    */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
   async findByConfirmationStatusWithHouse(
     confirmed: boolean,
   ): Promise<Voucher[]> {
@@ -152,6 +186,10 @@ export class VoucherRepository {
   /**
    * Obtiene vouchers en un rango de fechas
    */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
   async findByDateRange(startDate: Date, endDate: Date): Promise<Voucher[]> {
     return this.voucherRepository.find({
       where: {
@@ -164,6 +202,10 @@ export class VoucherRepository {
   /**
    * Obtiene vouchers en un rango de fechas con información de casa asociada
    */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
   async findByDateRangeWithHouse(
     startDate: Date,
     endDate: Date,
@@ -186,6 +228,11 @@ export class VoucherRepository {
   /**
    * Actualiza un voucher por su ID
    */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+    backoffMultiplier: 2,
+  })
   async update(id: number, data: UpdateVoucherDto): Promise<Voucher> {
     await this.voucherRepository.update(id, data);
     const updated = await this.findById(id);
@@ -198,6 +245,10 @@ export class VoucherRepository {
   /**
    * Elimina un voucher por su ID
    */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
   async delete(id: number): Promise<void> {
     await this.voucherRepository.delete(id);
   }
@@ -205,6 +256,10 @@ export class VoucherRepository {
   /**
    * Cuenta vouchers por estado de confirmación
    */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
   async countByStatus(): Promise<{
     total: number;
     confirmed: number;
@@ -226,6 +281,10 @@ export class VoucherRepository {
    * @param filename Nombre del archivo GCS (ej: p-2024-01-15_14-30-45-uuid.jpg)
    * @returns true si existe voucher con url = filename, false si no
    */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
   async isFileReferenced(filename: string): Promise<boolean> {
     const count = await this.voucherRepository.count({
       where: { url: filename },
@@ -248,6 +307,10 @@ export class VoucherRepository {
    * @param numberHouse Número de casa (number_house)
    * @returns Array de vouchers no conciliados
    */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
   async findUnreconciledByHouseNumber(numberHouse: number): Promise<Voucher[]> {
     return this.voucherRepository
       .createQueryBuilder('v')
