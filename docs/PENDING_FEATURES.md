@@ -2,7 +2,7 @@
 
 Este archivo registra features y funcionalidades planificadas pero no implementadas aún.
 
-**Última actualización**: 2025-11-17
+**Última actualización**: 2026-01-11
 
 ---
 
@@ -54,13 +54,25 @@ Antes de esta implementación:
 
 **Prioridad**: Media
 **Fecha registro**: 2025-10-30
+**Estado**: ⚠️ PENDIENTE DE IMPLEMENTACIÓN - Infraestructura parcial existe
 **Contexto**: Actualmente el sistema de conciliación bancaria crea casas automáticamente asignadas al usuario sistema (`00000000-0000-0000-0000-000000000000`). Se necesita funcionalidad para reasignar estas casas a sus propietarios reales.
 
-### Estado Actual
-- ✅ `HouseRepository` ya tiene métodos `updateOwner()` y `update()` implementados
-- ❌ No existe módulo de gestión de casas
-- ❌ No hay endpoints API para operaciones de casas
-- ❌ No hay casos de uso en capa de aplicación
+### Estado Actual (Detallado)
+
+**Infraestructura Existente:**
+- ✅ `HouseRepository` con métodos `updateOwner()` y `update()` implementados
+- ✅ `House` entity completamente mapeada con todas las propiedades
+- ✅ Tabla `houses` en base de datos con campos: id, user_id, number_house, description, status, created_at, updated_at
+- ✅ Entidad `User` con role field (para validar que nuevo propietario es 'tenant')
+- ✅ Integración entre `BankReconciliationModule` y `PaymentManagementModule` que crea casas automáticamente
+
+**Faltante (Capa de Aplicación/Interfaces):**
+- ❌ No existe módulo dedicado `HousesModule`
+- ❌ No hay `HousesController` con endpoints
+- ❌ No hay casos de uso: UpdateHouseOwnerUseCase, GetHousesBySystemUserUseCase, etc.
+- ❌ No hay DTOs específicas para operaciones de casas
+- ❌ No hay endpoints REST para gestión de casas
+- ❌ No hay tests unitarios ni E2E para estas operaciones
 
 ### Tareas Pendientes
 
@@ -134,121 +146,78 @@ Antes de esta implementación:
 
 ## Historical Records Feature
 
-**Prioridad**: Media
+**Prioridad**: Media ✅ **COMPLETADO**
 **Fecha registro**: 2025-11-01
-**Contexto**: Se necesita un módulo para cargar registros históricos que ya fueron procesados previamente, permitiendo importar datos existentes mediante archivos Excel.
+**Fecha completado**: 2026-01-11
+**Estado**: ✅ IMPLEMENTADO
+**Contexto**: Módulo para cargar registros históricos que ya fueron procesados previamente, permitiendo importar datos existentes mediante archivos Excel.
 
 ### Estado Actual
-- ❌ No existe el módulo historical-records
-- ❌ No hay endpoint para carga de archivos históricos
-- ✅ La entidad `Record` ya existe en `src/shared/database/entities/record.entity.ts`
-- ✅ El `RecordRepository` ya está implementado
+- ✅ Módulo `historical-records` completamente implementado en `src/features/historical-records/`
+- ✅ Endpoint para carga de archivos históricos: `POST /historical-records/upload`
+- ✅ La entidad `Record` existe en `src/shared/database/entities/record.entity.ts`
+- ✅ El `RecordRepository` está implementado
+- ✅ Parseo y validación de archivos Excel implementados
+- ✅ Procesamiento batch con control de concurrencia
+- ✅ Validaciones de negocio completadas
+- ✅ Manejo de errores con reportes detallados
 
-### Tareas Pendientes
+### Implementación Completada
 
-#### 1. Crear módulo Historical Records
-- [ ] `src/features/historical-records/historical-records.module.ts`
-- [ ] Seguir arquitectura clean (domain, application, infrastructure, interfaces)
-- [ ] Registrar en `app.module.ts`
+**Archivos Creados:**
+1. `src/features/historical-records/historical-records.module.ts` - Módulo principal
+2. `src/features/historical-records/application/upload-historical-records.use-case.ts` - Caso de uso principal
+3. `src/features/historical-records/infrastructure/historical-excel-parser.service.ts` - Parser de Excel
+4. `src/features/historical-records/infrastructure/historical-row-processor.service.ts` - Procesador de filas
+5. `src/features/historical-records/infrastructure/cta-record-creator.service.ts` - Creador de registros contables
+6. `src/features/historical-records/controllers/historical-records.controller.ts` - Controller con endpoint
 
-#### 2. Casos de Uso (Application Layer)
-- [ ] `UploadHistoricalRecordsUseCase` - Procesar archivo Excel con registros históricos
-  - Validar formato del archivo (xlsx)
-  - Leer y parsear contenido del Excel
-  - Validar estructura de columnas esperadas
-  - Validar datos de cada registro (fechas, montos, referencias)
-  - Verificar duplicados antes de insertar
-  - Insertar registros en batch usando transacciones
-  - Generar reporte de éxito/errores
-  - Retornar estadísticas: total procesado, insertados, errores
+**Funcionalidad Implementada:**
+- ✅ `POST /historical-records/upload` - Cargar archivo Excel
+  - Validación de archivo (.xlsx)
+  - Tamaño máximo: 10MB
+  - Parámetro requerido: `bankName`
+  - Modo validación solo (validateOnly)
+  - Retorna: total filas, exitosas, fallidas con errores detallados
 
-#### 3. DTOs (Interfaces Layer)
-- [ ] `UploadHistoricalRecordsResponseDto`
-  ```typescript
-  {
-    totalRecords: number;
-    successfulInserts: number;
-    failedInserts: number;
-    errors: Array<{
-      row: number;
-      reason: string;
-    }>;
-  }
-  ```
-- [ ] Definir estructura esperada del Excel:
-  ```typescript
-  {
-    fecha: Date;              // Fecha del registro
-    numeroHouse: number;      // Número de casa
-    monto: number;           // Monto del registro
-    concepto: string;        // Concepto/descripción
-    referencia?: string;     // Referencia opcional
-    tipo: RecordType;        // INGRESO | EGRESO
-  }
-  ```
+- ✅ Parseo de Excel con validaciones:
+  - Lectura de columnas esperadas (FECHA, HORA, CONCEPTO, DEPOSITO, Casa, etc.)
+  - Validación de tipos de datos
+  - Extracción de número de casa desde centavos si es 0
+  - Validación que sum(conceptos) = floor(DEPOSITO)
+  - Manejo robusto de errores con mensajes descriptivos
 
-#### 4. Controller (Interfaces Layer)
-- [ ] `HistoricalRecordsController`
-- [ ] Endpoint:
-  - `POST /historical-records/upload` - Cargar archivo Excel
-- [ ] Configurar Multer para manejo de archivos
-- [ ] Validar tipo de archivo (solo .xlsx)
-- [ ] Validar tamaño máximo de archivo
-- [ ] Guards de autenticación y autorización (solo admin)
-- [ ] Documentación Swagger con ejemplo de archivo
+- ✅ Procesamiento batch:
+  - Control de concurrencia para evitar exhaustión de pool de conexiones
+  - Procesamiento secuencial para garantizar integridad
+  - Transacciones ACID
+  - Logging detallado de cada fila procesada
 
-#### 5. Procesamiento de Excel
-- [ ] Instalar dependencia: `npm install xlsx` (si no está instalada)
-- [ ] Crear servicio `ExcelParserService` en infrastructure
-- [ ] Implementar lectura de hojas de Excel
-- [ ] Mapeo de columnas a entidades Record
-- [ ] Validación de tipos de datos
-- [ ] Manejo de errores de parsing
+- ✅ Validaciones de negocio:
+  - Verificación de casas existentes
+  - Validación de fechas (no futuras, formato válido)
+  - Validación de montos (positivos)
+  - Detección de duplicados
+  - Auditoría de operaciones
 
-#### 6. Validaciones de Negocio
-- [ ] Validar que las casas (houses) existan antes de insertar
-- [ ] Validar que las fechas sean válidas y no futuras
-- [ ] Validar rangos de montos (no negativos para tipo INGRESO)
-- [ ] Verificar duplicados por combinación: fecha + house + monto + concepto
-- [ ] Logging de operaciones para auditoría
-
-#### 7. Testing
-- [ ] Unit tests para `UploadHistoricalRecordsUseCase`
-- [ ] Unit tests para `ExcelParserService`
-- [ ] Unit tests para controller
-- [ ] E2E test con archivo Excel de ejemplo
-- [ ] Test de validaciones (archivo inválido, datos incorrectos)
-- [ ] Test de duplicados
-
-#### 8. Documentación
-- [ ] `docs/features/historical-records/README.md`
-- [ ] Crear archivo Excel de ejemplo/template
-- [ ] Documentar estructura esperada del archivo
-- [ ] Actualizar `docs/README.md`
-- [ ] Casos de uso y ejemplos de API
-
-### Estructura de Archivo Excel Esperada
-
+**Formato de Excel Esperado:**
 ```
-| Fecha      | Casa | Monto    | Concepto           | Referencia | Tipo    |
-|------------|------|----------|-------------------|------------|---------|
-| 2024-01-15 | 101  | 1500.00  | Pago mensualidad  | REF-001    | INGRESO |
-| 2024-01-20 | 102  | 1500.00  | Pago mensualidad  | REF-002    | INGRESO |
-| 2024-01-25 | 0    | 500.00   | Mantenimiento     | REF-003    | EGRESO  |
+| FECHA      | HORA   | CONCEPTO          | DEPOSITO | Casa | Cuota Extra | Mantto | Penalizacion | Agua |
+|------------|--------|-------------------|----------|------|-------------|--------|--------------|------|
+| 2024-01-15 | 10:30  | Pago mensualidad  | 1542.42  | 0    | 100.00      | 1300   | 100.00       | 42.42|
+| 2024-01-20 | 14:45  | Pago parcial      | 2510.15  | 15   | 200.00      | 2000   | 50.00        | 260.15|
 ```
 
-### Referencias
+**Notas:**
+- El sistema está completamente operacional y registrado en `app.module.ts`
+- Los errores de parseo/validación son capturados y reportados sin interrumpir el procesamiento
+- Control de concurrencia implementado para evitar problemas con BD en lotes grandes
+
+**Referencias Técnicas:**
 - Entidad Record: `src/shared/database/entities/record.entity.ts`
 - RecordRepository: `src/shared/database/repositories/record.repository.ts`
-- Similar pattern: `src/features/transactions-bank/` (procesa archivos Excel de bancos)
-
-### Notas Técnicas
-- Usar transacciones para asegurar atomicidad en inserciones batch
-- Considerar límite de registros por archivo para evitar timeouts
-- Implementar procesamiento asíncrono si el archivo es muy grande
-- Guardar archivo original en storage por auditoría (opcional)
-- Enviar notificación al usuario cuando termine el procesamiento
-- Considerar validación previa antes de insertar (dry-run mode)
+- Módulo: `src/features/historical-records/`
+- Pattern similar para referencia: `src/features/transactions-bank/` (procesa archivos Excel de bancos)
 
 ---
 
@@ -584,6 +553,41 @@ Sistema: "Mismo monto, misma casa. Requiere validación manual para evitar dupli
 - Logging detallado para troubleshooting
 - Índices en transaction_status(validation_status) para queries rápidas de casos pendientes
 - Manejo robusto de errores con try-catch y rollback automático
+
+---
+
+## Resumen General de Features
+
+**Última verificación de código**: 2026-01-11
+
+### Features Implementadas (5/6)
+
+| Feature | Prioridad | Estado | Módulo | Controllers | Endpoints |
+|---------|-----------|--------|--------|-------------|-----------|
+| Payment Management | Alta | ✅ COMPLETO | `payment-management` | 1 | 6 |
+| Bank Reconciliation | Alta | ✅ COMPLETO | `bank-reconciliation` | 1 | 5 (+ manual validation) |
+| Historical Records | Media | ✅ COMPLETO | `historical-records` | 1 | 1 |
+| Vouchers + Telegram | Baja | ✅ COMPLETO | `vouchers` | 2 | 2 (webhook endpoints) |
+| Transactions Bank | Media | ✅ OPERACIONAL | `transactions-bank` | 1 | - |
+| **Houses Management** | **Media** | **⚠️ PENDIENTE** | **No existe** | **0** | **0** |
+
+### Módulos Registrados en app.module.ts
+
+✅ Todos los módulos principales están registrados y operacionales:
+- VouchersModule
+- TransactionsBankModule
+- BankReconciliationModule
+- PaymentManagementModule
+- HistoricalRecordsModule
+- Plus: AuthModule, DatabaseModule, GoogleCloudModule, OpenAIModule, VertexAIModule, HealthModule
+
+### Próximo Paso Recomendado
+
+**Implementar Houses Management** - Es el único feature planificado sin módulo dedicado:
+- Requiere: 1 módulo, 4 use cases, 1 controller con ~4 endpoints
+- Dependencias: Todo ya existe en infraestructura
+- Esfuerzo: Bajo (solo capa de aplicación e interfaces)
+- Impacto: Permite reasignar casas del usuario sistema a propietarios reales
 
 ---
 
