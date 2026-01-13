@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuthModule } from '@/shared/auth/auth.module';
 
 // Controllers
 import { BankReconciliationController } from './controllers/bank-reconciliation.controller';
@@ -41,6 +42,7 @@ import { PaymentManagementModule } from '@/features/payment-management/payment-m
 
 @Module({
   imports: [
+    AuthModule,
     TypeOrmModule.forFeature([
       TransactionBank,
       Voucher,

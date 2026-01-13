@@ -9,12 +9,17 @@ import {
   Query,
   UploadedFile,
   UseInterceptors,
+  UseGuards,
   BadRequestException,
   ParseFilePipe,
   MaxFileSizeValidator,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { AuthGuard } from '@/shared/auth/guards/auth.guard';
+import { RoleGuard } from '@/shared/auth/guards/roles.guard';
+import { Roles } from '@/shared/auth/decorators/roles.decorator';
+import { Role } from '@/shared/database/entities/enums';
 import { TransactionsBankService } from '../services/transactions-bank.service';
 import {
   CreateTransactionBankDto,
@@ -48,6 +53,7 @@ export class TransactionsBankController {
   ) {}
 
   @Post('upload')
+  @UseGuards(AuthGuard)
   @UseInterceptors(FileInterceptor('file'))
   @ApiUploadBankFile()
   async uploadFile(
@@ -103,6 +109,7 @@ export class TransactionsBankController {
   }
 
   @Get()
+  @UseGuards(AuthGuard)
   @ApiGetAllTransactions()
   async getAllTransactions(
     @Query('status') status?: 'pending' | 'processed' | 'failed' | 'reconciled',
@@ -126,12 +133,14 @@ export class TransactionsBankController {
   }
 
   @Get('summary')
+  @UseGuards(AuthGuard)
   @ApiGetTransactionSummary()
   async getTransactionSummary() {
     return await this.transactionsBankService.getTransactionSummary();
   }
 
   @Get(':id')
+  @UseGuards(AuthGuard)
   @ApiGetTransactionById()
   async getTransactionById(
     @Param('id') id: string,
@@ -140,6 +149,7 @@ export class TransactionsBankController {
   }
 
   @Post()
+  @UseGuards(AuthGuard)
   @ApiCreateTransaction()
   async createTransaction(
     @Body() createTransactionDto: CreateTransactionBankDto,
@@ -150,6 +160,7 @@ export class TransactionsBankController {
   }
 
   @Put(':id')
+  @UseGuards(AuthGuard)
   @ApiUpdateTransaction()
   async updateTransaction(
     @Param('id') id: string,
@@ -162,6 +173,7 @@ export class TransactionsBankController {
   }
 
   @Delete(':id')
+  @UseGuards(AuthGuard)
   @ApiDeleteTransaction()
   async deleteTransaction(
     @Param('id') id: string,
@@ -171,6 +183,7 @@ export class TransactionsBankController {
   }
 
   @Post('batch')
+  @UseGuards(AuthGuard)
   async createBatchTransactions(
     @Body() transactions: CreateTransactionBankDto[],
   ): Promise<ProcessedBankTransaction[]> {
@@ -203,6 +216,7 @@ export class TransactionsBankController {
   }
 
   @Post('reconcile')
+  @UseGuards(AuthGuard)
   @ApiReconcileTransactionsLegacy()
   async reconcileTransactions(@Body() reconciliationDto: ReconciliationDto) {
     try {
@@ -224,6 +238,7 @@ export class TransactionsBankController {
   }
 
   @Get('export/csv')
+  @UseGuards(AuthGuard)
   async exportToCSV(
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
@@ -256,6 +271,7 @@ export class TransactionsBankController {
   }
 
   @Get('export/json')
+  @UseGuards(AuthGuard)
   async exportToJSON(
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,

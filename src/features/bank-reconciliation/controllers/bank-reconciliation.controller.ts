@@ -9,8 +9,13 @@ import {
   Param,
   Query,
   Req,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { AuthGuard } from '@/shared/auth/guards/auth.guard';
+import { RoleGuard } from '@/shared/auth/guards/roles.guard';
+import { Roles } from '@/shared/auth/decorators/roles.decorator';
+import { Role } from '@/shared/database/entities/enums';
 import { ReconcileUseCase } from '../application/reconcile.use-case';
 import {
   ReconcileRequestDto,
@@ -43,6 +48,7 @@ export class BankReconciliationController {
   ) {}
 
   @Post('reconcile')
+  @UseGuards(AuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiReconcileTransactions()
   async reconcile(
@@ -70,6 +76,7 @@ export class BankReconciliationController {
   // ==================== MANUAL VALIDATION ENDPOINTS ====================
 
   @Get('manual-validation/pending')
+  @UseGuards(AuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Obtener casos pendientes de validación manual',
@@ -99,6 +106,7 @@ export class BankReconciliationController {
   }
 
   @Post('manual-validation/:transactionId/approve')
+  @UseGuards(AuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Aprobar un caso de validación manual',
@@ -115,7 +123,7 @@ export class BankReconciliationController {
     @Body() dto: ApproveManualCaseDto,
     @Req() req: any,
   ): Promise<ApproveManualCaseResponseDto> {
-    const userId = req?.user?.id || 'system';
+    const userId = req.user.id;
 
     this.logger.log(
       `Aprobando caso manual: Transaction ${transactionId} → Voucher ${dto.voucherId} por usuario ${userId}`,
@@ -130,6 +138,7 @@ export class BankReconciliationController {
   }
 
   @Post('manual-validation/:transactionId/reject')
+  @UseGuards(AuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Rechazar un caso de validación manual',
@@ -146,7 +155,7 @@ export class BankReconciliationController {
     @Body() dto: RejectManualCaseDto,
     @Req() req: any,
   ): Promise<RejectManualCaseResponseDto> {
-    const userId = req?.user?.id || 'system';
+    const userId = req.user.id;
 
     this.logger.log(
       `Rechazando caso manual: Transaction ${transactionId} por usuario ${userId}. Razón: ${dto.rejectionReason}`,
@@ -161,6 +170,7 @@ export class BankReconciliationController {
   }
 
   @Get('manual-validation/stats')
+  @UseGuards(AuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Obtener estadísticas de validación manual',
@@ -180,6 +190,7 @@ export class BankReconciliationController {
   // ==================== UNCLAIMED DEPOSITS ENDPOINTS ====================
 
   @Get('unclaimed-deposits')
+  @UseGuards(AuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Obtener depósitos no reclamados',
@@ -210,6 +221,7 @@ export class BankReconciliationController {
   }
 
   @Post('unclaimed-deposits/:transactionId/assign-house')
+  @UseGuards(AuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Asignar casa manualmente a un depósito',
@@ -228,7 +240,7 @@ export class BankReconciliationController {
     @Body() dto: AssignHouseDto,
     @Req() req: any,
   ): Promise<AssignHouseResponseDto> {
-    const userId = req?.user?.id || 'system';
+    const userId = req.user.id;
 
     this.logger.log(
       `Asignando casa ${dto.houseNumber} a depósito ${transactionId} por usuario ${userId}`,

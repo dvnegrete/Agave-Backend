@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuthModule } from '@/shared/auth/auth.module';
 
 // Controllers
 import { HistoricalRecordsController } from './controllers/historical-records.controller';
@@ -45,11 +46,10 @@ import { PaymentManagementModule } from '@/features/payment-management/payment-m
 /**
  * Historical Records Module
  * Handles loading and processing of historical accounting records from Excel files
- *
- * TODO: Add AuthModule import when AuthGuard is added to controller
  */
 @Module({
   imports: [
+    AuthModule,
     // Register TypeORM entities
     TypeOrmModule.forFeature([
       Record,

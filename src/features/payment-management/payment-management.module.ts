@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuthModule } from '@/shared/auth/auth.module';
 
 // Controllers
 import { PaymentManagementController } from './controllers/payment-management.controller';
@@ -43,6 +44,7 @@ import {
 
 @Module({
   imports: [
+    AuthModule,
     TypeOrmModule.forFeature([
       Period,
       PeriodConfig,

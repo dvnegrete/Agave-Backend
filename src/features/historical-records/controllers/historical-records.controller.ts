@@ -4,6 +4,7 @@ import {
   Query,
   UploadedFile,
   UseInterceptors,
+  UseGuards,
   BadRequestException,
   ParseFilePipe,
   MaxFileSizeValidator,
@@ -19,6 +20,10 @@ import {
   ApiResponse,
   ApiQuery,
 } from '@nestjs/swagger';
+import { AuthGuard } from '@/shared/auth/guards/auth.guard';
+import { RoleGuard } from '@/shared/auth/guards/roles.guard';
+import { Roles } from '@/shared/auth/decorators/roles.decorator';
+import { Role } from '@/shared/database/entities/enums';
 import { UploadHistoricalRecordsUseCase } from '../application/upload-historical-records.use-case';
 import { UploadHistoricalFileDto, HistoricalRecordResponseDto } from '../dto';
 import { HistoricalFileValidator } from '../validators/historical-file.validator';
@@ -27,8 +32,7 @@ import { HistoricalFileValidator } from '../validators/historical-file.validator
  * Controller for historical records management
  * Handles file uploads and processing of historical accounting records
  *
- * TODO: Add authentication (AuthGuard) and role-based authorization (AdminGuard)
- * Currently open for end-to-end testing without authentication
+ * Requires admin role for all endpoints
  */
 @ApiTags('historical-records')
 @Controller('historical-records')
@@ -60,6 +64,7 @@ export class HistoricalRecordsController {
    * - Each row is processed in its own transaction (atomic)
    */
   @Post('upload')
+  @UseGuards(AuthGuard)
   @UseInterceptors(FileInterceptor('file'))
   @ApiOperation({
     summary: 'Cargar archivo Excel con registros históricos contables',
