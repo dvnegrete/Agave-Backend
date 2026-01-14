@@ -5,6 +5,9 @@ import {
   Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import {
   SignUpDto,
@@ -14,6 +17,9 @@ import {
   AuthResponseDto,
 } from './dto/auth.dto';
 import { AuthError, User } from '@supabase/supabase-js';
+import { User as DbUser } from '../database/entities/user.entity';
+import { Status, Role } from '../database/entities/enums';
+import { JwtAuthService } from './services/jwt-auth.service';
 
 @Injectable()
 export class AuthService {
@@ -22,7 +28,12 @@ export class AuthService {
   private supabaseAdminClient;
   private isEnabled = false;
 
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    @InjectRepository(DbUser)
+    private userRepository: Repository<DbUser>,
+    private jwtAuthService: JwtAuthService,
+  ) {
     // Inicializar clientes de Supabase usando ConfigService
     const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
     const supabaseAnonKey = this.configService.get<string>('SUPABASE_ANON_KEY');
@@ -100,7 +111,7 @@ export class AuthService {
     }
   }
 
-  async signIn(signInDto: SignInDto): Promise<AuthResponseDto> {
+  async signIn(signInDto: SignInDto, res: Response): Promise<AuthResponseDto> {
     this.ensureEnabled();
     try {
       const { data, error } = await this.supabaseClient.auth.signInWithPassword(
@@ -118,14 +129,37 @@ export class AuthService {
         throw new UnauthorizedException('Error en la autenticación');
       }
 
+      // Get user from PostgreSQL database
+      const dbUser = await this.userRepository.findOne({
+        where: { email: data.user.email! },
+      });
+
+      if (!dbUser) {
+        throw new BadRequestException('Usuario no encontrado en la base de datos');
+      }
+
+      // Generate backend JWT tokens
+      const accessToken = await this.jwtAuthService.generateAccessToken(dbUser);
+      const refreshToken = await this.jwtAuthService.generateRefreshToken(
+        dbUser.id,
+      );
+
+      // Set access token in httpOnly cookie
+      res.cookie('access_token', accessToken, {
+        httpOnly: true,
+        secure: this.configService.get<string>('NODE_ENV') === 'production',
+        sameSite: 'lax',
+        maxAge: 15 * 60 * 1000, // 15 minutes
+      });
+
       return {
-        accessToken: data.session.access_token,
-        refreshToken: data.session.refresh_token,
+        accessToken: refreshToken, // Return refresh token for client-side storage
+        refreshToken: refreshToken,
         user: {
-          id: data.user.id,
-          email: data.user.email!,
-          firstName: data.user.user_metadata?.first_name,
-          lastName: data.user.user_metadata?.last_name,
+          id: dbUser.id,
+          email: dbUser.email!,
+          firstName: dbUser.name?.split(' ')[0],
+          lastName: dbUser.name?.split(' ')[1],
         },
       };
     } catch (error) {
@@ -230,35 +264,109 @@ export class AuthService {
     }
   }
 
-  async handleOAuthCallback(code: string): Promise<AuthResponseDto> {
+  async handleOAuthCallback(
+    accessToken: string,
+    res: Response,
+  ): Promise<{ refreshToken: string }> {
     this.ensureEnabled();
     try {
-      const { data, error } =
-        await this.supabaseClient.auth.exchangeCodeForSession(code);
+      // Verify the access token with Supabase
+      const {
+        data: { user },
+        error,
+      } = await this.supabaseClient.auth.getUser(accessToken);
 
-      if (error) {
-        throw new BadRequestException(error.message);
+      if (error || !user) {
+        throw new UnauthorizedException('Invalid Supabase access token');
       }
 
-      if (!data.user || !data.session) {
-        throw new BadRequestException('Error en el callback de OAuth');
+      // Get or create user in PostgreSQL database
+      let dbUser = await this.userRepository.findOne({
+        where: { email: user.email! },
+      });
+
+      if (!dbUser) {
+        // Create new user if doesn't exist (OAuth auto-registration)
+        dbUser = this.userRepository.create({
+          id: user.id,
+          email: user.email!,
+          name: user.user_metadata?.full_name || user.email!,
+          status: Status.ACTIVE,
+          role: Role.TENANT,
+        });
+        await this.userRepository.save(dbUser);
+        this.logger.log(`New user created from OAuth: ${user.email}`);
       }
 
-      return {
-        accessToken: data.session.access_token,
-        refreshToken: data.session.refresh_token,
-        user: {
-          id: data.user.id,
-          email: data.user.email!,
-          firstName: data.user.user_metadata?.first_name,
-          lastName: data.user.user_metadata?.last_name,
-        },
-      };
+      // Generate backend JWT tokens
+      const jwtAccessToken = await this.jwtAuthService.generateAccessToken(
+        dbUser,
+      );
+      const refreshToken = await this.jwtAuthService.generateRefreshToken(
+        dbUser.id,
+      );
+
+      // Set access token in httpOnly cookie
+      res.cookie('access_token', jwtAccessToken, {
+        httpOnly: true,
+        secure: this.configService.get<string>('NODE_ENV') === 'production',
+        sameSite: 'lax',
+        maxAge: 15 * 60 * 1000, // 15 minutes
+      });
+
+      // Return refresh token for client-side storage
+      return { refreshToken };
     } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
       if (error instanceof BadRequestException) {
         throw error;
       }
-      throw new BadRequestException('Error interno del servidor');
+      this.logger.error('OAuth callback error:', error);
+      throw new BadRequestException('Error processing OAuth authentication');
+    }
+  }
+
+  async refreshTokens(
+    refreshTokenValue: string,
+    res: Response,
+  ): Promise<{ success: boolean }> {
+    this.ensureEnabled();
+    try {
+      // Verify refresh token
+      const payload = await this.jwtAuthService.verifyRefreshToken(
+        refreshTokenValue,
+      );
+
+      // Get user from database
+      const dbUser = await this.userRepository.findOne({
+        where: { id: payload.sub },
+      });
+
+      if (!dbUser) {
+        throw new UnauthorizedException('Usuario no encontrado');
+      }
+
+      // Generate new access token
+      const newAccessToken = await this.jwtAuthService.generateAccessToken(
+        dbUser,
+      );
+
+      // Set new access token in httpOnly cookie
+      res.cookie('access_token', newAccessToken, {
+        httpOnly: true,
+        secure: this.configService.get<string>('NODE_ENV') === 'production',
+        sameSite: 'lax',
+        maxAge: 15 * 60 * 1000, // 15 minutes
+      });
+
+      return { success: true };
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      throw new BadRequestException('Error al refrescar el token');
     }
   }
 }

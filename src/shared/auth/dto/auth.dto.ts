@@ -34,6 +34,11 @@ export class RefreshTokenDto {
   refreshToken: string;
 }
 
+export class OAuthCallbackDto {
+  @IsString()
+  accessToken: string;
+}
+
 export class AuthResponseDto {
   accessToken: string;
   refreshToken: string;

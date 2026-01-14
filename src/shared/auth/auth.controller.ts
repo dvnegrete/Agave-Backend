@@ -7,13 +7,16 @@ import {
   Query,
   HttpCode,
   HttpStatus,
+  Res,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { AuthService } from './auth.service';
 import {
   SignUpDto,
   SignInDto,
   OAuthSignInDto,
   RefreshTokenDto,
+  OAuthCallbackDto,
   AuthResponseDto,
 } from './dto/auth.dto';
 import { AuthGuard } from './guards/auth.guard';
@@ -31,8 +34,11 @@ export class AuthController {
 
   @Post('signin')
   @HttpCode(HttpStatus.OK)
-  async signIn(@Body() signInDto: SignInDto): Promise<AuthResponseDto> {
-    return this.authService.signIn(signInDto);
+  async signIn(
+    @Body() signInDto: SignInDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AuthResponseDto> {
+    return this.authService.signIn(signInDto, res);
   }
 
   @Post('oauth/signin')
@@ -43,26 +49,30 @@ export class AuthController {
     return this.authService.signInWithOAuth(oAuthDto);
   }
 
-  @Get('oauth/callback')
+  @Post('oauth/callback')
   async handleOAuthCallback(
-    @Query('code') code: string,
-  ): Promise<AuthResponseDto> {
-    return this.authService.handleOAuthCallback(code);
+    @Body() dto: OAuthCallbackDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<{ refreshToken: string }> {
+    return this.authService.handleOAuthCallback(dto.accessToken, res);
   }
 
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   async refreshToken(
     @Body() refreshTokenDto: RefreshTokenDto,
-  ): Promise<AuthResponseDto> {
-    return this.authService.refreshToken(refreshTokenDto);
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<{ success: boolean }> {
+    return this.authService.refreshTokens(refreshTokenDto.refreshToken, res);
   }
 
   @Post('signout')
   @UseGuards(AuthGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
-  async signOut(@CurrentUser() user: User): Promise<void> {
-    // En una implementación real, podrías invalidar el token aquí
+  async signOut(
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<void> {
+    res.clearCookie('access_token');
     return Promise.resolve();
   }
 

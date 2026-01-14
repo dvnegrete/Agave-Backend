@@ -6,47 +6,53 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { AuthService } from '../auth.service';
+import { JwtAuthService } from '../services/jwt-auth.service';
 import { User } from '../../database/entities/user.entity';
+import { Status } from '../../database/entities/enums';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
   constructor(
-    private authService: AuthService,
+    private jwtAuthService: JwtAuthService,
     @InjectRepository(User) private userRepository: Repository<User>,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
-    const token = this.extractTokenFromHeader(request);
+    const token = this.extractTokenFromCookie(request);
 
     if (!token) {
       throw new UnauthorizedException('Token de acceso requerido');
     }
 
     try {
-      const supabaseUser = await this.authService.getCurrentUser(token);
-      if (!supabaseUser) {
-        throw new UnauthorizedException('Usuario no encontrado');
-      }
+      // Verify and decode JWT token
+      const payload = await this.jwtAuthService.verifyAccessToken(token);
 
-      // Lookup user in PostgreSQL by email to get role information
+      // Verify user still exists in database
       const dbUser = await this.userRepository.findOne({
-        where: { email: supabaseUser.email },
+        where: { id: payload.sub },
       });
 
       if (!dbUser) {
-        throw new UnauthorizedException('Usuario no registrado en el sistema');
+        throw new UnauthorizedException('Usuario no encontrado');
       }
 
-      // Merge Supabase user data with database user data
-      // Database user has role and status information
+      // Check if user is active
+      if (dbUser.status !== Status.ACTIVE) {
+        throw new UnauthorizedException('Usuario inactivo');
+      }
+
+      // Attach user data to request from JWT payload
       request.user = {
-        id: supabaseUser.id,
-        email: supabaseUser.email,
-        role: dbUser.role,
+        id: payload.sub,
+        email: payload.email,
+        role: payload.role,
+        houseIds: payload.houseIds, // Include houseIds from JWT
+        firstName: payload.firstName,
+        lastName: payload.lastName,
+        avatar: payload.avatar,
         status: dbUser.status,
-        user_metadata: supabaseUser.user_metadata,
       };
 
       return true;
@@ -58,8 +64,7 @@ export class AuthGuard implements CanActivate {
     }
   }
 
-  private extractTokenFromHeader(request: any): string | undefined {
-    const [type, token] = request.headers.authorization?.split(' ') ?? [];
-    return type === 'Bearer' ? token : undefined;
+  private extractTokenFromCookie(request: any): string | undefined {
+    return request.cookies?.access_token;
   }
 }
