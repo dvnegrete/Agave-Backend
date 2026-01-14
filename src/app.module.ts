@@ -14,6 +14,7 @@ import { GoogleCloudModule } from './shared/libs/google-cloud';
 import { OpenAIModule } from './shared/libs/openai/openai.module';
 import { VertexAIModule } from './shared/libs/vertex-ai/vertex-ai.module';
 import { HealthModule } from './shared/health/health.module';
+import { UserManagementModule } from './features/user-management/user-management.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { HealthModule } from './shared/health/health.module';
     PaymentManagementModule,
     HistoricalRecordsModule,
     VertexAIModule,
+    UserManagementModule,
   ],
   controllers: [AppController],
   providers: [AppService, AppConfigService],
