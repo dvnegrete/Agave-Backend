@@ -19,6 +19,10 @@ export interface JwtAccessPayload {
 
 export interface JwtRefreshPayload {
   sub: string; // userId (UUID)
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  role?: string;
   iat?: number;
   exp?: number;
 }
@@ -49,9 +53,26 @@ export class JwtAuthService {
     });
   }
 
-  async generateRefreshToken(userId: string): Promise<string> {
+  async generateRefreshToken(user: User | string): Promise<string> {
+    // Support both User object and userId string for backwards compatibility
+    if (typeof user === 'string') {
+      // Legacy mode: only userId provided
+      const payload: JwtRefreshPayload = {
+        sub: user,
+        email: '',
+      };
+      return this.jwtService.sign(payload, {
+        expiresIn: '7d',
+      });
+    }
+
+    // New mode: full User object provided
     const payload: JwtRefreshPayload = {
-      sub: userId,
+      sub: user.id,
+      email: user.email,
+      firstName: user.name?.split(' ')[0],
+      lastName: user.name?.split(' ').slice(1).join(' '),
+      role: user.role,
     };
 
     return this.jwtService.sign(payload, {

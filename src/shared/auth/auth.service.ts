@@ -140,9 +140,7 @@ export class AuthService {
 
       // Generate backend JWT tokens
       const accessToken = await this.jwtAuthService.generateAccessToken(dbUser);
-      const refreshToken = await this.jwtAuthService.generateRefreshToken(
-        dbUser.id,
-      );
+      const refreshToken = await this.jwtAuthService.generateRefreshToken(dbUser);
 
       // Set access token in httpOnly cookie
       res.cookie('access_token', accessToken, {
@@ -302,9 +300,7 @@ export class AuthService {
       const jwtAccessToken = await this.jwtAuthService.generateAccessToken(
         dbUser,
       );
-      const refreshToken = await this.jwtAuthService.generateRefreshToken(
-        dbUser.id,
-      );
+      const refreshToken = await this.jwtAuthService.generateRefreshToken(dbUser);
 
       // Set access token in httpOnly cookie
       res.cookie('access_token', jwtAccessToken, {
