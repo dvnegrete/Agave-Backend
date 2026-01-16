@@ -62,13 +62,15 @@ export class OAuthCallbackDto {
 }
 
 export class AuthResponseDto {
-  accessToken: string;
   refreshToken: string;
   user: {
     id: string;
     email: string;
     firstName?: string;
     lastName?: string;
+    role?: string;
+    status?: string;
+    houses?: number[];
   };
   requiresEmailConfirmation?: boolean;
 }

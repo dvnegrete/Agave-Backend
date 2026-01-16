@@ -114,7 +114,6 @@ export class AuthService {
           `User created but session not available (email confirmation may be required): ${data.user.email}`,
         );
         return {
-          accessToken: '', // Empty until user confirms email
           refreshToken: '', // Empty until user confirms email
           user: {
             id: data.user.id,
@@ -127,7 +126,6 @@ export class AuthService {
       }
 
       return {
-        accessToken: data.session.access_token,
         refreshToken: data.session.refresh_token,
         user: {
           id: data.user.id,
@@ -164,9 +162,10 @@ export class AuthService {
         throw new UnauthorizedException(SignInMessages.AUTH_FAILED);
       }
 
-      // Get user from PostgreSQL database
+      // Get user from PostgreSQL database with houses
       const dbUser = await this.userRepository.findOne({
         where: { email: data.user.email! },
+        relations: { houses: true },
       });
 
       if (!dbUser) {
@@ -185,21 +184,27 @@ export class AuthService {
         maxAge: 15 * 60 * 1000, // 15 minutes
       });
 
+      // Extract house numbers from houses relationship
+      const houseNumbers = dbUser.houses?.map((house) => house.number_house) || [];
+
       return {
-        accessToken: refreshToken, // Return refresh token for client-side storage
         refreshToken: refreshToken,
         user: {
           id: dbUser.id,
           email: dbUser.email!,
           firstName: dbUser.name?.split(' ')[0],
           lastName: dbUser.name?.split(' ')[1],
+          role: dbUser.role,
+          status: dbUser.status,
+          houses: houseNumbers,
         },
       };
     } catch (error) {
       if (error instanceof UnauthorizedException) {
         throw error;
       }
-      throw new BadRequestException('Error interno del servidor');
+      const errorMessage = error instanceof Error ? error.message : 'Error interno del servidor';
+      throw new BadRequestException(errorMessage);
     }
   }
 
