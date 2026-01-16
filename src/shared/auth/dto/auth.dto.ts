@@ -10,49 +10,54 @@ import {
   MAX_HOUSE_NUMBER,
   MIN_HOUSE_NUMBER,
 } from '@/shared/config/business-rules.config';
+import { AuthValidationMessages } from '@/shared/content/messages';
 
 export class SignUpDto {
-  @IsEmail()
+  @IsEmail({}, { message: AuthValidationMessages.EMAIL_INVALID })
   email: string;
 
-  @IsString()
+  @IsString({ message: AuthValidationMessages.PASSWORD_REQUIRED })
   password: string;
 
-  @IsString()
+  @IsString({ message: AuthValidationMessages.FIRST_NAME_INVALID })
   @IsOptional()
   firstName?: string;
 
-  @IsString()
+  @IsString({ message: AuthValidationMessages.LAST_NAME_INVALID })
   @IsOptional()
   lastName?: string;
 
-  @IsInt()
-  @Min(MAX_HOUSE_NUMBER)
-  @Max(MIN_HOUSE_NUMBER)
+  @IsInt({ message: AuthValidationMessages.HOUSE_NUMBER_REQUIRED_FORMAT })
+  @Min(MIN_HOUSE_NUMBER, {
+    message: AuthValidationMessages.HOUSE_NUMBER_MIN(MIN_HOUSE_NUMBER),
+  })
+  @Max(MAX_HOUSE_NUMBER, {
+    message: AuthValidationMessages.HOUSE_NUMBER_MAX(MAX_HOUSE_NUMBER),
+  })
   @IsOptional()
   houseNumber?: number;
 }
 
 export class SignInDto {
-  @IsEmail()
+  @IsEmail({}, { message: AuthValidationMessages.EMAIL_INVALID })
   email: string;
 
-  @IsString()
+  @IsString({ message: AuthValidationMessages.PASSWORD_REQUIRED })
   password: string;
 }
 
 export class OAuthSignInDto {
-  @IsString()
+  @IsString({ message: AuthValidationMessages.PROVIDER_INVALID })
   provider: 'google' | 'facebook' | 'github' | 'twitter' | 'discord';
 }
 
 export class RefreshTokenDto {
-  @IsString()
+  @IsString({ message: AuthValidationMessages.REFRESH_TOKEN_INVALID })
   refreshToken: string;
 }
 
 export class OAuthCallbackDto {
-  @IsString()
+  @IsString({ message: AuthValidationMessages.ACCESS_TOKEN_INVALID })
   accessToken: string;
 }
 
@@ -65,4 +70,5 @@ export class AuthResponseDto {
     firstName?: string;
     lastName?: string;
   };
+  requiresEmailConfirmation?: boolean;
 }

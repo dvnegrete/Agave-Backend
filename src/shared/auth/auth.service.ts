@@ -16,10 +16,18 @@ import {
   RefreshTokenDto,
   AuthResponseDto,
 } from './dto/auth.dto';
-import { AuthError, User } from '@supabase/supabase-js';
+import { User } from '@supabase/supabase-js';
 import { User as DbUser } from '../database/entities/user.entity';
 import { Status, Role } from '../database/entities/enums';
 import { JwtAuthService } from './services/jwt-auth.service';
+import {
+  mapSupabaseErrorToSpanish,
+  SignUpMessages,
+  SignInMessages,
+  OAuthMessages,
+  SessionMessages,
+  GenericErrorMessages,
+} from '@/shared/content/messages';
 
 @Injectable()
 export class AuthService {
@@ -67,7 +75,9 @@ export class AuthService {
 
   private ensureEnabled() {
     if (!this.isEnabled) {
-      throw new BadRequestException('El servicio de autenticación no está disponible');
+      throw new BadRequestException(
+        GenericErrorMessages.AUTH_SERVICE_UNAVAILABLE,
+      );
     }
   }
 
@@ -87,11 +97,33 @@ export class AuthService {
       });
 
       if (error) {
-        throw new BadRequestException(error.message);
+        // Map Supabase errors to Spanish messages
+        const errorMessage = mapSupabaseErrorToSpanish(error.message);
+        throw new BadRequestException(errorMessage);
       }
 
-      if (!data.user || !data.session) {
-        throw new BadRequestException('Error al crear la cuenta');
+      // User creation succeeded - data.user will exist
+      if (!data.user) {
+        throw new BadRequestException(SignUpMessages.ACCOUNT_CREATION_FAILED);
+      }
+
+      // If session is not available (e.g., email confirmation required),
+      // still return success with user data. User will need to confirm email first.
+      if (!data.session) {
+        this.logger.log(
+          `User created but session not available (email confirmation may be required): ${data.user.email}`,
+        );
+        return {
+          accessToken: '', // Empty until user confirms email
+          refreshToken: '', // Empty until user confirms email
+          user: {
+            id: data.user.id,
+            email: data.user.email!,
+            firstName: data.user.user_metadata?.first_name,
+            lastName: data.user.user_metadata?.last_name,
+          },
+          requiresEmailConfirmation: true,
+        };
       }
 
       return {
@@ -103,12 +135,14 @@ export class AuthService {
           firstName: data.user.user_metadata?.first_name,
           lastName: data.user.user_metadata?.last_name,
         },
+        requiresEmailConfirmation: false,
       };
     } catch (error) {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      throw new BadRequestException('Error interno del servidor');
+      const errorMessage = error instanceof Error ? error.message : 'Error interno del servidor';
+      throw new BadRequestException(errorMessage);
     }
   }
 
@@ -123,11 +157,11 @@ export class AuthService {
       );
 
       if (error) {
-        throw new UnauthorizedException('Credenciales inválidas');
+        throw new UnauthorizedException(SignInMessages.INVALID_CREDENTIALS);
       }
 
       if (!data.user || !data.session) {
-        throw new UnauthorizedException('Error en la autenticación');
+        throw new UnauthorizedException(SignInMessages.AUTH_FAILED);
       }
 
       // Get user from PostgreSQL database
@@ -136,7 +170,7 @@ export class AuthService {
       });
 
       if (!dbUser) {
-        throw new BadRequestException('Usuario no encontrado en la base de datos');
+        throw new BadRequestException(SignInMessages.USER_NOT_FOUND);
       }
 
       // Generate backend JWT tokens
@@ -180,7 +214,8 @@ export class AuthService {
       });
 
       if (error) {
-        throw new BadRequestException(error.message);
+        const errorMessage = mapSupabaseErrorToSpanish(error.message);
+        throw new BadRequestException(errorMessage);
       }
 
       return { url: data.url };
@@ -188,7 +223,9 @@ export class AuthService {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      throw new BadRequestException('Error interno del servidor');
+      const errorMessage =
+        error instanceof Error ? error.message : OAuthMessages.SIGNIN_FAILED;
+      throw new BadRequestException(errorMessage);
     }
   }
 
@@ -202,11 +239,11 @@ export class AuthService {
       });
 
       if (error) {
-        throw new UnauthorizedException('Token de refresco inválido');
+        throw new UnauthorizedException(SessionMessages.TOKEN_EXPIRED);
       }
 
       if (!data.user || !data.session) {
-        throw new UnauthorizedException('Error al refrescar la sesión');
+        throw new UnauthorizedException(SessionMessages.REFRESH_FAILED);
       }
 
       return {
@@ -223,7 +260,9 @@ export class AuthService {
       if (error instanceof UnauthorizedException) {
         throw error;
       }
-      throw new BadRequestException('Error interno del servidor');
+      const errorMessage =
+        error instanceof Error ? error.message : SessionMessages.REFRESH_TOKEN_FAILED;
+      throw new BadRequestException(errorMessage);
     }
   }
 
@@ -232,13 +271,16 @@ export class AuthService {
     try {
       const { error } = await this.supabaseClient.auth.signOut();
       if (error) {
-        throw new BadRequestException(error.message);
+        const errorMessage = mapSupabaseErrorToSpanish(error.message);
+        throw new BadRequestException(errorMessage);
       }
     } catch (error) {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      throw new BadRequestException('Error interno del servidor');
+      const errorMessage =
+        error instanceof Error ? error.message : SessionMessages.SIGNOUT_FAILED;
+      throw new BadRequestException(errorMessage);
     }
   }
 
@@ -251,7 +293,7 @@ export class AuthService {
       } = await this.supabaseClient.auth.getUser(accessToken);
 
       if (error) {
-        throw new UnauthorizedException('Token inválido');
+        throw new UnauthorizedException(SessionMessages.INVALID_TOKEN);
       }
 
       return user;
@@ -259,7 +301,9 @@ export class AuthService {
       if (error instanceof UnauthorizedException) {
         throw error;
       }
-      throw new BadRequestException('Error interno del servidor');
+      const errorMessage =
+        error instanceof Error ? error.message : SessionMessages.CURRENT_USER_FETCH_FAILED;
+      throw new BadRequestException(errorMessage);
     }
   }
 
@@ -276,7 +320,7 @@ export class AuthService {
       } = await this.supabaseClient.auth.getUser(accessToken);
 
       if (error || !user) {
-        throw new UnauthorizedException('Invalid Supabase access token');
+        throw new UnauthorizedException(OAuthMessages.INVALID_TOKEN);
       }
 
       // Get or create user in PostgreSQL database
@@ -321,7 +365,9 @@ export class AuthService {
         throw error;
       }
       this.logger.error('OAuth callback error:', error);
-      throw new BadRequestException('Error processing OAuth authentication');
+      const errorMessage =
+        error instanceof Error ? error.message : OAuthMessages.CALLBACK_FAILED;
+      throw new BadRequestException(errorMessage);
     }
   }
 
@@ -342,7 +388,7 @@ export class AuthService {
       });
 
       if (!dbUser) {
-        throw new UnauthorizedException('Usuario no encontrado');
+        throw new UnauthorizedException(SessionMessages.INVALID_TOKEN);
       }
 
       // Generate new access token
@@ -363,7 +409,9 @@ export class AuthService {
       if (error instanceof UnauthorizedException) {
         throw error;
       }
-      throw new BadRequestException('Error al refrescar el token');
+      const errorMessage =
+        error instanceof Error ? error.message : SessionMessages.REFRESH_TOKEN_FAILED;
+      throw new BadRequestException(errorMessage);
     }
   }
 }
