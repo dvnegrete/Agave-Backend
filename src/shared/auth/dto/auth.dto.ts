@@ -1,4 +1,15 @@
-import { IsEmail, IsString, IsOptional } from 'class-validator';
+import {
+  IsEmail,
+  IsString,
+  IsOptional,
+  IsInt,
+  Min,
+  Max,
+} from 'class-validator';
+import {
+  MAX_HOUSE_NUMBER,
+  MIN_HOUSE_NUMBER,
+} from '@/shared/config/business-rules.config';
 
 export class SignUpDto {
   @IsEmail()
@@ -14,6 +25,12 @@ export class SignUpDto {
   @IsString()
   @IsOptional()
   lastName?: string;
+
+  @IsInt()
+  @Min(MAX_HOUSE_NUMBER)
+  @Max(MIN_HOUSE_NUMBER)
+  @IsOptional()
+  houseNumber?: number;
 }
 
 export class SignInDto {

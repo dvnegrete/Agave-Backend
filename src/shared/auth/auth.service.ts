@@ -81,6 +81,7 @@ export class AuthService {
           data: {
             first_name: signUpDto.firstName,
             last_name: signUpDto.lastName,
+            claimed_house_number: signUpDto.houseNumber,
           },
         },
       });
