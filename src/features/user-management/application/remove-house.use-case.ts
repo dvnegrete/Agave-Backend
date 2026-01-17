@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { HouseRepository } from '@/shared/database/repositories/house.repository';
 import { UserRepository } from '@/shared/database/repositories/user.repository';
+import { SYSTEM_USER_ID } from '@/shared/config/business-rules.config';
 
 @Injectable()
 export class RemoveHouseUseCase {
@@ -29,11 +30,10 @@ export class RemoveHouseUseCase {
       );
     }
 
-    // Remove house assignment by setting user_id to null
-    // Note: This assumes user_id is nullable in the database
-    // If not nullable, consider alternative approaches (e.g., archive, reassign to default user)
+    // Reassign house to system user to maintain referential integrity
+    // This makes the house available for manual assignment or automatic reconciliation
     await this.houseRepository.update(house.id, {
-      user_id: null as any, // Cast to any to bypass type checking for null
+      user_id: SYSTEM_USER_ID,
     });
   }
 }
