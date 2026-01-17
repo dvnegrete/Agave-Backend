@@ -24,12 +24,14 @@ import {
   GetUsersUseCase,
   UpdateUserRoleUseCase,
   UpdateUserStatusUseCase,
+  UpdateUserObservationsUseCase,
   AssignHouseUseCase,
   RemoveHouseUseCase,
 } from '../application';
 import {
   UpdateUserRoleDto,
   UpdateUserStatusDto,
+  UpdateUserObservationsDto,
   AssignHouseDto,
   UserResponseDto,
 } from '../dto';
@@ -43,6 +45,7 @@ export class UserManagementController {
     private readonly getUsersUseCase: GetUsersUseCase,
     private readonly updateUserRoleUseCase: UpdateUserRoleUseCase,
     private readonly updateUserStatusUseCase: UpdateUserStatusUseCase,
+    private readonly updateUserObservationsUseCase: UpdateUserObservationsUseCase,
     private readonly assignHouseUseCase: AssignHouseUseCase,
     private readonly removeHouseUseCase: RemoveHouseUseCase,
   ) {}
@@ -114,6 +117,7 @@ export class UserManagementController {
       email: user.email,
       cel_phone: user.cel_phone,
       houses: (user.houses || []).map((house) => house.number_house),
+      observations: user.observations,
       created_at: user.created_at,
       updated_at: user.updated_at,
     };
@@ -163,6 +167,57 @@ export class UserManagementController {
       email: user.email,
       cel_phone: user.cel_phone,
       houses: (user.houses || []).map((house) => house.number_house),
+      observations: user.observations,
+      created_at: user.created_at,
+      updated_at: user.updated_at,
+    };
+  }
+
+  /**
+   * PATCH /user-management/users/:userId/observations
+   * Actualiza las observaciones de un usuario
+   */
+  @Patch('users/:userId/observations')
+  @ApiOperation({
+    summary: 'Actualizar observaciones de usuario',
+    description:
+      'Actualiza las observaciones de un usuario existente. Solo accesible para administradores.',
+  })
+  @ApiParam({
+    name: 'userId',
+    type: 'string',
+    format: 'uuid',
+    description: 'ID único del usuario a actualizar',
+  })
+  @ApiBody({
+    type: UpdateUserObservationsDto,
+    description: 'Nuevas observaciones para el usuario',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Observaciones actualizadas exitosamente',
+    type: UserResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Usuario no encontrado',
+  })
+  async updateUserObservations(
+    @Param('userId') userId: string,
+    @Body() dto: UpdateUserObservationsDto,
+  ): Promise<UserResponseDto> {
+    const user = await this.updateUserObservationsUseCase.execute(userId, dto);
+
+    // Transform to response DTO
+    return {
+      id: user.id,
+      role: user.role,
+      status: user.status,
+      name: user.name,
+      email: user.email,
+      cel_phone: user.cel_phone,
+      houses: (user.houses || []).map((house) => house.number_house),
+      observations: user.observations,
       created_at: user.created_at,
       updated_at: user.updated_at,
     };

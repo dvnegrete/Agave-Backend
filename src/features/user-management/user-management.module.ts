@@ -13,6 +13,7 @@ import {
   GetUsersUseCase,
   UpdateUserRoleUseCase,
   UpdateUserStatusUseCase,
+  UpdateUserObservationsUseCase,
   AssignHouseUseCase,
   RemoveHouseUseCase,
 } from './application';
@@ -31,6 +32,7 @@ import {
     GetUsersUseCase,
     UpdateUserRoleUseCase,
     UpdateUserStatusUseCase,
+    UpdateUserObservationsUseCase,
     AssignHouseUseCase,
     RemoveHouseUseCase,
     // Repositories

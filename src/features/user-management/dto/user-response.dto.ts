@@ -59,6 +59,14 @@ export class UserResponseDto {
 
   @ApiProperty({
     type: 'string',
+    nullable: true,
+    description: 'Observaciones sobre el usuario',
+    example: 'Usuario verificado, sin deudas pendientes',
+  })
+  observations: string | null;
+
+  @ApiProperty({
+    type: 'string',
     format: 'date-time',
     description: 'Fecha de creación del usuario',
   })
