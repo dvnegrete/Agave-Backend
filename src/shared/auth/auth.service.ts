@@ -84,6 +84,42 @@ export class AuthService {
   async signUp(signUpDto: SignUpDto): Promise<AuthResponseDto> {
     this.ensureEnabled();
     try {
+      // Check if user already exists (prevents duplicate registrations)
+      if (this.supabaseAdminClient) {
+        try {
+          const { data: existingUsers, error: lookupError } =
+            await this.supabaseAdminClient.auth.admin.listUsers();
+
+          if (existingUsers && existingUsers.users.length > 0) {
+            const userExists = existingUsers.users.find(
+              (user) => user.email === signUpDto.email,
+            );
+
+            if (userExists) {
+              this.logger.log(
+                `Signup attempt with already registered email: ${signUpDto.email}`,
+              );
+              throw new BadRequestException(
+                SignUpMessages.EMAIL_ALREADY_REGISTERED,
+              );
+            }
+          }
+
+          if (lookupError) {
+            this.logger.error(
+              `Error checking existing users: ${lookupError.message}`,
+            );
+          }
+        } catch (checkError) {
+          // Only throw if it's not a lookup error
+          if (checkError instanceof BadRequestException) {
+            throw checkError;
+          }
+          // Log but continue if it's just a lookup error
+          this.logger.error('Error during duplicate email check:', checkError);
+        }
+      }
+
       const { data, error } = await this.supabaseClient!.auth.signUp({
         email: signUpDto.email,
         password: signUpDto.password,
