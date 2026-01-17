@@ -16,6 +16,7 @@ import {
   UpdateUserObservationsUseCase,
   AssignHouseUseCase,
   RemoveHouseUseCase,
+  DeleteUserUseCase,
 } from './application';
 
 // Repositories
@@ -35,6 +36,7 @@ import {
     UpdateUserObservationsUseCase,
     AssignHouseUseCase,
     RemoveHouseUseCase,
+    DeleteUserUseCase,
     // Repositories
     UserRepository,
     HouseRepository,

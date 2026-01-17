@@ -4,7 +4,6 @@ import {
   Body,
   Get,
   UseGuards,
-  Query,
   HttpCode,
   HttpStatus,
   Res,

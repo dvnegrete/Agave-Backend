@@ -27,6 +27,7 @@ import {
   UpdateUserObservationsUseCase,
   AssignHouseUseCase,
   RemoveHouseUseCase,
+  DeleteUserUseCase,
 } from '../application';
 import {
   UpdateUserRoleDto,
@@ -48,6 +49,7 @@ export class UserManagementController {
     private readonly updateUserObservationsUseCase: UpdateUserObservationsUseCase,
     private readonly assignHouseUseCase: AssignHouseUseCase,
     private readonly removeHouseUseCase: RemoveHouseUseCase,
+    private readonly deleteUserUseCase: DeleteUserUseCase,
   ) {}
 
   /**
@@ -322,6 +324,53 @@ export class UserManagementController {
 
     return {
       message: `Casa ${houseNumber} removida del usuario exitosamente`,
+    };
+  }
+
+  /**
+   * DELETE /user-management/users/:userId
+   * Elimina un usuario del sistema
+   */
+  @Delete('users/:userId')
+  @ApiOperation({
+    summary: 'Eliminar usuario',
+    description:
+      'Elimina un usuario del sistema permanentemente. No se puede eliminar el usuario sistema, usuarios con casas asignadas, ni usuarios con aprobaciones manuales registradas. Solo accesible para administradores.',
+  })
+  @ApiParam({
+    name: 'userId',
+    type: 'string',
+    format: 'uuid',
+    description: 'ID único del usuario a eliminar',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Usuario eliminado exitosamente',
+    schema: {
+      type: 'object',
+      properties: {
+        message: {
+          type: 'string',
+          example: 'Usuario eliminado exitosamente',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'No se puede eliminar el usuario del sistema, usuario con casas asignadas, o usuario con aprobaciones manuales',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Usuario no encontrado',
+  })
+  async deleteUser(
+    @Param('userId') userId: string,
+  ): Promise<{ message: string }> {
+    await this.deleteUserUseCase.execute(userId);
+
+    return {
+      message: 'Usuario eliminado exitosamente',
     };
   }
 }
