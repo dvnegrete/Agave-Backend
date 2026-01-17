@@ -8,7 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Response } from 'express';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient, Provider } from '@supabase/supabase-js';
 import {
   SignUpDto,
   SignInDto,
@@ -32,8 +32,8 @@ import {
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
-  private supabaseClient;
-  private supabaseAdminClient;
+  private supabaseClient: SupabaseClient | null = null;
+  private supabaseAdminClient: SupabaseClient | null = null;
   private isEnabled = false;
 
   constructor(
@@ -84,7 +84,7 @@ export class AuthService {
   async signUp(signUpDto: SignUpDto): Promise<AuthResponseDto> {
     this.ensureEnabled();
     try {
-      const { data, error } = await this.supabaseClient.auth.signUp({
+      const { data, error } = await this.supabaseClient!.auth.signUp({
         email: signUpDto.email,
         password: signUpDto.password,
         options: {
@@ -147,7 +147,7 @@ export class AuthService {
   async signIn(signInDto: SignInDto, res: Response): Promise<AuthResponseDto> {
     this.ensureEnabled();
     try {
-      const { data, error } = await this.supabaseClient.auth.signInWithPassword(
+      const { data, error } = await this.supabaseClient!.auth.signInWithPassword(
         {
           email: signInDto.email,
           password: signInDto.password,
@@ -162,14 +162,37 @@ export class AuthService {
         throw new UnauthorizedException(SignInMessages.AUTH_FAILED);
       }
 
-      // Get user from PostgreSQL database with houses
-      const dbUser = await this.userRepository.findOne({
+      // Get or create user in PostgreSQL database with houses
+      let dbUser = await this.userRepository.findOne({
         where: { email: data.user.email! },
         relations: { houses: true },
       });
 
       if (!dbUser) {
-        throw new BadRequestException(SignInMessages.USER_NOT_FOUND);
+        // Create new user automatically on first sign in
+        // This follows the same pattern as OAuth callback (lines 336-346)
+        const firstName = data.user.user_metadata?.first_name as string | undefined;
+        const lastName = data.user.user_metadata?.last_name as string | undefined;
+        const claimedHouseNumber = data.user.user_metadata
+          ?.claimed_house_number as number | undefined;
+
+        dbUser = this.userRepository.create({
+          id: data.user.id,
+          email: data.user.email!,
+          name: firstName && lastName
+            ? `${firstName} ${lastName}`.trim()
+            : data.user.email!,
+          status: Status.ACTIVE,
+          role: Role.TENANT,
+          observations: claimedHouseNumber
+            ? `Casa reclamada durante registro: ${claimedHouseNumber}`
+            : undefined,
+        });
+
+        await this.userRepository.save(dbUser);
+        this.logger.log(
+          `New user auto-created on sign in: ${data.user.email} (claimed house: ${claimedHouseNumber || 'none'})`,
+        );
       }
 
       // Generate backend JWT tokens
@@ -211,8 +234,8 @@ export class AuthService {
   async signInWithOAuth(oAuthDto: OAuthSignInDto): Promise<{ url: string }> {
     this.ensureEnabled();
     try {
-      const { data, error } = await this.supabaseClient.auth.signInWithOAuth({
-        provider: oAuthDto.provider as any,
+      const { data, error } = await this.supabaseClient!.auth.signInWithOAuth({
+        provider: oAuthDto.provider as Provider,
         options: {
           redirectTo: `${this.configService.get('FRONTEND_URL')}/auth/callback`,
         },
@@ -239,7 +262,7 @@ export class AuthService {
   ): Promise<AuthResponseDto> {
     this.ensureEnabled();
     try {
-      const { data, error } = await this.supabaseClient.auth.refreshSession({
+      const { data, error } = await this.supabaseClient!.auth.refreshSession({
         refresh_token: refreshTokenDto.refreshToken,
       });
 
@@ -252,7 +275,6 @@ export class AuthService {
       }
 
       return {
-        accessToken: data.session.access_token,
         refreshToken: data.session.refresh_token,
         user: {
           id: data.user.id,
@@ -274,7 +296,7 @@ export class AuthService {
   async signOut(): Promise<void> {
     this.ensureEnabled();
     try {
-      const { error } = await this.supabaseClient.auth.signOut();
+      const { error } = await this.supabaseClient!.auth.signOut();
       if (error) {
         const errorMessage = mapSupabaseErrorToSpanish(error.message);
         throw new BadRequestException(errorMessage);
@@ -295,7 +317,7 @@ export class AuthService {
       const {
         data: { user },
         error,
-      } = await this.supabaseClient.auth.getUser(accessToken);
+      } = await this.supabaseClient!.auth.getUser(accessToken);
 
       if (error) {
         throw new UnauthorizedException(SessionMessages.INVALID_TOKEN);
@@ -322,7 +344,7 @@ export class AuthService {
       const {
         data: { user },
         error,
-      } = await this.supabaseClient.auth.getUser(accessToken);
+      } = await this.supabaseClient!.auth.getUser(accessToken);
 
       if (error || !user) {
         throw new UnauthorizedException(OAuthMessages.INVALID_TOKEN);
