@@ -477,4 +477,22 @@ export class AuthService {
       throw new BadRequestException(errorMessage);
     }
   }
+
+  // TODO: Implement deleteUser method to remove user from Supabase when deleting from our system
+  async deleteUserFromSupabase(userId: User): Promise<any> {
+    this.ensureEnabled();
+
+    if (!this.supabaseAdminClient) {
+      throw new BadRequestException(
+        GenericErrorMessages.AUTH_SERVICE_UNAVAILABLE,
+      );
+    }
+
+    const { error, data } =
+      await this.supabaseAdminClient.auth.admin.deleteUser(userId.id);
+    if (error) {
+      this.logger.error(error);
+    }
+    return data;
+  }
 }

@@ -330,6 +330,7 @@ export class UserManagementController {
   /**
    * DELETE /user-management/users/:userId
    * Elimina un usuario del sistema
+   * TODO: Falta eliminar de supabase al usuario
    */
   @Delete('users/:userId')
   @ApiOperation({
