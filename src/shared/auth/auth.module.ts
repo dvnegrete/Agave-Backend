@@ -8,6 +8,7 @@ import { AuthGuard } from './guards/auth.guard';
 import { RoleGuard } from './guards/roles.guard';
 import { HouseOwnershipGuard } from './guards/house-ownership.guard';
 import { JwtAuthService } from './services/jwt-auth.service';
+import { FirebaseAuthConfig } from './services/firebase-auth.config';
 import { User } from '../database/entities/user.entity';
 import { House } from '../database/entities/house.entity';
 
@@ -25,7 +26,21 @@ import { House } from '../database/entities/house.entity';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, AuthGuard, RoleGuard, HouseOwnershipGuard, JwtAuthService],
-  exports: [AuthService, AuthGuard, RoleGuard, HouseOwnershipGuard, JwtAuthService],
+  providers: [
+    AuthService,
+    FirebaseAuthConfig,
+    AuthGuard,
+    RoleGuard,
+    HouseOwnershipGuard,
+    JwtAuthService,
+  ],
+  exports: [
+    AuthService,
+    FirebaseAuthConfig,
+    AuthGuard,
+    RoleGuard,
+    HouseOwnershipGuard,
+    JwtAuthService,
+  ],
 })
 export class AuthModule {}

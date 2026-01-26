@@ -13,11 +13,8 @@ import {
 import { AuthValidationMessages } from '@/shared/content/messages';
 
 export class SignUpDto {
-  @IsEmail({}, { message: AuthValidationMessages.EMAIL_INVALID })
-  email: string;
-
-  @IsString({ message: AuthValidationMessages.PASSWORD_REQUIRED })
-  password: string;
+  @IsString({ message: AuthValidationMessages.ACCESS_TOKEN_INVALID })
+  idToken: string;
 
   @IsString({ message: AuthValidationMessages.FIRST_NAME_INVALID })
   @IsOptional()
@@ -39,16 +36,8 @@ export class SignUpDto {
 }
 
 export class SignInDto {
-  @IsEmail({}, { message: AuthValidationMessages.EMAIL_INVALID })
-  email: string;
-
-  @IsString({ message: AuthValidationMessages.PASSWORD_REQUIRED })
-  password: string;
-}
-
-export class OAuthSignInDto {
-  @IsString({ message: AuthValidationMessages.PROVIDER_INVALID })
-  provider: 'google' | 'facebook' | 'github' | 'twitter' | 'discord';
+  @IsString({ message: AuthValidationMessages.ACCESS_TOKEN_INVALID })
+  idToken: string;
 }
 
 export class RefreshTokenDto {
@@ -58,7 +47,7 @@ export class RefreshTokenDto {
 
 export class OAuthCallbackDto {
   @IsString({ message: AuthValidationMessages.ACCESS_TOKEN_INVALID })
-  accessToken: string;
+  idToken: string;
 }
 
 export class AuthResponseDto {

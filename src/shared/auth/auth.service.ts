@@ -8,20 +8,18 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Response } from 'express';
-import { createClient, SupabaseClient, Provider } from '@supabase/supabase-js';
 import {
   SignUpDto,
   SignInDto,
-  OAuthSignInDto,
   RefreshTokenDto,
   AuthResponseDto,
+  OAuthCallbackDto,
 } from './dto/auth.dto';
-import { User } from '@supabase/supabase-js';
 import { User as DbUser } from '../database/entities/user.entity';
 import { Status, Role } from '../database/entities/enums';
 import { JwtAuthService } from './services/jwt-auth.service';
+import { FirebaseAuthConfig } from './services/firebase-auth.config';
 import {
-  mapSupabaseErrorToSpanish,
   SignUpMessages,
   SignInMessages,
   OAuthMessages,
@@ -32,49 +30,17 @@ import {
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
-  private supabaseClient: SupabaseClient | null = null;
-  private supabaseAdminClient: SupabaseClient | null = null;
-  private isEnabled = false;
 
   constructor(
     private configService: ConfigService,
     @InjectRepository(DbUser)
     private userRepository: Repository<DbUser>,
     private jwtAuthService: JwtAuthService,
-  ) {
-    // Inicializar clientes de Supabase usando ConfigService
-    const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
-    const supabaseAnonKey = this.configService.get<string>('SUPABASE_ANON_KEY');
-    const supabaseServiceRoleKey = this.configService.get<string>(
-      'SUPABASE_SERVICE_ROLE_KEY',
-    );
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      this.logger.warn(
-        'Configuración de Supabase incompleta. El servicio de autenticación no estará disponible.',
-      );
-      return;
-    }
-
-    try {
-      this.supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
-
-      if (supabaseServiceRoleKey) {
-        this.supabaseAdminClient = createClient(
-          supabaseUrl,
-          supabaseServiceRoleKey,
-        );
-      }
-
-      this.isEnabled = true;
-      this.logger.log('Servicio de autenticación de Supabase inicializado correctamente');
-    } catch (error) {
-      this.logger.error('Error al inicializar el cliente de Supabase:', error);
-    }
-  }
+    private firebaseConfig: FirebaseAuthConfig,
+  ) {}
 
   private ensureEnabled() {
-    if (!this.isEnabled) {
+    if (!this.firebaseConfig.isEnabled()) {
       throw new BadRequestException(
         GenericErrorMessages.AUTH_SERVICE_UNAVAILABLE,
       );
@@ -84,98 +50,103 @@ export class AuthService {
   async signUp(signUpDto: SignUpDto): Promise<AuthResponseDto> {
     this.ensureEnabled();
     try {
-      // Check if user already exists (prevents duplicate registrations)
-      if (this.supabaseAdminClient) {
-        try {
-          const { data: existingUsers, error: lookupError } =
-            await this.supabaseAdminClient.auth.admin.listUsers();
+      const auth = this.firebaseConfig.getAuth();
 
-          if (existingUsers && existingUsers.users.length > 0) {
-            const userExists = existingUsers.users.find(
-              (user) => user.email === signUpDto.email,
-            );
+      // 1. Verificar y decodificar idToken de Firebase
+      let decodedToken;
+      try {
+        decodedToken = await auth.verifyIdToken(signUpDto.idToken);
+      } catch (error) {
+        this.logger.error('idToken inválido en signup:', error);
+        throw new UnauthorizedException(SignUpMessages.ACCOUNT_CREATION_FAILED);
+      }
 
-            if (userExists) {
-              this.logger.log(
-                `Signup attempt with already registered email: ${signUpDto.email}`,
-              );
-              throw new BadRequestException(
-                SignUpMessages.EMAIL_ALREADY_REGISTERED,
-              );
-            }
-          }
+      // 2. Obtener usuario completo de Firebase
+      let firebaseUser;
+      try {
+        firebaseUser = await auth.getUser(decodedToken.uid);
+      } catch (error) {
+        this.logger.error('Error obteniendo usuario de Firebase:', error);
+        throw new UnauthorizedException(SignUpMessages.ACCOUNT_CREATION_FAILED);
+      }
 
-          if (lookupError) {
-            this.logger.error(
-              `Error checking existing users: ${lookupError.message}`,
-            );
-          }
-        } catch (checkError) {
-          // Only throw if it's not a lookup error
-          if (checkError instanceof BadRequestException) {
-            throw checkError;
-          }
-          // Log but continue if it's just a lookup error
-          this.logger.error('Error during duplicate email check:', checkError);
+      const email = firebaseUser.email!;
+
+      // 3. Verificar si el usuario ya existe en PostgreSQL
+      const existingUser = await this.userRepository.findOne({
+        where: { email },
+      });
+
+      if (existingUser) {
+        this.logger.log(
+          `Intento de signup con email ya registrado en DB: ${email}`,
+        );
+        throw new BadRequestException(
+          SignUpMessages.EMAIL_ALREADY_REGISTERED,
+        );
+      }
+
+      // 4. Actualizar displayName en Firebase si es necesario
+      if (signUpDto.firstName || signUpDto.lastName) {
+        const displayName = signUpDto.firstName && signUpDto.lastName
+          ? `${signUpDto.firstName} ${signUpDto.lastName}`
+          : undefined;
+
+        if (displayName) {
+          await auth.updateUser(firebaseUser.uid, { displayName });
         }
       }
 
-      const { data, error } = await this.supabaseClient!.auth.signUp({
-        email: signUpDto.email,
-        password: signUpDto.password,
-        options: {
-          data: {
-            first_name: signUpDto.firstName,
-            last_name: signUpDto.lastName,
-            claimed_house_number: signUpDto.houseNumber,
-          },
-        },
+      // 5. Guardar metadata en custom claims de Firebase
+      if (signUpDto.firstName || signUpDto.lastName || signUpDto.houseNumber) {
+        await auth.setCustomUserClaims(firebaseUser.uid, {
+          firstName: signUpDto.firstName,
+          lastName: signUpDto.lastName,
+          claimedHouseNumber: signUpDto.houseNumber,
+        });
+      }
+
+      // 6. Crear usuario en PostgreSQL
+      const dbUser = this.userRepository.create({
+        id: firebaseUser.uid,
+        email,
+        name: signUpDto.firstName && signUpDto.lastName
+          ? `${signUpDto.firstName} ${signUpDto.lastName}`.trim()
+          : email,
+        status: Status.ACTIVE,
+        role: Role.TENANT,
+        observations: signUpDto.houseNumber
+          ? `Casa reclamada durante registro: ${signUpDto.houseNumber}`
+          : undefined,
       });
 
-      if (error) {
-        // Map Supabase errors to Spanish messages
-        const errorMessage = mapSupabaseErrorToSpanish(error.message);
-        throw new BadRequestException(errorMessage);
-      }
+      await this.userRepository.save(dbUser);
+      this.logger.log(
+        `Usuario creado exitosamente: ${email} (firebase: ${firebaseUser.uid})`,
+      );
 
-      // User creation succeeded - data.user will exist
-      if (!data.user) {
-        throw new BadRequestException(SignUpMessages.ACCOUNT_CREATION_FAILED);
-      }
-
-      // If session is not available (e.g., email confirmation required),
-      // still return success with user data. User will need to confirm email first.
-      if (!data.session) {
-        this.logger.log(
-          `User created but session not available (email confirmation may be required): ${data.user.email}`,
-        );
-        return {
-          refreshToken: '', // Empty until user confirms email
-          user: {
-            id: data.user.id,
-            email: data.user.email!,
-            firstName: data.user.user_metadata?.first_name,
-            lastName: data.user.user_metadata?.last_name,
-          },
-          requiresEmailConfirmation: true,
-        };
-      }
+      // 7. Generar JWTs propios (no del proveedor)
+      const accessToken = await this.jwtAuthService.generateAccessToken(dbUser);
+      const refreshToken = await this.jwtAuthService.generateRefreshToken(dbUser);
 
       return {
-        refreshToken: data.session.refresh_token,
+        refreshToken,
         user: {
-          id: data.user.id,
-          email: data.user.email!,
-          firstName: data.user.user_metadata?.first_name,
-          lastName: data.user.user_metadata?.last_name,
+          id: dbUser.id,
+          email: dbUser.email!,
+          firstName: signUpDto.firstName,
+          lastName: signUpDto.lastName,
+          role: dbUser.role,
+          status: dbUser.status,
         },
         requiresEmailConfirmation: false,
       };
     } catch (error) {
-      if (error instanceof BadRequestException) {
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
         throw error;
       }
       const errorMessage = error instanceof Error ? error.message : 'Error interno del servidor';
+      this.logger.error('Error en signup:', errorMessage);
       throw new BadRequestException(errorMessage);
     }
   }
@@ -183,76 +154,69 @@ export class AuthService {
   async signIn(signInDto: SignInDto, res: Response): Promise<AuthResponseDto> {
     this.ensureEnabled();
     try {
-      const { data, error } = await this.supabaseClient!.auth.signInWithPassword(
-        {
-          email: signInDto.email,
-          password: signInDto.password,
-        },
-      );
+      const auth = this.firebaseConfig.getAuth();
 
-      if (error) {
+      // 1. Verificar y decodificar idToken de Firebase
+      let decodedToken;
+      try {
+        decodedToken = await auth.verifyIdToken(signInDto.idToken);
+      } catch (error) {
+        this.logger.error('idToken inválido en signin:', error);
         throw new UnauthorizedException(SignInMessages.INVALID_CREDENTIALS);
       }
 
-      if (!data.user || !data.session) {
-        throw new UnauthorizedException(SignInMessages.AUTH_FAILED);
+      // 2. Obtener usuario completo de Firebase
+      let firebaseUser;
+      try {
+        firebaseUser = await auth.getUser(decodedToken.uid);
+      } catch (error) {
+        this.logger.error('Error obteniendo usuario de Firebase:', error);
+        throw new UnauthorizedException(SignInMessages.INVALID_CREDENTIALS);
       }
 
-      // Get or create user in PostgreSQL database with houses
+      const email = firebaseUser.email!;
+
+      // 3. Buscar/crear usuario en PostgreSQL
       let dbUser = await this.userRepository.findOne({
-        where: { email: data.user.email! },
+        where: { email },
         relations: { houses: true },
       });
 
       if (!dbUser) {
-        // Create new user automatically on first sign in
-        // This follows the same pattern as OAuth callback (lines 336-346)
-        const firstName = data.user.user_metadata?.first_name as string | undefined;
-        const lastName = data.user.user_metadata?.last_name as string | undefined;
-        const claimedHouseNumber = data.user.user_metadata
-          ?.claimed_house_number as number | undefined;
-
+        // Auto-crear si no existe
         dbUser = this.userRepository.create({
-          id: data.user.id,
-          email: data.user.email!,
-          name: firstName && lastName
-            ? `${firstName} ${lastName}`.trim()
-            : data.user.email!,
+          id: firebaseUser.uid,
+          email,
+          name: firebaseUser.displayName || email,
           status: Status.ACTIVE,
           role: Role.TENANT,
-          observations: claimedHouseNumber
-            ? `Casa reclamada durante registro: ${claimedHouseNumber}`
-            : undefined,
         });
-
         await this.userRepository.save(dbUser);
-        this.logger.log(
-          `New user auto-created on sign in: ${data.user.email} (claimed house: ${claimedHouseNumber || 'none'})`,
-        );
+        this.logger.log(`Usuario auto-creado en signin: ${email}`);
       }
 
-      // Generate backend JWT tokens
+      // 4. Generar JWTs propios
       const accessToken = await this.jwtAuthService.generateAccessToken(dbUser);
       const refreshToken = await this.jwtAuthService.generateRefreshToken(dbUser);
 
-      // Set access token in httpOnly cookie
+      // 5. Establecer cookie de access token
       res.cookie('access_token', accessToken, {
         httpOnly: true,
         secure: this.configService.get<string>('NODE_ENV') === 'production',
         sameSite: 'lax',
-        maxAge: 15 * 60 * 1000, // 15 minutes
+        maxAge: 15 * 60 * 1000, // 15 minutos
       });
 
-      // Extract house numbers from houses relationship
+      // 6. Extraer números de casa si existen
       const houseNumbers = dbUser.houses?.map((house) => house.number_house) || [];
 
       return {
-        refreshToken: refreshToken,
+        refreshToken,
         user: {
           id: dbUser.id,
           email: dbUser.email!,
           firstName: dbUser.name?.split(' ')[0],
-          lastName: dbUser.name?.split(' ')[1],
+          lastName: dbUser.name?.split(' ').slice(1).join(' '),
           role: dbUser.role,
           status: dbUser.status,
           houses: houseNumbers,
@@ -263,162 +227,66 @@ export class AuthService {
         throw error;
       }
       const errorMessage = error instanceof Error ? error.message : 'Error interno del servidor';
-      throw new BadRequestException(errorMessage);
-    }
-  }
-
-  async signInWithOAuth(oAuthDto: OAuthSignInDto): Promise<{ url: string }> {
-    this.ensureEnabled();
-    try {
-      const { data, error } = await this.supabaseClient!.auth.signInWithOAuth({
-        provider: oAuthDto.provider as Provider,
-        options: {
-          redirectTo: `${this.configService.get('FRONTEND_URL')}/auth/callback`,
-        },
-      });
-
-      if (error) {
-        const errorMessage = mapSupabaseErrorToSpanish(error.message);
-        throw new BadRequestException(errorMessage);
-      }
-
-      return { url: data.url };
-    } catch (error) {
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-      const errorMessage =
-        error instanceof Error ? error.message : OAuthMessages.SIGNIN_FAILED;
-      throw new BadRequestException(errorMessage);
-    }
-  }
-
-  async refreshToken(
-    refreshTokenDto: RefreshTokenDto,
-  ): Promise<AuthResponseDto> {
-    this.ensureEnabled();
-    try {
-      const { data, error } = await this.supabaseClient!.auth.refreshSession({
-        refresh_token: refreshTokenDto.refreshToken,
-      });
-
-      if (error) {
-        throw new UnauthorizedException(SessionMessages.TOKEN_EXPIRED);
-      }
-
-      if (!data.user || !data.session) {
-        throw new UnauthorizedException(SessionMessages.REFRESH_FAILED);
-      }
-
-      return {
-        refreshToken: data.session.refresh_token,
-        user: {
-          id: data.user.id,
-          email: data.user.email!,
-          firstName: data.user.user_metadata?.first_name,
-          lastName: data.user.user_metadata?.last_name,
-        },
-      };
-    } catch (error) {
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      const errorMessage =
-        error instanceof Error ? error.message : SessionMessages.REFRESH_TOKEN_FAILED;
+      this.logger.error('Error en signin:', errorMessage);
       throw new BadRequestException(errorMessage);
     }
   }
 
   async signOut(): Promise<void> {
     this.ensureEnabled();
-    try {
-      const { error } = await this.supabaseClient!.auth.signOut();
-      if (error) {
-        const errorMessage = mapSupabaseErrorToSpanish(error.message);
-        throw new BadRequestException(errorMessage);
-      }
-    } catch (error) {
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-      const errorMessage =
-        error instanceof Error ? error.message : SessionMessages.SIGNOUT_FAILED;
-      throw new BadRequestException(errorMessage);
-    }
-  }
-
-  async getCurrentUser(accessToken: string): Promise<User | null> {
-    this.ensureEnabled();
-    try {
-      const {
-        data: { user },
-        error,
-      } = await this.supabaseClient!.auth.getUser(accessToken);
-
-      if (error) {
-        throw new UnauthorizedException(SessionMessages.INVALID_TOKEN);
-      }
-
-      return user;
-    } catch (error) {
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
-      const errorMessage =
-        error instanceof Error ? error.message : SessionMessages.CURRENT_USER_FETCH_FAILED;
-      throw new BadRequestException(errorMessage);
-    }
+    // Firebase signOut es manejado en el cliente con firebaseAuth.signOut()
+    // Backend solo limpia la cookie de access token, lo cual hace el controller
+    this.logger.log('Usuario desconectado');
   }
 
   async handleOAuthCallback(
-    accessToken: string,
+    callbackDto: OAuthCallbackDto,
     res: Response,
   ): Promise<{ refreshToken: string }> {
     this.ensureEnabled();
     try {
-      // Verify the access token with Supabase
-      const {
-        data: { user },
-        error,
-      } = await this.supabaseClient!.auth.getUser(accessToken);
+      const auth = this.firebaseConfig.getAuth();
 
-      if (error || !user) {
-        throw new UnauthorizedException(OAuthMessages.INVALID_TOKEN);
-      }
+      // Verificar el ID Token de Firebase
+      const decodedToken = await auth.verifyIdToken(callbackDto.idToken);
 
-      // Get or create user in PostgreSQL database
+      // Obtener usuario completo de Firebase
+      const firebaseUser = await auth.getUser(decodedToken.uid);
+
+      // Buscar en PostgreSQL
       let dbUser = await this.userRepository.findOne({
-        where: { email: user.email! },
+        where: { email: firebaseUser.email! },
       });
 
       if (!dbUser) {
-        // Create new user if doesn't exist (OAuth auto-registration)
+        // Crear nuevo usuario si no existe (auto-registro OAuth)
         dbUser = this.userRepository.create({
-          id: user.id,
-          email: user.email!,
-          name: user.user_metadata?.full_name || user.email!,
+          id: firebaseUser.uid,
+          email: firebaseUser.email!,
+          name: firebaseUser.displayName || firebaseUser.email!,
           status: Status.ACTIVE,
           role: Role.TENANT,
         });
         await this.userRepository.save(dbUser);
-        this.logger.log(`New user created from OAuth: ${user.email}`);
+        this.logger.log(`Nuevo usuario creado desde OAuth: ${firebaseUser.email}`);
+      } else {
+        // Actualizar last_login
+        dbUser.last_login = new Date();
+        await this.userRepository.save(dbUser);
       }
 
-      // Generate backend JWT tokens
-      const jwtAccessToken = await this.jwtAuthService.generateAccessToken(
-        dbUser,
-      );
+      // Generar JWTs propios
+      const jwtAccessToken = await this.jwtAuthService.generateAccessToken(dbUser);
       const refreshToken = await this.jwtAuthService.generateRefreshToken(dbUser);
 
-      // Set access token in httpOnly cookie
+      // Establecer cookie de access token
       res.cookie('access_token', jwtAccessToken, {
         httpOnly: true,
         secure: this.configService.get<string>('NODE_ENV') === 'production',
         sameSite: 'lax',
-        maxAge: 15 * 60 * 1000, // 15 minutes
+        maxAge: 15 * 60 * 1000, // 15 minutos
       });
 
-      // Return refresh token for client-side storage
       return { refreshToken };
     } catch (error) {
       if (error instanceof UnauthorizedException) {
@@ -427,7 +295,7 @@ export class AuthService {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      this.logger.error('OAuth callback error:', error);
+      this.logger.error('Error en callback OAuth:', error);
       const errorMessage =
         error instanceof Error ? error.message : OAuthMessages.CALLBACK_FAILED;
       throw new BadRequestException(errorMessage);
@@ -478,21 +346,4 @@ export class AuthService {
     }
   }
 
-  // TODO: Implement deleteUser method to remove user from Supabase when deleting from our system
-  async deleteUserFromSupabase(userId: User): Promise<any> {
-    this.ensureEnabled();
-
-    if (!this.supabaseAdminClient) {
-      throw new BadRequestException(
-        GenericErrorMessages.AUTH_SERVICE_UNAVAILABLE,
-      );
-    }
-
-    const { error, data } =
-      await this.supabaseAdminClient.auth.admin.deleteUser(userId.id);
-    if (error) {
-      this.logger.error(error);
-    }
-    return data;
-  }
 }

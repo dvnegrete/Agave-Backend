@@ -13,14 +13,13 @@ import { AuthService } from './auth.service';
 import {
   SignUpDto,
   SignInDto,
-  OAuthSignInDto,
   RefreshTokenDto,
   OAuthCallbackDto,
   AuthResponseDto,
 } from './dto/auth.dto';
 import { AuthGuard } from './guards/auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
-import { User } from '@supabase/supabase-js';
+import { User as DbUser } from '../database/entities/user.entity';
 
 @Controller('auth')
 export class AuthController {
@@ -41,20 +40,12 @@ export class AuthController {
     return this.authService.signIn(signInDto, res);
   }
 
-  @Post('oauth/signin')
-  @HttpCode(HttpStatus.OK)
-  async signInWithOAuth(
-    @Body() oAuthDto: OAuthSignInDto,
-  ): Promise<{ url: string }> {
-    return this.authService.signInWithOAuth(oAuthDto);
-  }
-
   @Post('oauth/callback')
   async handleOAuthCallback(
     @Body() dto: OAuthCallbackDto,
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ refreshToken: string }> {
-    return this.authService.handleOAuthCallback(dto.accessToken, res);
+    return this.authService.handleOAuthCallback(dto, res);
   }
 
   @Post('refresh')
@@ -78,7 +69,7 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(AuthGuard)
-  async getCurrentUser(@CurrentUser() user: User): Promise<User> {
+  async getCurrentUser(@CurrentUser() user: DbUser): Promise<DbUser> {
     return user;
   }
 
