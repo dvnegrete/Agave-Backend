@@ -4,12 +4,14 @@
 
 Este documento describe el esquema de base de datos completo del sistema Agave **versión 3.1.0**, incluyendo:
 - Transacciones bancarias y vouchers
-- Usuarios y casas
+- Usuarios y casas con autenticación Firebase
 - Sistema de gestión de pagos por período (Payment Management v3.0+)
 - Sistema de validación manual con auditoría (v3.1)
+- Verificación de email para usuarios (Email Verification)
 
 **Última actualización**: Enero 2026
 **Versión del esquema**: 3.1.0
+**Autenticación**: Firebase Auth con OAuth2 y email/password
 **Total de tablas**: 19
 **Total de ENUMs**: 6
 
@@ -18,33 +20,44 @@ Este documento describe el esquema de base de datos completo del sistema Agave *
 ### Vouchers & Houses Module
 
 #### users
-Tabla de usuarios del sistema con autenticación Supabase.
+Tabla de usuarios del sistema con autenticación Firebase.
 
 ```sql
 CREATE TABLE users (
-    id              UUID PRIMARY KEY,
-    role            role_t NOT NULL DEFAULT 'tenant',
-    status          status_t NOT NULL DEFAULT 'active',
-    name            VARCHAR(255),
-    email           VARCHAR(255),
-    cel_phone       NUMERIC,
-    avatar          TEXT,
-    last_login      TIMESTAMPTZ,
-    observations    TEXT,
-    created_at      TIMESTAMPTZ DEFAULT now(),
-    updated_at      TIMESTAMPTZ DEFAULT now()
+    id                  VARCHAR(128) PRIMARY KEY,
+    role                role_t NOT NULL DEFAULT 'tenant',
+    status              status_t NOT NULL DEFAULT 'active',
+    name                VARCHAR(255),
+    email               VARCHAR(255),
+    cel_phone           NUMERIC,
+    avatar              TEXT,
+    last_login          TIMESTAMPTZ,
+    email_verified      BOOLEAN NOT NULL DEFAULT false,
+    email_verified_at   TIMESTAMPTZ,
+    observations        TEXT,
+    created_at          TIMESTAMPTZ DEFAULT now(),
+    updated_at          TIMESTAMPTZ DEFAULT now()
 );
 ```
 
 **Columnas Principales:**
-- `id`: UUID primario (de Supabase Auth)
+- `id`: VARCHAR(128) primario - Soporta Firebase UIDs (28 caracteres) y UUIDs legacy (36 caracteres)
 - `role`: Rol del usuario (admin, owner, tenant)
 - `status`: Estado de la cuenta (active, suspend, inactive)
 - `email`: Correo electrónico del usuario
 - `cel_phone`: Número de teléfono internacional (NUMERIC)
 - `avatar`: URL del avatar del usuario
 - `last_login`: Último login registrado
+- `email_verified`: Booleano indicando si el email fue verificado (requerido para email/password signin)
+- `email_verified_at`: Timestamp de cuando se verificó el email (nullable)
 - `observations`: Notas sobre el usuario
+
+**Notas sobre Autenticación:**
+- **Firebase Auth:** Proporciona autenticación con email/password y OAuth (Google, Facebook, etc.)
+- **Email Verification:**
+  - Email/Password: Requiere verificación antes de permitir signin
+  - OAuth: Se marca como verificado automáticamente (OAuth provider ya lo verificó)
+- **ID Type Change:** Cambiado de `UUID` (Supabase) a `VARCHAR(128)` para soportar Firebase UIDs
 
 #### houses
 Tabla de casas/propiedades en el sistema.
@@ -53,7 +66,7 @@ Tabla de casas/propiedades en el sistema.
 CREATE TABLE houses (
     id              SERIAL PRIMARY KEY,
     number_house    INT UNIQUE NOT NULL,
-    user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id         VARCHAR(128) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     created_at      TIMESTAMPTZ DEFAULT now(),
     updated_at      TIMESTAMPTZ DEFAULT now()
 );
@@ -345,7 +358,7 @@ CREATE TABLE manual_validation_approvals (
     id                      SERIAL PRIMARY KEY,
     transaction_id          BIGINT NOT NULL REFERENCES transactions_bank(id) ON DELETE RESTRICT,
     voucher_id              INT REFERENCES vouchers(id) ON DELETE SET NULL,
-    approved_by_user_id     UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+    approved_by_user_id     VARCHAR(128) NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
     approval_notes          TEXT,
     rejection_reason        TEXT,
     approved_at             TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -521,13 +534,37 @@ ON transactions_bank (amount) WHERE amount > 10000;
 - **BOOLEAN para flags**: Eficiente para campos true/false
 
 ### Vouchers & Houses
+- **VARCHAR(128) para users.id**: Soporta Firebase UIDs (28 caracteres) y UUIDs legacy (36 caracteres)
 - **NUMERIC para cel_phone**: Almacena números E.164 sin perder precisión (10-15 dígitos)
-- **UUID para user_id**: Compatible con Supabase Auth
 - **SERIAL para house_id**: Permite múltiples records por casa
 - **INT UNIQUE para number_house**: Identifica casa única pero no es PK
 - **BIGSERIAL para vouchers**: Soporta gran volumen de comprobantes
+- **BOOLEAN para email_verified**: Indica si el email del usuario ha sido verificado (required para email/password auth)
 
 ## Migration History
+
+### 2026-01: Firebase Auth and Email Verification
+**Migrations:**
+- `1769459798239-ChangeUserIdToVarchar.ts` - Cambio de `users.id` de `uuid` a `varchar(128)`
+- `1769550000000-AddEmailVerificationFields.ts` - Adición de campos de verificación de email
+
+**Cambios:**
+1. Cambio de tipo `users.id`:
+   - De: `uuid NOT NULL UNIQUE`
+   - A: `varchar(128) NOT NULL` (soporta Firebase UIDs y UUIDs legacy)
+2. Adición de columnas de verificación:
+   - `email_verified: BOOLEAN NOT NULL DEFAULT false`
+   - `email_verified_at: TIMESTAMPTZ` (nullable)
+3. Actualización de tipos en:
+   - `houses.user_id`: `uuid` → `varchar(128)`
+   - `manual_validation_approvals.approved_by_user_id`: `uuid` → `varchar(128)`
+
+**Objetivo:**
+- Migración de Supabase Auth a Firebase Auth
+- Soporte para verificación de email en flujos email/password
+- OAuth skips email verification (provider ya lo verifica)
+
+**Documentación:** [Firebase Auth Setup Guide](../../FIREBASE_GOOGLE_OAUTH_SETUP.md)
 
 ### 2024-10-13: Voucher Registration with Multiple Tables
 **Migration:** `1729113600000-add-house-record-table-and-update-relations.ts`

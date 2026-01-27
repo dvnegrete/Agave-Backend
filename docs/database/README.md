@@ -4,8 +4,9 @@
 
 This directory contains comprehensive documentation for the Agave database module, including schema definitions, optimization guides, and feature-specific documentation.
 
-**Current Schema Version:** v3.1
+**Current Schema Version:** v3.1.0
 **Last Updated:** January 2026
+**Authentication:** Firebase Auth with OAuth2 and Email Verification
 
 ---
 
@@ -154,3 +155,4 @@ For questions or issues:
 4. Review migration history in setup.md
 
 Last updated: January 2026
+Contributors: Firebase Auth migration (users.id varchar(128), email_verified fields)

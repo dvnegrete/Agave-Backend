@@ -1,14 +1,15 @@
-# 🗄️ Database Setup Guide - Agave Payment Management v3.0+
+# 🗄️ Database Setup Guide - Agave Payment Management v3.1.0 + Firebase Auth
 
 ## Tabla de Contenidos
 
 1. [Requisitos Previos](#requisitos-previos)
 2. [Configuración Inicial](#configuración-inicial)
-3. [Estructura de la Base de Datos](#estructura-de-la-base-de-datos)
-4. [Migraciones](#migraciones)
-5. [Usuario Sistema Automático](#usuario-sistema-automático)
-6. [Tablas Principales](#tablas-principales)
-7. [Relaciones entre Entidades](#relaciones-entre-entidades)
+3. [Firebase Auth Setup](#firebase-auth-setup)
+4. [Estructura de la Base de Datos](#estructura-de-la-base-de-datos)
+5. [Migraciones](#migraciones)
+6. [Usuario Sistema Automático](#usuario-sistema-automático)
+7. [Tablas Principales](#tablas-principales)
+8. [Relaciones entre Entidades](#relaciones-entre-entidades)
 
 ---
 
@@ -72,6 +73,37 @@ npm install
 # o
 yarn install
 ```
+
+---
+
+## Firebase Auth Setup
+
+**IMPORTANTE:** La autenticación usa Firebase Auth en lugar de Supabase. Los UIDs de Firebase se almacenan en la columna `users.id` como `varchar(128)`.
+
+### Configuración de Firebase
+
+1. **Crear/Configurar Firebase Project:**
+   - Ir a https://console.firebase.google.com/
+   - Crear nuevo proyecto o usar existente
+   - Habilitar Firebase Authentication
+
+2. **Configurar OAuth Providers:**
+   - En Firebase Console → Authentication → Sign-in method
+   - Habilitar Google, Facebook, o los que necesites
+
+3. **Configurar Variables de Entorno:**
+   ```env
+   # Backend
+   FIREBASE_PROJECT_ID=your-project-id
+   FIREBASE_CLIENT_EMAIL=your-service-account@project.iam.gserviceaccount.com
+   FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+   ```
+
+4. **Configurar Redirect URLs:**
+   - En Firebase Console → Authentication → Settings → Authorized domains
+   - Agregar: `localhost`, `tu-dominio.com`, etc.
+
+**Más información:** Consultar [Firebase Google OAuth Setup Guide](../../FIREBASE_GOOGLE_OAUTH_SETUP.md)
 
 ---
 
@@ -170,10 +202,13 @@ El Usuario Sistema es una cuenta automática creada para procesos internos del s
 - Asignación automática de transacciones a casas
 - Procesos de auditoría
 
-**UUID:** `00000000-0000-0000-0000-000000000000`
+**ID:** `00000000-0000-0000-0000-000000000000` (UUID legacy, compatible con varchar(128))
 **Email:** `sistema@conciliacion.local`
 **Role:** `tenant`
 **Estado:** `active`
+**Email Verified:** `false` (no necesita verificación, es usuario del sistema)
+
+**Nota:** El ID es un UUID legacy que se almacena como varchar(128), permitiendo coexistencia con Firebase UIDs nuevos.
 
 ### Inicialización Automática
 
@@ -206,7 +241,43 @@ psql -U postgres -d agave_db -f src/shared/database/scripts/ensure-system-user.s
 
 ## Tablas Principales
 
-### 1. Transacciones Bancarias (`transactions_bank`)
+### 1. Usuarios (`users`)
+
+Almacena los usuarios del sistema con autenticación Firebase.
+
+```sql
+CREATE TABLE users (
+  id VARCHAR(128) PRIMARY KEY,          -- Firebase UID (28 chars) o UUID legacy (36 chars)
+  role role_t NOT NULL DEFAULT 'tenant',
+  status status_t NOT NULL DEFAULT 'active',
+  name VARCHAR(255),
+  email VARCHAR(255),
+  cel_phone NUMERIC,
+  avatar TEXT,
+  last_login TIMESTAMPTZ,
+  email_verified BOOLEAN NOT NULL DEFAULT false,
+  email_verified_at TIMESTAMPTZ,        -- Timestamp de verificación
+  observations TEXT,
+  created_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ
+);
+```
+
+**Campos Clave:**
+- `id`: Firebase UID o UUID (almacenado como varchar para flexibilidad)
+- `email_verified`: `false` por defecto para email/password, `true` para OAuth
+- `email_verified_at`: Se setea automáticamente al verificar email
+- `role`: admin, owner, o tenant
+- `status`: active, suspend, o inactive
+
+**Notas:**
+- Los signups con email/password requieren `email_verified: true` antes de poder hacer signin
+- Los logins OAuth auto-verifican el email (el provider OAuth ya lo verificó)
+- El timestamp `email_verified_at` es útil para auditoría
+
+---
+
+### 2. Transacciones Bancarias (`transactions_bank`)
 
 Almacena todas las transacciones importadas desde bancos.
 
@@ -233,7 +304,7 @@ CREATE TABLE transactions_bank (
 
 ---
 
-### 2. Períodos de Facturación (`periods`)
+### 3. Períodos de Facturación (`periods`)
 
 Define períodos mensuales para la gestión de pagos.
 
@@ -261,7 +332,7 @@ CREATE TABLE periods (
 
 ---
 
-### 3. Configuración de Período (`period_config`)
+### 4. Configuración de Período (`period_config`)
 
 Define los montos y reglas aplicables globalmente a un período.
 
@@ -288,7 +359,7 @@ CREATE TABLE period_config (
 
 ---
 
-### 4. Asignaciones de Registros (`record_allocations`)
+### 5. Asignaciones de Registros (`record_allocations`)
 
 Distribuye un pago entre conceptos específicos.
 
@@ -316,7 +387,7 @@ Pago recibido: $125,000 (Voucher#123)
 
 ---
 
-### 5. Saldos de Casa (`house_balances`)
+### 6. Saldos de Casa (`house_balances`)
 
 Rastreo de créditos y deudas acumuladas.
 
@@ -340,7 +411,7 @@ CREATE TABLE house_balances (
 
 ---
 
-### 6. Tablas de Conceptos (`cta_*`)
+### 7. Tablas de Conceptos (`cta_*`)
 
 Definen los conceptos de pago individuales por período.
 
@@ -552,5 +623,5 @@ WHERE idx_scan = 0;
 
 ---
 
-**Última actualización:** Enero 2025
-**Versión:** 3.0+ (Payment Management)
+**Última actualización:** Enero 2026
+**Versión:** 3.1.0 (Payment Management + Firebase Auth + Email Verification)
