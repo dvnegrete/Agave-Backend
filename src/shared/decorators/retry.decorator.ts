@@ -26,20 +26,24 @@ const DEFAULT_OPTIONS: RetryOptions = {
     // NO reintentar errores de configuración o permanentes
     const retryableMessages = [
       // Network errors
-      'ECONNREFUSED',
-      'ECONNRESET',
-      'ETIMEDOUT',
-      'EHOSTUNREACH',
-      'connect ENOENT',
-      'Connection refused',
-      'Connection reset',
-      'Connection timeout',
-      'Network is unreachable',
+      'econnrefused',
+      'econnreset',
+      'etimedout',
+      'ehostunreach',
+      'enoent',
+      'connection refused',
+      'connection reset',
+      'connection timeout',
+      'network is unreachable',
       'socket hang up',
-      'EPIPE',
-      'ENOTFOUND',
+      'epipe',
+      'enotfound',
       // Database transient errors
       'too many connections',
+      'connect timed out',
+      'broken pipe',
+      'read econnreset',      // Específico para "read ECONNRESET"
+      'write econnreset',     // Específico para "write ECONNRESET"
     ];
 
     // Errores que NUNCA debería reintentar
@@ -49,9 +53,35 @@ const DEFAULT_OPTIONS: RetryOptions = {
       'duplicate key',           // Constraint violation
       'permission denied',       // Auth error
       'does not exist',         // Schema error
+      'invalid input syntax',    // Parse error
+      'undefined table',         // Schema error
     ];
 
-    const errorStr = ((error as any)?.message || (error as any)?.code || '').toLowerCase();
+    // Extraer cadena de error de múltiples posibles localizaciones
+    let errorStr = '';
+
+    if (typeof error === 'string') {
+      errorStr = error.toLowerCase();
+    } else if (error instanceof Error) {
+      errorStr = error.message.toLowerCase();
+    } else if (typeof error === 'object' && error !== null) {
+      const anyError = error as any;
+      // Intentar múltiples propiedades donde TypeORM/PG puede poner el error
+      errorStr = (
+        anyError?.message ||
+        anyError?.code ||
+        anyError?.originalError?.message ||
+        anyError?.originalError?.code ||
+        anyError?.driverError?.message ||
+        anyError?.driverError?.code ||
+        ''
+      ).toString().toLowerCase();
+    }
+
+    // Si no hay mensaje de error, no reintentar (error desconocido)
+    if (!errorStr || errorStr === 'null' || errorStr === 'undefined') {
+      return false;
+    }
 
     // Si contiene mensajes no recuperables, NO reintentar
     if (nonRetryableMessages.some(msg => errorStr.includes(msg))) {
@@ -86,13 +116,15 @@ export function Retry(options: RetryOptions = {}) {
           // Si no es error retryable, fallar inmediatamente
           if (!config.retryableErrors!(error)) {
             const errorMsg = (error as any)?.message || String(error);
+            const errorCode = (error as any)?.code || (error as any)?.originalError?.code || 'UNKNOWN';
+            const errorDiagnostics = `${errorMsg} (code: ${errorCode})`;
             if (this.logger?.error) {
               this.logger.error(
-                `[${requestId}] ${methodName} - Non-retryable error on attempt ${attempt}: ${errorMsg}`,
+                `[${requestId}] ${methodName} - Non-retryable error on attempt ${attempt}: ${errorDiagnostics}`,
               );
             } else {
               console.error(
-                `[${requestId}] ${methodName} - Non-retryable error on attempt ${attempt}: ${errorMsg}`,
+                `[${requestId}] ${methodName} - Non-retryable error on attempt ${attempt}: ${errorDiagnostics}`,
               );
             }
             throw error;

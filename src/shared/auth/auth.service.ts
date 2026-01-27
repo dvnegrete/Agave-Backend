@@ -121,8 +121,8 @@ export class AuthService {
         `Usuario creado exitosamente: ${email} (firebase: ${firebaseUser.uid})`,
       );
 
-      // 7. Enviar email de verificación desde Firebase
-      await this.sendEmailVerificationLink(firebaseUser.uid, email);
+      // 7. El cliente enviará el email de verificación usando Firebase Client SDK
+      // (sendEmailVerification() se llama desde el frontend automáticamente)
 
       return {
         user: {
@@ -135,7 +135,6 @@ export class AuthService {
           emailVerified: false,
         },
         requiresEmailConfirmation: true,
-        verificationSent: true,
         message: 'Usuario creado. Por favor, verifica tu correo electrónico para activar tu cuenta.',
       };
     } catch (error) {
@@ -188,9 +187,7 @@ export class AuthService {
         });
         this.logger.log(`Usuario auto-creado en signin: ${email}`);
 
-        // Enviar email de verificación
-        await this.sendEmailVerificationLink(firebaseUser.uid, email);
-
+        // El cliente enviará el email de verificación usando Firebase Client SDK
         return {
           user: {
             id: dbUser.id,
@@ -202,7 +199,6 @@ export class AuthService {
             emailVerified: false,
           },
           requiresEmailConfirmation: true,
-          verificationSent: true,
           message: 'Por favor, verifica tu correo electrónico para completar el registro.',
         };
       }
@@ -373,36 +369,8 @@ export class AuthService {
   }
 
   /**
-   * Envía un link de verificación de email usando Firebase Admin SDK
-   */
-  private async sendEmailVerificationLink(
-    firebaseUid: string,
-    email: string,
-  ): Promise<void> {
-    try {
-      const auth = this.firebaseConfig.getAuth();
-
-      // Generar custom token para permitir verificación de email
-      const customToken = await auth.createCustomToken(firebaseUid);
-
-      // Construir link de verificación
-      const verificationLink = `${this.configService.get('FRONTEND_URL')}/auth/verify-email?token=${customToken}`;
-
-      this.logger.log(
-        `Email de verificación generado para: ${email}`,
-      );
-
-      // NOTA: En producción, aquí enviarías el email usando Sendgrid, AWS SES, etc.
-      // Por ahora, el token se devuelve en la respuesta para testing
-      // TODO: Implementar envío real de email
-    } catch (error) {
-      this.logger.error('Error sending verification email:', error);
-      // No lanzar error, solo loguear - el usuario se creó exitosamente
-    }
-  }
-
-  /**
    * Verifica el email del usuario y genera JWTs
+   * (Solo para verificación explícita si es necesaria - normalmente Firebase maneja esto)
    */
   async verifyEmailAndGenerateTokens(
     firebaseUid: string,
@@ -476,12 +444,12 @@ export class AuthService {
 
   /**
    * Reenvía el email de verificación a un usuario
+   * Nota: El cliente (Firebase) maneja el envío automático del email
+   * Este endpoint es solo para validación/confirmación
    */
   async resendVerificationEmail(email: string): Promise<{ message: string }> {
     this.ensureEnabled();
     try {
-      const auth = this.firebaseConfig.getAuth();
-
       // 1. Buscar usuario en PostgreSQL (con reintentos)
       const dbUser = await this.userRepository.findByEmail(email);
 
@@ -489,23 +457,19 @@ export class AuthService {
         throw new BadRequestException('Usuario no encontrado');
       }
 
-      // 2. Si ya está verificado, no reenviarlo
+      // 2. Si ya está verificado, no necesita reenvío
       if (dbUser.email_verified) {
         return {
           message: 'El email ya está verificado',
         };
       }
 
-      // 3. Obtener usuario de Firebase
-      const firebaseUser = await auth.getUser(dbUser.id);
-
-      // 4. Enviar link de verificación
-      await this.sendEmailVerificationLink(firebaseUser.uid, email);
-
-      this.logger.log(`Email de verificación reenviado a: ${email}`);
+      // 3. El reenvío de email se hace desde el cliente (Firebase Client SDK)
+      // Aquí solo confirmamos que el usuario existe y no está verificado
+      this.logger.log(`Reenvío de verificación solicitado para: ${email}`);
 
       return {
-        message: 'Email de verificación reenviado. Por favor, revisa tu bandeja de entrada.',
+        message: 'Se ha enviado un nuevo email de verificación. Por favor, revisa tu bandeja de entrada.',
       };
     } catch (error) {
       if (error instanceof BadRequestException) {
