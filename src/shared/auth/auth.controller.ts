@@ -79,4 +79,21 @@ export class AuthController {
       providers: ['google', 'facebook', 'github', 'twitter', 'discord'],
     };
   }
+
+  @Post('verify-email')
+  @HttpCode(HttpStatus.OK)
+  async verifyEmail(
+    @Body() verifyEmailDto: { firebaseUid: string },
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AuthResponseDto> {
+    return this.authService.verifyEmailAndGenerateTokens(verifyEmailDto.firebaseUid, res);
+  }
+
+  @Post('resend-verification-email')
+  @HttpCode(HttpStatus.OK)
+  async resendVerificationEmail(
+    @Body() resendDto: { email: string },
+  ): Promise<{ message: string }> {
+    return this.authService.resendVerificationEmail(resendDto.email);
+  }
 }

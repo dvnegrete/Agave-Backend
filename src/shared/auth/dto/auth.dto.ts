@@ -50,8 +50,18 @@ export class OAuthCallbackDto {
   idToken: string;
 }
 
+export class VerifyEmailDto {
+  @IsString({ message: 'Email verification link is required' })
+  verificationLink: string;
+}
+
+export class ResendVerificationEmailDto {
+  @IsEmail({}, { message: 'Email must be a valid email address' })
+  email: string;
+}
+
 export class AuthResponseDto {
-  refreshToken: string;
+  refreshToken?: string;
   user: {
     id: string;
     email: string;
@@ -60,6 +70,9 @@ export class AuthResponseDto {
     role?: string;
     status?: string;
     houses?: number[];
+    emailVerified?: boolean;
   };
   requiresEmailConfirmation?: boolean;
+  verificationSent?: boolean;
+  message?: string;
 }

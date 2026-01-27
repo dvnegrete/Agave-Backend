@@ -7,8 +7,10 @@ import { AuthService } from './auth.service';
 import { AuthGuard } from './guards/auth.guard';
 import { RoleGuard } from './guards/roles.guard';
 import { HouseOwnershipGuard } from './guards/house-ownership.guard';
+import { EmailVerificationGuard } from './guards/email-verification.guard';
 import { JwtAuthService } from './services/jwt-auth.service';
 import { FirebaseAuthConfig } from './services/firebase-auth.config';
+import { UserRepository } from '../database/repositories/user.repository';
 import { User } from '../database/entities/user.entity';
 import { House } from '../database/entities/house.entity';
 
@@ -29,17 +31,21 @@ import { House } from '../database/entities/house.entity';
   providers: [
     AuthService,
     FirebaseAuthConfig,
+    UserRepository,
     AuthGuard,
     RoleGuard,
     HouseOwnershipGuard,
+    EmailVerificationGuard,
     JwtAuthService,
   ],
   exports: [
     AuthService,
     FirebaseAuthConfig,
+    UserRepository,
     AuthGuard,
     RoleGuard,
     HouseOwnershipGuard,
+    EmailVerificationGuard,
     JwtAuthService,
   ],
 })

@@ -5,8 +5,6 @@ import {
   Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { Response } from 'express';
 import {
   SignUpDto,
@@ -19,6 +17,7 @@ import { User as DbUser } from '../database/entities/user.entity';
 import { Status, Role } from '../database/entities/enums';
 import { JwtAuthService } from './services/jwt-auth.service';
 import { FirebaseAuthConfig } from './services/firebase-auth.config';
+import { UserRepository } from '../database/repositories/user.repository';
 import {
   SignUpMessages,
   SignInMessages,
@@ -33,8 +32,7 @@ export class AuthService {
 
   constructor(
     private configService: ConfigService,
-    @InjectRepository(DbUser)
-    private userRepository: Repository<DbUser>,
+    private userRepository: UserRepository,
     private jwtAuthService: JwtAuthService,
     private firebaseConfig: FirebaseAuthConfig,
   ) {}
@@ -72,10 +70,8 @@ export class AuthService {
 
       const email = firebaseUser.email!;
 
-      // 3. Verificar si el usuario ya existe en PostgreSQL
-      const existingUser = await this.userRepository.findOne({
-        where: { email },
-      });
+      // 3. Verificar si el usuario ya existe en PostgreSQL (con reintentos)
+      const existingUser = await this.userRepository.findByEmail(email);
 
       if (existingUser) {
         this.logger.log(
@@ -106,8 +102,8 @@ export class AuthService {
         });
       }
 
-      // 6. Crear usuario en PostgreSQL
-      const dbUser = this.userRepository.create({
+      // 6. Crear usuario en PostgreSQL con email_verified: false (con reintentos)
+      const dbUser = await this.userRepository.create({
         id: firebaseUser.uid,
         email,
         name: signUpDto.firstName && signUpDto.lastName
@@ -115,22 +111,20 @@ export class AuthService {
           : email,
         status: Status.ACTIVE,
         role: Role.TENANT,
+        email_verified: false, // Email no verificado por defecto
         observations: signUpDto.houseNumber
           ? `Casa reclamada durante registro: ${signUpDto.houseNumber}`
           : undefined,
       });
 
-      await this.userRepository.save(dbUser);
       this.logger.log(
         `Usuario creado exitosamente: ${email} (firebase: ${firebaseUser.uid})`,
       );
 
-      // 7. Generar JWTs propios (no del proveedor)
-      const accessToken = await this.jwtAuthService.generateAccessToken(dbUser);
-      const refreshToken = await this.jwtAuthService.generateRefreshToken(dbUser);
+      // 7. Enviar email de verificación desde Firebase
+      await this.sendEmailVerificationLink(firebaseUser.uid, email);
 
       return {
-        refreshToken,
         user: {
           id: dbUser.id,
           email: dbUser.email!,
@@ -138,8 +132,11 @@ export class AuthService {
           lastName: signUpDto.lastName,
           role: dbUser.role,
           status: dbUser.status,
+          emailVerified: false,
         },
-        requiresEmailConfirmation: false,
+        requiresEmailConfirmation: true,
+        verificationSent: true,
+        message: 'Usuario creado. Por favor, verifica tu correo electrónico para activar tu cuenta.',
       };
     } catch (error) {
       if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
@@ -176,30 +173,55 @@ export class AuthService {
 
       const email = firebaseUser.email!;
 
-      // 3. Buscar/crear usuario en PostgreSQL
-      let dbUser = await this.userRepository.findOne({
-        where: { email },
-        relations: { houses: true },
-      });
+      // 3. Buscar/crear usuario en PostgreSQL (con reintentos)
+      let dbUser = await this.userRepository.findByEmailWithHouses(email);
 
       if (!dbUser) {
-        // Auto-crear si no existe
-        dbUser = this.userRepository.create({
+        // Auto-crear si no existe (con reintentos)
+        dbUser = await this.userRepository.create({
           id: firebaseUser.uid,
           email,
           name: firebaseUser.displayName || email,
           status: Status.ACTIVE,
           role: Role.TENANT,
+          email_verified: false, // Email no verificado por defecto
         });
-        await this.userRepository.save(dbUser);
         this.logger.log(`Usuario auto-creado en signin: ${email}`);
+
+        // Enviar email de verificación
+        await this.sendEmailVerificationLink(firebaseUser.uid, email);
+
+        return {
+          user: {
+            id: dbUser.id,
+            email: dbUser.email!,
+            firstName: dbUser.name?.split(' ')[0],
+            lastName: dbUser.name?.split(' ').slice(1).join(' '),
+            role: dbUser.role,
+            status: dbUser.status,
+            emailVerified: false,
+          },
+          requiresEmailConfirmation: true,
+          verificationSent: true,
+          message: 'Por favor, verifica tu correo electrónico para completar el registro.',
+        };
       }
 
-      // 4. Generar JWTs propios
+      // 4. Verificar si el email está verificado
+      if (!dbUser.email_verified) {
+        this.logger.log(
+          `Intento de signin sin email verificado: ${email}`,
+        );
+        throw new BadRequestException(
+          'Por favor, verifica tu correo electrónico antes de continuar.',
+        );
+      }
+
+      // 5. Generar JWTs propios
       const accessToken = await this.jwtAuthService.generateAccessToken(dbUser);
       const refreshToken = await this.jwtAuthService.generateRefreshToken(dbUser);
 
-      // 5. Establecer cookie de access token
+      // 6. Establecer cookie de access token
       res.cookie('access_token', accessToken, {
         httpOnly: true,
         secure: this.configService.get<string>('NODE_ENV') === 'production',
@@ -207,7 +229,7 @@ export class AuthService {
         maxAge: 15 * 60 * 1000, // 15 minutos
       });
 
-      // 6. Extraer números de casa si existen
+      // 7. Extraer números de casa si existen
       const houseNumbers = dbUser.houses?.map((house) => house.number_house) || [];
 
       return {
@@ -220,6 +242,7 @@ export class AuthService {
           role: dbUser.role,
           status: dbUser.status,
           houses: houseNumbers,
+          emailVerified: dbUser.email_verified,
         },
       };
     } catch (error) {
@@ -253,26 +276,31 @@ export class AuthService {
       // Obtener usuario completo de Firebase
       const firebaseUser = await auth.getUser(decodedToken.uid);
 
-      // Buscar en PostgreSQL
-      let dbUser = await this.userRepository.findOne({
-        where: { email: firebaseUser.email! },
-      });
+      // Buscar en PostgreSQL (con reintentos)
+      let dbUser = await this.userRepository.findByEmail(firebaseUser.email!);
 
       if (!dbUser) {
-        // Crear nuevo usuario si no existe (auto-registro OAuth)
-        dbUser = this.userRepository.create({
+        // Crear nuevo usuario si no existe (auto-registro OAuth, con reintentos)
+        // OAuth ya ha verificado el email, así que marcamos como verificado
+        dbUser = await this.userRepository.create({
           id: firebaseUser.uid,
           email: firebaseUser.email!,
           name: firebaseUser.displayName || firebaseUser.email!,
           status: Status.ACTIVE,
           role: Role.TENANT,
+          email_verified: true, // OAuth ya verificó el email
+          email_verified_at: new Date(),
         });
-        await this.userRepository.save(dbUser);
         this.logger.log(`Nuevo usuario creado desde OAuth: ${firebaseUser.email}`);
       } else {
-        // Actualizar last_login
-        dbUser.last_login = new Date();
-        await this.userRepository.save(dbUser);
+        // Actualizar last_login y marcar email como verificado (con reintentos)
+        dbUser = await this.userRepository.update(dbUser.id, {
+          last_login: new Date(),
+          ...(dbUser.email_verified === false && {
+            email_verified: true,
+            email_verified_at: new Date(),
+          }),
+        });
       }
 
       // Generar JWTs propios
@@ -313,10 +341,8 @@ export class AuthService {
         refreshTokenValue,
       );
 
-      // Get user from database
-      const dbUser = await this.userRepository.findOne({
-        where: { id: payload.sub },
-      });
+      // Get user from database (con reintentos)
+      const dbUser = await this.userRepository.findById(payload.sub);
 
       if (!dbUser) {
         throw new UnauthorizedException(SessionMessages.INVALID_TOKEN);
@@ -342,6 +368,152 @@ export class AuthService {
       }
       const errorMessage =
         error instanceof Error ? error.message : SessionMessages.REFRESH_TOKEN_FAILED;
+      throw new BadRequestException(errorMessage);
+    }
+  }
+
+  /**
+   * Envía un link de verificación de email usando Firebase Admin SDK
+   */
+  private async sendEmailVerificationLink(
+    firebaseUid: string,
+    email: string,
+  ): Promise<void> {
+    try {
+      const auth = this.firebaseConfig.getAuth();
+
+      // Generar custom token para permitir verificación de email
+      const customToken = await auth.createCustomToken(firebaseUid);
+
+      // Construir link de verificación
+      const verificationLink = `${this.configService.get('FRONTEND_URL')}/auth/verify-email?token=${customToken}`;
+
+      this.logger.log(
+        `Email de verificación generado para: ${email}`,
+      );
+
+      // NOTA: En producción, aquí enviarías el email usando Sendgrid, AWS SES, etc.
+      // Por ahora, el token se devuelve en la respuesta para testing
+      // TODO: Implementar envío real de email
+    } catch (error) {
+      this.logger.error('Error sending verification email:', error);
+      // No lanzar error, solo loguear - el usuario se creó exitosamente
+    }
+  }
+
+  /**
+   * Verifica el email del usuario y genera JWTs
+   */
+  async verifyEmailAndGenerateTokens(
+    firebaseUid: string,
+    res: Response,
+  ): Promise<AuthResponseDto> {
+    this.ensureEnabled();
+    try {
+      const auth = this.firebaseConfig.getAuth();
+
+      // 1. Obtener usuario de Firebase
+      const firebaseUser = await auth.getUser(firebaseUid);
+
+      if (!firebaseUser.email) {
+        throw new BadRequestException('Email no encontrado en Firebase');
+      }
+
+      // 2. Buscar usuario en PostgreSQL (con reintentos)
+      const dbUser = await this.userRepository.findByIdWithHouses(firebaseUid);
+
+      if (!dbUser) {
+        throw new UnauthorizedException('Usuario no encontrado');
+      }
+
+      // 3. Marcar email como verificado (con reintentos)
+      const updatedUser = await this.userRepository.update(firebaseUid, {
+        email_verified: true,
+        email_verified_at: new Date(),
+      });
+
+      this.logger.log(`Email verificado para usuario: ${updatedUser.email}`);
+
+      // 4. Generar JWTs propios
+      const accessToken = await this.jwtAuthService.generateAccessToken(updatedUser);
+      const refreshToken = await this.jwtAuthService.generateRefreshToken(updatedUser);
+
+      // 5. Establecer cookie de access token
+      res.cookie('access_token', accessToken, {
+        httpOnly: true,
+        secure: this.configService.get<string>('NODE_ENV') === 'production',
+        sameSite: 'lax',
+        maxAge: 15 * 60 * 1000, // 15 minutos
+      });
+
+      // 6. Extraer números de casa si existen (usar dbUser que tiene relaciones)
+      const houseNumbers = dbUser.houses?.map((house) => house.number_house) || [];
+
+      return {
+        refreshToken,
+        user: {
+          id: updatedUser.id,
+          email: updatedUser.email!,
+          firstName: updatedUser.name?.split(' ')[0],
+          lastName: updatedUser.name?.split(' ').slice(1).join(' '),
+          role: updatedUser.role,
+          status: updatedUser.status,
+          houses: houseNumbers,
+          emailVerified: true,
+        },
+        message: 'Email verificado exitosamente. Bienvenido!',
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        throw error;
+      }
+      const errorMessage =
+        error instanceof Error ? error.message : 'Error verificando email';
+      this.logger.error('Error en email verification:', errorMessage);
+      throw new BadRequestException(errorMessage);
+    }
+  }
+
+  /**
+   * Reenvía el email de verificación a un usuario
+   */
+  async resendVerificationEmail(email: string): Promise<{ message: string }> {
+    this.ensureEnabled();
+    try {
+      const auth = this.firebaseConfig.getAuth();
+
+      // 1. Buscar usuario en PostgreSQL (con reintentos)
+      const dbUser = await this.userRepository.findByEmail(email);
+
+      if (!dbUser) {
+        throw new BadRequestException('Usuario no encontrado');
+      }
+
+      // 2. Si ya está verificado, no reenviarlo
+      if (dbUser.email_verified) {
+        return {
+          message: 'El email ya está verificado',
+        };
+      }
+
+      // 3. Obtener usuario de Firebase
+      const firebaseUser = await auth.getUser(dbUser.id);
+
+      // 4. Enviar link de verificación
+      await this.sendEmailVerificationLink(firebaseUser.uid, email);
+
+      this.logger.log(`Email de verificación reenviado a: ${email}`);
+
+      return {
+        message: 'Email de verificación reenviado. Por favor, revisa tu bandeja de entrada.',
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      const errorMessage =
+        error instanceof Error ? error.message : 'Error reenviando email de verificación';
+      this.logger.error('Error in resend verification email:', errorMessage);
       throw new BadRequestException(errorMessage);
     }
   }

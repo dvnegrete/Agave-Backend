@@ -12,7 +12,7 @@ import { ManualValidationApproval } from './manual-validation-approval.entity';
 
 @Entity('users')
 export class User {
-  @PrimaryColumn('uuid')
+  @PrimaryColumn('varchar', { length: 128 })
   id: string;
 
   @Column({
@@ -46,6 +46,12 @@ export class User {
 
   @Column({ type: 'text', nullable: true })
   observations: string;
+
+  @Column({ type: 'boolean', default: false })
+  email_verified: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  email_verified_at: Date;
 
   @CreateDateColumn()
   created_at: Date;
