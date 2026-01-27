@@ -14,7 +14,7 @@ async function bootstrap() {
   console.log('🔍 Verificando conectividad con la Base de Datos...');
   const databaseHealthService = app.get(DatabaseHealthService);
   try {
-    await databaseHealthService.waitForDatabase(3, 2000);
+    await databaseHealthService.waitForDatabase(3, 3000);
   } catch (error) {
     console.error(
       '❌ No se puede conectar a la Base de Datos. Deteniendo aplicación.',
@@ -33,7 +33,7 @@ async function bootstrap() {
 
   // Habilitar CORS
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: process.env.FRONTEND_URL,
     credentials: true,
   });
 
