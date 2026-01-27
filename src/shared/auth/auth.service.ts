@@ -203,7 +203,22 @@ export class AuthService {
         };
       }
 
-      // 4. Verificar si el email está verificado
+      // 4. Sincronizar estado de verificación de email con Firebase
+      // Si Firebase marcó el email como verificado pero PostgreSQL no, actualizar
+      if (firebaseUser.emailVerified && !dbUser.email_verified) {
+        this.logger.log(
+          `Sincronizando email verificado en Firebase para: ${email}`,
+        );
+        dbUser = await this.userRepository.update(dbUser.id, {
+          email_verified: true,
+          email_verified_at: new Date(),
+        });
+        this.logger.log(
+          `Email sincronizado exitosamente para: ${email}`,
+        );
+      }
+
+      // 5. Verificar si el email está verificado
       if (!dbUser.email_verified) {
         this.logger.log(
           `Intento de signin sin email verificado: ${email}`,
@@ -213,11 +228,11 @@ export class AuthService {
         );
       }
 
-      // 5. Generar JWTs propios
+      // 6. Generar JWTs propios
       const accessToken = await this.jwtAuthService.generateAccessToken(dbUser);
       const refreshToken = await this.jwtAuthService.generateRefreshToken(dbUser);
 
-      // 6. Establecer cookie de access token
+      // 7. Establecer cookie de access token
       res.cookie('access_token', accessToken, {
         httpOnly: true,
         secure: this.configService.get<string>('NODE_ENV') === 'production',
@@ -225,7 +240,7 @@ export class AuthService {
         maxAge: 15 * 60 * 1000, // 15 minutos
       });
 
-      // 7. Extraer números de casa si existen
+      // 8. Extraer números de casa si existen
       const houseNumbers = dbUser.houses?.map((house) => house.number_house) || [];
 
       return {
