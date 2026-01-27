@@ -31,10 +31,35 @@ async function bootstrap() {
     }),
   );
 
-  // Habilitar CORS
+  // Habilitar CORS con validación dinámica del origen
+  const frontendUrl = process.env.FRONTEND_URL;
+
   app.enableCors({
-    origin: process.env.FRONTEND_URL,
+    origin: (origin, callback) => {
+      // En desarrollo local (sin origin en peticiones same-origin)
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      // Extraer dominio del origin (remover protocolo y puerto)
+      const originDomain = origin
+        .replace(/^https?:\/\//, '')
+        .split(':')[0];
+
+      const expectedDomain = frontendUrl
+        ?.replace(/^https?:\/\//, '')
+        .split(':')[0];
+
+      if (expectedDomain && originDomain === expectedDomain) {
+        callback(null, true);
+      } else {
+        console.warn(`❌ CORS rejected origin: ${origin} (expected: ${frontendUrl})`);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
   // Habilitar lectura de cookies

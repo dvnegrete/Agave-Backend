@@ -45,6 +45,23 @@ export class AuthService {
     }
   }
 
+  /**
+   * Determina si las cookies deben ser seguras basándose en el protocolo del FRONTEND_URL
+   * En Staging/Producción (HTTPS): secure = true
+   * En Desarrollo local (HTTP): secure = false
+   */
+  private getCookieSecureFlag(): boolean {
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL');
+
+    // Si no hay URL configurada, usar basado en NODE_ENV
+    if (!frontendUrl) {
+      return this.configService.get<string>('NODE_ENV') === 'production';
+    }
+
+    // Si la URL comienza con https://, usar secure: true
+    return frontendUrl.startsWith('https://');
+  }
+
   async signUp(signUpDto: SignUpDto): Promise<AuthResponseDto> {
     this.ensureEnabled();
     try {
@@ -235,7 +252,7 @@ export class AuthService {
       // 7. Establecer cookie de access token
       res.cookie('access_token', accessToken, {
         httpOnly: true,
-        secure: this.configService.get<string>('NODE_ENV') === 'production',
+        secure: this.getCookieSecureFlag(),
         sameSite: 'lax',
         maxAge: 15 * 60 * 1000, // 15 minutos
       });
@@ -321,7 +338,7 @@ export class AuthService {
       // Establecer cookie de access token
       res.cookie('access_token', jwtAccessToken, {
         httpOnly: true,
-        secure: this.configService.get<string>('NODE_ENV') === 'production',
+        secure: this.getCookieSecureFlag(),
         sameSite: 'lax',
         maxAge: 15 * 60 * 1000, // 15 minutos
       });
@@ -367,7 +384,7 @@ export class AuthService {
       // Set new access token in httpOnly cookie
       res.cookie('access_token', newAccessToken, {
         httpOnly: true,
-        secure: this.configService.get<string>('NODE_ENV') === 'production',
+        secure: this.getCookieSecureFlag(),
         sameSite: 'lax',
         maxAge: 15 * 60 * 1000, // 15 minutes
       });
@@ -424,7 +441,7 @@ export class AuthService {
       // 5. Establecer cookie de access token
       res.cookie('access_token', accessToken, {
         httpOnly: true,
-        secure: this.configService.get<string>('NODE_ENV') === 'production',
+        secure: this.getCookieSecureFlag(),
         sameSite: 'lax',
         maxAge: 15 * 60 * 1000, // 15 minutos
       });
