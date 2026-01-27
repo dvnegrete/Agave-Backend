@@ -329,8 +329,7 @@ export class UserManagementController {
 
   /**
    * DELETE /user-management/users/:userId
-   * Elimina un usuario del sistema
-   * TODO: Falta eliminar de supabase al usuario
+   * Elimina un usuario del sistema (BD y Firebase)
    */
   @Delete('users/:userId')
   @ApiOperation({
