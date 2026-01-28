@@ -19,7 +19,12 @@ export class AuthGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
-    const token = this.extractTokenFromCookie(request);
+
+    // Intentar obtener token de cookie o Authorization header
+    let token = this.extractTokenFromCookie(request);
+    if (!token) {
+      token = this.extractTokenFromAuthorizationHeader(request);
+    }
 
     if (!token) {
       throw new UnauthorizedException('Token de acceso requerido');
@@ -66,5 +71,24 @@ export class AuthGuard implements CanActivate {
 
   private extractTokenFromCookie(request: any): string | undefined {
     return request.cookies?.access_token;
+  }
+
+  /**
+   * Extrae el token del header Authorization: Bearer TOKEN
+   * Usado cuando cookies no están disponibles (dominios diferentes)
+   */
+  private extractTokenFromAuthorizationHeader(request: any): string | undefined {
+    const authHeader = request.headers?.authorization;
+    if (!authHeader) {
+      return undefined;
+    }
+
+    // Formato: "Bearer <token>"
+    const parts = authHeader.split(' ');
+    if (parts.length !== 2 || parts[0] !== 'Bearer') {
+      return undefined;
+    }
+
+    return parts[1];
   }
 }

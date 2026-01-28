@@ -61,7 +61,19 @@ export class ResendVerificationEmailDto {
 }
 
 export class AuthResponseDto {
+  /**
+   * Access token para enviar en Authorization header
+   * Usado cuando cookies no son disponibles (dominios diferentes)
+   * Token válido por 15 minutos
+   */
+  accessToken?: string;
+
+  /**
+   * Refresh token para renovar el access token
+   * Token válido por 7 días
+   */
   refreshToken?: string;
+
   user: {
     id: string;
     email: string;

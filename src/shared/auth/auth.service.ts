@@ -88,32 +88,51 @@ export class AuthService {
   }
 
   /**
-   * Extrae el dominio base de FRONTEND_URL para que las cookies sean compartidas
-   * entre frontend y backend en el mismo dominio raíz.
+   * Obtiene el dominio para las cookies desde COOKIE_DOMAIN (configurable).
    *
-   * - Para localhost: retorna undefined (el navegador lo determina automáticamente)
-   * - Para dominios reales: retorna el dominio con punto prefijo para compartir entre subdominos
+   * IMPORTANTE: Este debe ser el dominio COMPARTIDO entre frontend y backend,
+   * no el dominio del frontend o backend individual.
+   *
+   * Ejemplos:
+   * - localhost development: undefined
+   * - Staging (Railway): .up.railway.app (no .agave-frontend-development.up.railway.app)
+   * - Production: .your-domain.com (no individual subdomain)
+   *
+   * Por seguridad, un servidor solo puede establecer cookies para su propio dominio
+   * o dominios padres que lo contengan.
    */
   private getCookieDomain(): string | undefined {
-    const frontendUrl = this.configService.get<string>('FRONTEND_URL');
+    // Primero, intentar obtener COOKIE_DOMAIN configurado explícitamente
+    const configuredDomain = this.configService.get<string>('COOKIE_DOMAIN');
+    if (configuredDomain) {
+      this.logger.debug(`Using configured COOKIE_DOMAIN: ${configuredDomain}`);
+      return configuredDomain;
+    }
 
+    // Fallback: revisar si estamos en localhost
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL');
     if (!frontendUrl) {
       return undefined;
     }
 
-    // Remover protocolo y puerto
     const domainWithPort = frontendUrl
       .replace(/^https?:\/\//, '')
       .split(':')[0];
 
-    // Si es localhost, no establecer domain (permitir que el navegador lo determine automáticamente)
+    // En localhost, no especificar domain
     if (domainWithPort === 'localhost' || domainWithPort === '127.0.0.1') {
       return undefined;
     }
 
-    // Para dominios reales, establecer el dominio raíz con punto prefijo
-    // Esto permite que la cookie sea compartida entre subdominos
-    return `.${domainWithPort}`;
+    // Para otros casos, retornar undefined
+    // El servidor establecerá la cookie solo para su propio dominio
+    // COOKIE_DOMAIN debe configurarse en ambiente para compartir entre subdominos
+    this.logger.warn(
+      `COOKIE_DOMAIN not configured. Cookies will only work for same domain. ` +
+      `To share cookies between frontend (${domainWithPort}) and backend, ` +
+      `configure COOKIE_DOMAIN environment variable (e.g., COOKIE_DOMAIN=.up.railway.app)`
+    );
+    return undefined;
   }
 
   async signUp(signUpDto: SignUpDto): Promise<AuthResponseDto> {
@@ -316,6 +335,7 @@ export class AuthService {
       const houseNumbers = dbUser.houses?.map((house) => house.number_house) || [];
 
       return {
+        accessToken,  // Para usar en Authorization header (si cookies fallan)
         refreshToken,
         user: {
           id: dbUser.id,
@@ -348,7 +368,7 @@ export class AuthService {
   async handleOAuthCallback(
     callbackDto: OAuthCallbackDto,
     res: Response,
-  ): Promise<{ refreshToken: string }> {
+  ): Promise<{ accessToken: string; refreshToken: string }> {
     this.ensureEnabled();
     try {
       const auth = this.firebaseConfig.getAuth();
@@ -399,7 +419,7 @@ export class AuthService {
         maxAge: 15 * 60 * 1000, // 15 minutos
       });
 
-      return { refreshToken };
+      return { accessToken: jwtAccessToken, refreshToken };
     } catch (error) {
       if (error instanceof UnauthorizedException) {
         throw error;
@@ -417,7 +437,7 @@ export class AuthService {
   async refreshTokens(
     refreshTokenValue: string,
     res: Response,
-  ): Promise<{ success: boolean }> {
+  ): Promise<{ success: boolean; accessToken?: string }> {
     this.ensureEnabled();
     try {
       // Verify refresh token
@@ -446,7 +466,7 @@ export class AuthService {
         maxAge: 15 * 60 * 1000, // 15 minutes
       });
 
-      return { success: true };
+      return { success: true, accessToken: newAccessToken };
     } catch (error) {
       if (error instanceof UnauthorizedException) {
         throw error;
