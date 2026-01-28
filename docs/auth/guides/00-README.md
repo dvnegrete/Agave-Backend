@@ -1,38 +1,47 @@
-# 📚 Guías de Configuración de Supabase - Bienvenido
+# 📚 Guías de Configuración de Firebase - Bienvenido
 
-Bienvenido al centro de documentación de Supabase para Agave Backend.
+Bienvenido al centro de documentación de Firebase Authentication para Agave Backend.
 
 ---
 
 ## 🎯 ¿Qué Necesitas Hacer?
 
-### Opción 1: Necesito configurar Supabase YA
+### Opción 1: Necesito configurar Firebase Auth YA
 
 **Tiempo:** 10 minutos
 
-Sigue esta guía paso a paso:
+Sigue esta ruta:
 
 ```
-📖 SUPABASE_STEP_BY_STEP.md
+📖 FIREBASE_ENVIRONMENTS.md
    ↓
-   (Seguir los 10 pasos exactamente)
+   (Configurar NODE_ENV y FRONTEND_URL)
    ↓
-✅ Supabase configurado
+📖 ../CROSS_DOMAIN_AUTH_SETUP.md
+   ↓
+   (Configurar variables de entorno por ambiente)
+   ↓
+✅ Firebase Auth configurado
 ```
 
 ---
 
-### Opción 2: Necesito verificar que está bien configurado
+### Opción 2: Necesito entender cómo funciona
 
-**Tiempo:** 1 minuto
+**Tiempo:** 15-20 minutos
 
-Ejecuta este comando desde `agave-backend/`:
+Lee estos documentos en orden:
 
 ```bash
-bash verify-supabase.sh
-```
+# 1. Entender el problema y la solución
+../CROSS_DOMAIN_AUTH_SETUP.md
 
-Si todo está verde ✓, ¡estás listo!
+# 2. Entender la implementación técnica
+HYBRID_TOKEN_STRATEGY.md
+
+# 3. Configurar ambientes correctamente
+FIREBASE_ENVIRONMENTS.md
+```
 
 ---
 
@@ -48,124 +57,132 @@ Tiempo: 2 minutos
 
 ### Opción 4: Tengo un problema
 
-**Primero:** Ejecuta el script de verificación
+**Primero:** Revisa la sección "Troubleshooting" en:
+- **../CROSS_DOMAIN_AUTH_SETUP.md**
+
+**Luego:** Verifica los logs del backend al iniciar:
 ```bash
-bash verify-supabase.sh
+npm run start:dev
 ```
 
-**Luego:** Consulta la sección "Problemas Comunes" en:
-- **SUPABASE_SETUP.md**
-
-O revisa la guía completa para entender mejor.
+Busca mensajes como:
+```
+✅ FRONTEND_URL: http://localhost:5173
+🔐 Cookie Security Config: secure=false
+🍪 Cookie sameSite: lax
+```
 
 ---
 
 ## 📖 Estructura de Documentos
 
 ```
-docs/auth/guides/
+docs/auth/
 │
-├── 00-README.md (este archivo)
-│   ↓ Empieza aquí para orientación
+├── CROSS_DOMAIN_AUTH_SETUP.md ⭐ EMPIEZA AQUÍ
+│   ↓ Solución completa a cross-domain auth
+│   ↓ Configuración por ambiente
+│   ↓ Troubleshooting
 │
-├── SUPABASE_STEP_BY_STEP.md ⭐
-│   ↓ Guía visual paso a paso (5-10 min)
-│
-├── ENV_VARIABLES_QUICK_REFERENCE.md
-│   ↓ Referencia rápida de variables (2-3 min)
-│
-├── VERIFICATION_SCRIPT.md
-│   ↓ Cómo usar verify-supabase.sh (1 min)
-│
-└── SUPABASE_SETUP.md
-    ↓ Guía completa y detallada (15-20 min)
+├── guides/
+│   ├── 00-README.md (este archivo)
+│   │   ↓ Orientación y navegación
+│   │
+│   ├── FIREBASE_ENVIRONMENTS.md ⭐
+│   │   ↓ Configurar NODE_ENV y ambientes (10-15 min)
+│   │
+│   ├── HYBRID_TOKEN_STRATEGY.md
+│   │   ↓ Implementación técnica completa (15-20 min)
+│   │
+│   ├── ENV_VARIABLES_QUICK_REFERENCE.md
+│   │   ↓ Referencia rápida de variables (2-3 min)
+│   │
+│   └── VERIFICATION_SCRIPT.md
+│       ↓ Verificar configuración (1 min)
 ```
 
 ---
 
-## 🚀 Flujo Rápido (5-10 Minutos)
+## 🚀 Flujo Rápido (10-15 Minutos)
 
 ### Si es tu primera vez:
 
 ```
-1. Abre SUPABASE_STEP_BY_STEP.md
-2. Sigue cada paso exactamente
-3. Copia las 3 variables de Supabase
-4. Actualiza .env
-5. Ejecuta: bash verify-supabase.sh
-6. ¡Listo! Tu Supabase está configurado
+1. Lee FIREBASE_ENVIRONMENTS.md
+2. Configura NODE_ENV según tu ambiente
+3. Configura FRONTEND_URL y BACKEND_URL
+4. Lee ../CROSS_DOMAIN_AUTH_SETUP.md
+5. Configura variables de Firebase
+6. Actualiza .env
+7. Inicia backend: npm run start:dev
+8. Verifica logs de configuración
+9. ¡Listo! Firebase Auth configurado
 ```
 
 ### Si ya lo has hecho antes:
 
 ```
-1. Ve a https://app.supabase.com
-2. Settings → API Settings
-3. Copia 3 claves
-4. Actualiza .env
-5. bash verify-supabase.sh
-6. ✅ Listo
+1. Verifica variables en .env
+2. Asegúrate que FRONTEND_URL y BACKEND_URL estén correctos
+3. npm run start:dev
+4. Verifica logs de cookies
+5. ✅ Listo
 ```
 
 ---
 
-## 📋 Las 3 Variables Principales
+## 📋 Variables Principales de Firebase
 
-Necesitas obtener **exactamente 3 variables** de Supabase:
+Necesitas configurar estas variables en `.env`:
 
-### 1. SUPABASE_URL
-```
-Ubicación: Settings → General → Project URL
-Formato: https://[PROJECT-ID].supabase.co
-Ejemplo: https://abc123xyz456.supabase.co
-```
-
-### 2. SUPABASE_ANON_KEY
-```
-Ubicación: Settings → API Settings → anon public
-Formato: eyJ0eXAi... (200+ caracteres)
-Seguridad: ✅ Pública, segura compartir
+### 1. Firebase Configuration
+```env
+FIREBASE_PROJECT_ID=your-project-id
+FIREBASE_CLIENT_EMAIL=your-service-account-email
+FIREBASE_PRIVATE_KEY=your-private-key
 ```
 
-### 3. SUPABASE_SERVICE_ROLE_KEY
+### 2. Cross-Domain Auth Configuration
+```env
+NODE_ENV=development
+FRONTEND_URL=http://localhost:5173
+BACKEND_URL=http://localhost:3000
 ```
-Ubicación: Settings → API Settings → service_role (secret)
-Formato: eyJ0eXAi... (200+ caracteres)
-Seguridad: ⚠️ SECRETA, nunca exponer
+
+### 3. Optional (para subdominios)
+```env
+COOKIE_DOMAIN=.tu-dominio.com
 ```
 
 ---
 
 ## ✅ Verificación
 
-Después de configurar, ejecuta:
+Después de configurar, inicia el backend:
 
 ```bash
-bash verify-supabase.sh
+npm run start:dev
 ```
 
-Debe mostrar:
+Debe mostrar en los logs:
 ```
-✓ SUPABASE_URL configurado
-✓ SUPABASE_ANON_KEY configurado
-✓ SUPABASE_SERVICE_ROLE_KEY configurado
-✓ DATABASE_URL configurado
-✓ @supabase/supabase-js instalado
-✓ .env protegido en .gitignore
+✅ FRONTEND_URL: http://localhost:5173
+🔐 Cookie Security Config: secure=false (FRONTEND_URL=http://localhost:5173)
+🍪 Cookie sameSite: lax (Frontend: localhost:5173, Backend: localhost:3000)
+```
 
-✓ Todas las verificaciones pasaron
-```
+Si ves estos mensajes, ¡la configuración es correcta!
 
 ---
 
 ## 🔗 Después de Configurar
 
-Una vez que Supabase esté listo:
+Una vez que Firebase Auth esté listo:
 
 1. **Lee el análisis general**: `../INDEX.md`
-2. **Toma decisiones de arquitectura**: `../DECISION-POINTS.md`
-3. **Entiende el modelo de roles**: `../design/02-PRIVILEGE-HIERARCHY.md`
-4. **Ve los componentes técnicos**: `../architecture/05-COMPONENTS.md`
+2. **Entiende cross-domain auth**: `../CROSS_DOMAIN_AUTH_SETUP.md`
+3. **Revisa implementación técnica**: `HYBRID_TOKEN_STRATEGY.md`
+4. **Toma decisiones de arquitectura**: `../DECISION-POINTS.md` (para sistema de privilegios)
 
 ---
 
@@ -173,20 +190,20 @@ Una vez que Supabase esté listo:
 
 ### ✅ Hacer
 ```
-✓ Copiar las claves completas (son largas)
-✓ Guardar .env en tu máquina local
+✓ Configurar FRONTEND_URL (obligatorio)
+✓ Configurar BACKEND_URL (para detectar cross-domain)
+✓ Usar NODE_ENV correcto (development, staging, production)
 ✓ Proteger .env con .gitignore
-✓ Usar SUPABASE_URL y ANON_KEY en frontend
-✓ Usar SERVICE_ROLE_KEY solo en backend
+✓ Revisar logs al iniciar el backend
 ```
 
 ### ❌ NO Hacer
 ```
-✗ No truncar las claves
+✗ No omitir FRONTEND_URL (causa errores de cookies)
+✗ No usar URLs con trailing slash
 ✗ No subir .env a GitHub
-✗ No compartir SERVICE_ROLE_KEY
+✗ No compartir FIREBASE_PRIVATE_KEY
 ✗ No hardcodear variables en código
-✗ No guardar contraseñas en comentarios
 ```
 
 ---
@@ -196,40 +213,43 @@ Una vez que Supabase esté listo:
 ### Si necesitas referencia rápida
 → **ENV_VARIABLES_QUICK_REFERENCE.md**
 
-### Si necesitas instrucciones visuales
-→ **SUPABASE_STEP_BY_STEP.md**
+### Si necesitas configurar ambientes
+→ **FIREBASE_ENVIRONMENTS.md**
 
-### Si tienes problemas
-1. Ejecuta: `bash verify-supabase.sh`
-2. Lee la sección "Problemas Comunes" en **SUPABASE_SETUP.md**
-3. Verifica en [supabase.com/docs](https://supabase.com/docs)
+### Si tienes problemas de autenticación
+1. Lee `../CROSS_DOMAIN_AUTH_SETUP.md` sección "Troubleshooting"
+2. Verifica logs del backend
+3. Verifica FRONTEND_URL y BACKEND_URL
 
 ### Si necesitas entender todo
-→ **SUPABASE_SETUP.md**
+→ Lee documentos en este orden:
+1. `../CROSS_DOMAIN_AUTH_SETUP.md`
+2. `HYBRID_TOKEN_STRATEGY.md`
+3. `FIREBASE_ENVIRONMENTS.md`
 
 ---
 
 ## ⏱️ Tiempo Total
 
-- **Configuración:** 5-10 minutos
-- **Verificación:** 1 minuto
+- **Configuración básica:** 10-15 minutos
+- **Entender implementación:** 20-30 minutos
 - **Primeras pruebas:** 5 minutos
-- **Total:** ~15-20 minutos
+- **Total:** ~30-45 minutos
 
 ---
 
 ## 🎯 Próximo Paso
 
 ```
-👉 Abre: SUPABASE_STEP_BY_STEP.md
-   y sigue los 10 pasos exactamente
+👉 Abre: ../CROSS_DOMAIN_AUTH_SETUP.md
+   y lee la configuración de tu ambiente (dev, staging, production)
 ```
 
 ---
 
 **Guía:** docs/auth/guides/00-README.md
-**Versión:** 1.0
-**Estado:** ✅ Listo
-**Última actualización:** 2025-01-12
+**Versión:** 2.0
+**Estado:** ✅ Actualizado para Firebase Authentication
+**Última actualización:** 2026-01-27
 
-¡Bienvenido a la configuración de Supabase!
+¡Bienvenido a la configuración de Firebase Authentication!

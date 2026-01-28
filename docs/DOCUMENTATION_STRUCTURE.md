@@ -18,6 +18,29 @@ docs/
 │   ├── README.md                          # Índice de endpoints
 │   └── swagger-integration.md             # Guía de Swagger/OpenAPI
 │
+├── auth/                                  # Documentación de autenticación
+│   ├── INDEX.md                          # Índice de autenticación
+│   ├── CROSS_DOMAIN_AUTH_SETUP.md        # Configuración cross-domain
+│   ├── DECISION-POINTS.md                # Decisiones de diseño (privilegios)
+│   ├── analysis/
+│   │   └── 01-CURRENT-STATE.md           # Estado actual
+│   ├── design/
+│   │   ├── 02-PRIVILEGE-HIERARCHY.md     # Jerarquía de privilegios
+│   │   ├── 03-DATA-ARCHITECTURE.md       # Arquitectura de datos
+│   │   ├── 04-AUTHENTICATION-FLOW.md     # Flujos de autenticación
+│   │   └── 06-PERMISSION-MATRIX.md       # Matriz de permisos
+│   ├── architecture/
+│   │   └── 05-COMPONENTS.md              # Componentes técnicos
+│   ├── implementation/
+│   │   └── [archivos de implementación]
+│   └── guides/
+│       ├── 00-README.md                  # Bienvenida a guías
+│       ├── INDEX.md                      # Índice de guías
+│       ├── FIREBASE_ENVIRONMENTS.md      # Configuración de ambientes
+│       ├── HYBRID_TOKEN_STRATEGY.md      # Estrategia híbrida de tokens
+│       ├── ENV_VARIABLES_QUICK_REFERENCE.md  # Referencia rápida
+│       └── VERIFICATION_SCRIPT.md        # Verificación automática
+│
 ├── database/                              # Documentación de base de datos
 │   ├── schema.md                         # Esquema de tablas
 │   ├── triggers.md                       # Triggers SQL
@@ -61,6 +84,31 @@ docs/
 ### Documentación de Arquitectura
 - **[README.md](README.md)** - Índice principal con overview del proyecto
 - **[../CLAUDE.md](../CLAUDE.md)** - Estructura del proyecto y comandos para Claude Code
+
+### Autenticación
+
+#### Firebase Authentication
+- **Ubicación en código**: `src/shared/auth/`
+- **Documentación Principal**: [auth/INDEX.md](auth/INDEX.md)
+- **Configuración Cross-Domain**: [auth/CROSS_DOMAIN_AUTH_SETUP.md](auth/CROSS_DOMAIN_AUTH_SETUP.md)
+- **Guías**: [auth/guides/INDEX.md](auth/guides/INDEX.md)
+
+Sistema de autenticación con Firebase:
+- Autenticación con email y password
+- OAuth (Google, Facebook)
+- JWT tokens (access + refresh)
+- Cookies httpOnly con sameSite dinámico
+- Cross-domain authentication (staging/producción)
+- Hybrid token strategy (cookies + Authorization header)
+
+**Documentos clave:**
+- **CROSS_DOMAIN_AUTH_SETUP.md** - Solución cross-domain, configuración por ambiente
+- **FIREBASE_ENVIRONMENTS.md** - Configuración de NODE_ENV y ambientes
+- **HYBRID_TOKEN_STRATEGY.md** - Implementación técnica completa
+
+**Sistema de Privilegios (Pendiente)**:
+- Documentación de análisis y diseño en `auth/design/`
+- Decisiones pendientes en `auth/DECISION-POINTS.md`
 
 ### Módulos Compartidos
 
@@ -163,6 +211,12 @@ Los siguientes archivos fueron migrados a la estructura centralizada:
 - [Development Guidelines](README.md#development-guidelines)
 - [Code Quality](README.md#code-quality)
 
+**Autenticación**:
+- [Authentication Overview](auth/INDEX.md)
+- [Cross-Domain Setup](auth/CROSS_DOMAIN_AUTH_SETUP.md)
+- [Firebase Environments](auth/guides/FIREBASE_ENVIRONMENTS.md)
+- [Configuration Guides](auth/guides/INDEX.md)
+
 **API**:
 - [API Documentation](api/README.md)
 - [Swagger/OpenAPI Integration](api/swagger-integration.md)
@@ -217,6 +271,7 @@ find docs/ -name "*keyword*.md"
 ### Por Categoría
 
 - **Arquitectura**: `docs/README.md`, `CLAUDE.md`
+- **Autenticación**: `docs/auth/INDEX.md`, `docs/auth/CROSS_DOMAIN_AUTH_SETUP.md`
 - **API**: `docs/api/README.md`, `docs/api/swagger-integration.md`
 - **Features**: `docs/features/`
 - **Módulos Compartidos**: `docs/modules/`
@@ -265,6 +320,14 @@ Si tienes dudas sobre dónde ubicar documentación:
 ## 📝 Actualizaciones Recientes
 
 ### Enero 2026
+- ✅ **Reorganización de Autenticación**:
+  - Migrado a Firebase Authentication (desde Supabase Auth)
+  - Movido CROSS_DOMAIN_AUTH_SETUP.md a docs/auth/
+  - Eliminados SUPABASE_CONFIGURATION.md y ARCHITECTURE_PHASE_2.md (obsoletos)
+  - Eliminadas guías obsoletas de Supabase Auth (SUPABASE_AUTH_ONLY, SUPABASE_SETUP, SUPABASE_STEP_BY_STEP)
+  - Actualizados INDEX.md y guías para reflejar Firebase
+  - Documentación completa de cross-domain authentication
+  - Hybrid token strategy (cookies + Authorization header)
 - ✅ Limpieza exhaustiva de documentación de Vouchers
 - ✅ Consolidación de 14 archivos en 2 (README.md + TECHNICAL.md)
 - ✅ Limpieza exhaustiva de documentación de Bank Reconciliation
