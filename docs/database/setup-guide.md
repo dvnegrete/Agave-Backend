@@ -91,12 +91,14 @@ yarn install
    - En Firebase Console → Authentication → Sign-in method
    - Habilitar Google, Facebook, o los que necesites
 
-3. **Configurar Variables de Entorno:**
+3. **Configurar Variables de Entorno (GCP):**
    ```env
-   # Backend
-   FIREBASE_PROJECT_ID=your-project-id
-   FIREBASE_CLIENT_EMAIL=your-service-account@project.iam.gserviceaccount.com
-   FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+   # Backend - GCP Credentials (for Firebase Auth, Vision API, Cloud Storage)
+   PROJECT_ID_GCP=your-project-id
+   PRIVATE_KEY_ID=your-private-key-id
+   PRIVATE_KEY_GCP="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+   CLIENT_EMAIL_GCP=your-service-account@project.iam.gserviceaccount.com
+   CLIENT_ID_GCP=your-client-id
    ```
 
 4. **Configurar Redirect URLs:**

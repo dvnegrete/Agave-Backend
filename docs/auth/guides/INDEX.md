@@ -2,6 +2,29 @@
 
 ## 📚 Guías Disponibles
 
+### 0. **FIREBASE_ENVIRONMENTS.md** ⭐ PARA FIREBASE AUTH DEPLOYMENT
+
+**Para:** Configurar NODE_ENV y FRONTEND_URL para cada ambiente (Desarrollo, Staging, Producción)
+
+**Contenido:**
+- NODE_ENV configuration (development, staging, production)
+- Database pool sizing by environment
+- Cookie security configuration
+- FRONTEND_URL requirements
+- Environment validation on bootstrap
+- Common configuration errors
+
+**Tiempo:** 10-15 minutos
+
+**Mejor para:** Deployment a Railway, configuración de ambientes
+
+**Lee esto si:**
+- Necesitas deployar a Staging o Producción
+- Tienes problemas de autenticación (401 loops)
+- Necesitas entender NODE_ENV impact
+
+---
+
 ### 1. **SUPABASE_STEP_BY_STEP.md** ⭐ EMPIEZA AQUÍ
 
 **Para:** Usuarios que necesitan instrucciones visuales paso a paso

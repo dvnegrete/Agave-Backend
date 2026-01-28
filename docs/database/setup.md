@@ -87,7 +87,6 @@ Agrega las siguientes variables:
 
 ```env
 # Configuración de Base de Datos
-DATABASE_PROVIDER=local
 DATABASE_URL=postgresql://agave_user:tu_password_seguro@localhost:5432/agave_db
 
 # Componentes individuales (opcionales, solo si no usas DATABASE_URL)
@@ -97,25 +96,27 @@ DB_USERNAME=agave_user
 DB_PASSWORD=tu_password_seguro
 DB_NAME=agave_db
 
-# Ambiente
+# Ambiente (controla pool size, logging, y SSL configuration)
 NODE_ENV=development
 ```
 
-**Para bases de datos remotas** (Supabase, Railway, etc.):
+**Para bases de datos remotas** (Railway, etc.):
 
 ```env
-# Supabase
-DATABASE_PROVIDER=supabase
-DATABASE_URL=postgresql://usuario:password@db.host.supabase.co:5432/postgres?sslmode=require
+# Staging (Railway)
+NODE_ENV=staging
+DATABASE_URL=postgresql://usuario:password@containers-us-west-xyz.railway.app:5432/railway?pgbouncer=true
+DIRECT_URL=postgresql://usuario:password@containers-us-west-xyz.railway.app:5432/railway
 
-# Railway
-DATABASE_PROVIDER=production
-DATABASE_URL=postgresql://usuario:password@containers-us-west-xyz.railway.app:5432/railway?sslmode=require
-
-# Producción genérica
-DATABASE_PROVIDER=production
-DATABASE_URL=postgresql://usuario:password@host:port/database?sslmode=require
+# Producción (Railway)
+NODE_ENV=production
+DATABASE_URL=postgresql://usuario:password@containers-us-west-xyz.railway.app:5432/railway?pgbouncer=true
+DIRECT_URL=postgresql://usuario:password@containers-us-west-xyz.railway.app:5432/railway
 ```
+
+**Nota importante**: La configuración SSL se determina automáticamente basada en `NODE_ENV`:
+- `development`: SSL deshabilitado (conexión local HTTP)
+- `staging` y `production`: SSL habilitado automáticamente (conexión HTTPS)
 
 ### Paso 3: Verificar Conexión a la Base de Datos
 
@@ -254,7 +255,6 @@ createdb -U postgres agave_db
 
 # 2. Configurar .env
 echo "DATABASE_URL=postgresql://agave_user:password@localhost:5432/agave_db" > .env
-echo "DATABASE_PROVIDER=local" >> .env
 echo "NODE_ENV=development" >> .env
 
 # 3. Verificar conexión
@@ -462,21 +462,17 @@ npm run db:setup
 
 ## Environment Configuration
 
-### Database Provider Options
+### Environment-Based Configuration
 
-El proyecto soporta múltiples proveedores configurables mediante `DATABASE_PROVIDER`:
+La configuración de conexión se determina automáticamente basada en `NODE_ENV`:
 
-- **`local`**: PostgreSQL local sin SSL
-- **`supabase`**: Supabase con SSL habilitado
-- **`production`**: Base de datos de producción con SSL
-- **default**: PostgreSQL genérico
+- **`development`**: PostgreSQL local, SSL deshabilitado (5 conexiones en pool)
+- **`staging`**: PostgreSQL remoto, SSL habilitado (10 conexiones en pool)
+- **`production`**: PostgreSQL remoto, SSL habilitado (20 conexiones en pool)
 
 ### Required Variables
 
 ```env
-# Proveedor de base de datos
-DATABASE_PROVIDER=local
-
 # URL de conexión completa (recomendado)
 DATABASE_URL=postgresql://user:password@host:port/database
 
@@ -487,7 +483,7 @@ DB_USERNAME=user
 DB_PASSWORD=password
 DB_NAME=agave_db
 
-# Ambiente
+# Ambiente (CRÍTICO: determina SSL, pool size, logging, y sync)
 NODE_ENV=development
 ```
 
@@ -501,48 +497,59 @@ postgresql://[user[:password]@][host][:port][/database][?param1=value1&...]
 
 #### Local Development
 ```env
-DATABASE_PROVIDER=local
-DATABASE_URL=postgresql://postgres:password@localhost:5432/agave_dev
 NODE_ENV=development
+DATABASE_URL=postgresql://postgres:password@localhost:5432/agave_dev
+# SSL: ❌ Deshabilitado automáticamente
+# Pool: 5 conexiones
 ```
 
-#### Supabase
+#### Staging (Railway)
 ```env
-DATABASE_PROVIDER=supabase
-DATABASE_URL=postgresql://postgres:password@db.xyz.supabase.co:5432/postgres?sslmode=require
-NODE_ENV=production
+NODE_ENV=staging
+DATABASE_URL=postgresql://postgres:password@containers-us-west-xyz.railway.app:5432/railway?pgbouncer=true
+DIRECT_URL=postgresql://postgres:password@containers-us-west-xyz.railway.app:5432/railway
+# SSL: ✅ Habilitado automáticamente
+# Pool: 10 conexiones
 ```
 
-#### Railway
+#### Production (Railway)
 ```env
-DATABASE_PROVIDER=production
-DATABASE_URL=postgresql://postgres:password@containers-us-west-xyz.railway.app:5432/railway?sslmode=require
 NODE_ENV=production
+DATABASE_URL=postgresql://postgres:password@containers-us-west-xyz.railway.app:5432/railway?pgbouncer=true
+DIRECT_URL=postgresql://postgres:password@containers-us-west-xyz.railway.app:5432/railway
+# SSL: ✅ Habilitado automáticamente
+# Pool: 20 conexiones
 ```
 
-### Connection Pool Configuration
+### Connection Pool Configuration by NODE_ENV
 
-El proyecto implementa connection pooling optimizado según ambiente:
+El proyecto implementa connection pooling optimizado según `NODE_ENV`:
 
-**Production**:
+**NODE_ENV=production**:
 - Max connections: 20
 - Max query queue: 100
 - Idle timeout: 30s
 - Connection timeout: 5s
+- SSL: ✅ Habilitado
+- Query logging: ❌ Deshabilitado
 
-**Development**:
+**NODE_ENV=staging**:
+- Max connections: 10
+- Max query queue: 75
+- Idle timeout: 20s
+- Connection timeout: 4s
+- SSL: ✅ Habilitado
+- Query logging: ❌ Deshabilitado
+
+**NODE_ENV=development**:
 - Max connections: 5
 - Max query queue: 50
 - Idle timeout: 10s
 - Connection timeout: 3s
+- SSL: ❌ Deshabilitado
+- Query logging: ✅ Habilitado (para debugging)
 
-**Default**:
-- Max connections: 10
-- Max query queue: 50
-- Idle timeout: 20s
-- Connection timeout: 4s
-
-Configurado en `src/shared/config/database.config.ts`.
+Configurado automáticamente en `src/shared/config/database.config.ts` basado en `NODE_ENV`.
 
 ---
 
@@ -720,14 +727,15 @@ El módulo de base de datos es un módulo global (`@Global()`) que exporta:
 - `CtaMaintenanceRepository`, `CtaWaterRepository`, `CtaPenaltiesRepository`, `CtaExtraordinaryFeeRepository`
 
 **Servicios**:
-- `DatabaseConfigService`: Configuración de conexión (local, supabase, production)
+- `DatabaseConfigService`: Configuración de conexión basada en NODE_ENV
 - `SystemUserSeed`: Seed automático del usuario Sistema (ID: 00000000-0000-0000-0000-000000000000)
 - `EnsureHouseExistsService`: Servicio compartido para garantizar existencia de casas
 
 **Características del Sistema**:
-- Connection pooling optimizado por ambiente (5-20 conexiones)
+- Connection pooling optimizado por NODE_ENV (5-20 conexiones)
+- SSL automático: habilitado en staging/production, deshabilitado en development
 - Seed automático del usuario Sistema al iniciar
-- Soporte multi-proveedor (local, Supabase, Railway, producción)
+- PostgreSQL en todos los ambientes (development local, staging/production en Railway)
 - Gestión de casas automática con usuario Sistema
 - Sistema de períodos con configuración flexible
 
@@ -770,18 +778,19 @@ El módulo de base de datos es un módulo global (`@Global()`) que exporta:
 
 **Ubicación**: `src/shared/config/database.config.ts`
 
-Gestiona configuración de conexión según proveedor:
+Gestiona configuración de conexión basada en `NODE_ENV`:
 
 **Métodos principales**:
-- `getDatabaseConfig()`: Retorna configuración según `DATABASE_PROVIDER`
-- `getConnectionString()`: Construye connection string
-- `getTypeOrmConfig()`: Configuración completa de TypeORM con pooling
+- `getConnectionString()`: Obtiene DATABASE_URL o construye desde componentes individuales
+- `isSslEnabled()`: Determina SSL basado en NODE_ENV (true para staging/production)
+- `getTypeOrmConfig()`: Configuración completa de TypeORM con pooling optimizado
 
-**Proveedores soportados**:
-- `supabase`: Supabase con SSL
-- `local`: PostgreSQL local sin SSL
-- `production`: Producción con SSL
-- `default`: PostgreSQL genérico
+**Lógica de configuración**:
+- Prioriza `DATABASE_URL` si existe
+- Fallback a componentes individuales (DB_HOST, DB_PORT, etc.)
+- SSL: automático basado en NODE_ENV (deshabilitado en development, habilitado en staging/production)
+- Pool size: automático basado en NODE_ENV (5 dev / 10 staging / 20 production)
+- Query logging: automático basado en NODE_ENV (ON en development, OFF en staging/production)
 
 #### SystemUserSeed
 
