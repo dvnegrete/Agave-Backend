@@ -4,6 +4,14 @@ import * as path from 'path';
 
 config();
 
+const nodeEnv = process.env.NODE_ENV || 'development';
+
+// SSL configuration: enabled in staging/production (Railway), disabled in development (local)
+const sslConfig =
+  nodeEnv === 'staging' || nodeEnv === 'production'
+    ? { rejectUnauthorized: false }
+    : false;
+
 export const AppDataSource = new DataSource({
   type: 'postgres',
   url:
@@ -14,13 +22,10 @@ export const AppDataSource = new DataSource({
   username: process.env.DB_USERNAME || 'user',
   password: process.env.DB_PASSWORD || 'password',
   database: process.env.DB_NAME || 'agave_db',
-  ssl:
-    process.env.DATABASE_PROVIDER === 'supabase' ||
-    process.env.DATABASE_PROVIDER === 'production'
-      ? { rejectUnauthorized: false }
-      : false,
+  ssl: sslConfig,
   synchronize: false,
-  logging: process.env.NODE_ENV === 'development',
+  // Query logging solo en desarrollo para no afectar performance
+  logging: nodeEnv === 'development',
   entities: [path.join(__dirname, '../database/entities/*.entity{.ts,.js}')],
   migrations: [path.join(__dirname, '../database/migrations/*{.ts,.js}')],
   migrationsTableName: 'migrations',

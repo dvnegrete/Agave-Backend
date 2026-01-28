@@ -47,19 +47,45 @@ export class AuthService {
 
   /**
    * Determina si las cookies deben ser seguras basándose en el protocolo del FRONTEND_URL
-   * En Staging/Producción (HTTPS): secure = true
-   * En Desarrollo local (HTTP): secure = false
+   *
+   * IMPORTANTE: La seguridad de cookies NUNCA debe depender de NODE_ENV.
+   * Depende del protocolo real del FRONTEND_URL:
+   * - HTTPS → secure: true (Staging y Producción)
+   * - HTTP → secure: false (Desarrollo local)
+   *
+   * @throws Error si FRONTEND_URL no está configurado
    */
   private getCookieSecureFlag(): boolean {
     const frontendUrl = this.configService.get<string>('FRONTEND_URL');
+    const nodeEnv = this.configService.get<string>('NODE_ENV', 'development');
 
-    // Si no hay URL configurada, usar basado en NODE_ENV
-    if (!frontendUrl) {
-      return this.configService.get<string>('NODE_ENV') === 'production';
+    // ❌ CRÍTICO: FRONTEND_URL es obligatorio
+    if (!frontendUrl || frontendUrl.trim() === '') {
+      const errorMsg =
+        `❌ FATAL: FRONTEND_URL environment variable is required but not configured.\n` +
+        `   NODE_ENV: ${nodeEnv}\n` +
+        `   Cookie security depends on FRONTEND_URL protocol (http:// vs https://)\n` +
+        `\n` +
+        `   Configure FRONTEND_URL in your environment:\n` +
+        `   - Development: FRONTEND_URL=http://localhost:5173\n` +
+        `   - Staging: FRONTEND_URL=https://agave-frontend-development.up.railway.app\n` +
+        `   - Production: FRONTEND_URL=https://condominioelagave.com.mx`;
+
+      this.logger.error(errorMsg);
+      throw new Error(
+        'FRONTEND_URL environment variable is required for cookie security configuration'
+      );
     }
 
-    // Si la URL comienza con https://, usar secure: true
-    return frontendUrl.startsWith('https://');
+    // Determinar secure basándose SOLO en el protocolo, no en NODE_ENV
+    const isSecure = frontendUrl.startsWith('https://');
+
+    this.logger.log(
+      `🔐 Cookie Security Config: secure=${isSecure} ` +
+      `(FRONTEND_URL=${frontendUrl.replace(/\//g, '')})`
+    );
+
+    return isSecure;
   }
 
   async signUp(signUpDto: SignUpDto): Promise<AuthResponseDto> {

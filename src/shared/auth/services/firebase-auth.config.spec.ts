@@ -26,9 +26,9 @@ describe('FirebaseAuthConfig', () => {
           useValue: {
             get: jest.fn((key: string) => {
               const config: Record<string, string> = {
-                FIREBASE_PROJECT_ID: 'test-project',
-                FIREBASE_CLIENT_EMAIL: 'test@project.iam.gserviceaccount.com',
-                FIREBASE_PRIVATE_KEY: '-----BEGIN PRIVATE KEY-----\ntest-key\n-----END PRIVATE KEY-----\n',
+                PROJECT_ID_GCP: 'test-project',
+                CLIENT_EMAIL_GCP: 'test@project.iam.gserviceaccount.com',
+                PRIVATE_KEY_GCP: '-----BEGIN PRIVATE KEY-----\ntest-key\n-----END PRIVATE KEY-----\n',
               };
               return config[key];
             }),
