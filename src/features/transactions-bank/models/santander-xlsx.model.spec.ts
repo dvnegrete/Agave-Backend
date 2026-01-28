@@ -7,7 +7,7 @@ describe('SantanderXlsxModel', () => {
 
   it('mapRowToTransaction debe mapear una fila de retiro', () => {
     const row = ['31/jul/25', '10:30:00', 'PAGO SERVICIOS', 150.75, '', 'MXN'];
-    const options = { bank: 'Santander' };
+    const options = { bankName: 'Santander' };
     const tx = SantanderXlsxModel.mapRowToTransaction(row, options)!;
     expect(tx.date).toBe('2025-07-31');
     expect(tx.time).toBe('10:30:00');
@@ -30,7 +30,7 @@ describe('SantanderXlsxModel', () => {
 
   it('mapRowToTransaction debe mapear una fila de retiro con monto negativo', () => {
     const row = ['31/jul/25', '10:30:00', 'PAGO SERVICIOS', -150.75, '', 'MXN'];
-    const options = { bank: 'BBVA' };
+    const options = { bankName: 'BBVA' };
     const tx = SantanderXlsxModel.mapRowToTransaction(row, options)!;
     expect(tx.date).toBe('2025-07-31');
     expect(tx.time).toBe('10:30:00');
@@ -51,7 +51,7 @@ describe('SantanderXlsxModel', () => {
       moneda: 'MXN',
       deposito: true,
     };
-    const options = { bank: 'Banorte' };
+    const options = { bankName: 'Banorte' };
     const tx = SantanderXlsxModel.mapJsonItem!(item, options);
     expect(tx.date).toBeDefined();
     expect(tx.is_deposit).toBe(true);
@@ -76,7 +76,7 @@ describe('SantanderXlsxModel', () => {
 
   it('debe formatear fechas correctamente sin offset de zona horaria', () => {
     const row = ['31/jul/25', '10:30:00', 'PAGO SERVICIOS', 150.75, '', 'MXN'];
-    const options = { bank: 'Santander' };
+    const options = { bankName: 'Santander' };
     const tx = SantanderXlsxModel.mapRowToTransaction(row, options)!;
 
     // La fecha debe ser exactamente la fecha esperada sin offset
@@ -100,7 +100,7 @@ describe('SantanderXlsxModel', () => {
 
     testCases.forEach(({ input, expected }) => {
       const row = [input, '10:30:00', 'TEST', 100, '', 'MXN'];
-      const options = { bank: 'Test' };
+      const options = { bankName: 'Test' };
       const tx = SantanderXlsxModel.mapRowToTransaction(row, options)!;
       expect(tx.date).toBe(expected);
     });
@@ -115,7 +115,7 @@ describe('SantanderXlsxModel', () => {
 
     testCases.forEach(({ input, expected }) => {
       const row = [input, '10:30:00', 'TEST', 100, '', 'MXN'];
-      const options = { bank: 'Test' };
+      const options = { bankName: 'Test' };
       const tx = SantanderXlsxModel.mapRowToTransaction(row, options)!;
       expect(tx.date).toBe(expected);
     });
@@ -126,7 +126,7 @@ describe('SantanderXlsxModel', () => {
       const row = ['02/01/2025', '10:30:00', 'CONCEPTO', '100.50', '', 'USD'];
 
       const result = SantanderXlsxModel.mapRowToTransaction(row, {
-        bank: 'TestBank',
+        bankName: 'TestBank',
       });
 
       expect(result).toEqual({
@@ -146,7 +146,7 @@ describe('SantanderXlsxModel', () => {
       const row = ['15/01/2025', '10:30:00', 'CONCEPTO', '100.50', '', 'EUR'];
 
       const result = SantanderXlsxModel.mapRowToTransaction(row, {
-        bank: 'TestBank',
+        bankName: 'TestBank',
       });
 
       expect(result).toEqual({
@@ -166,7 +166,7 @@ describe('SantanderXlsxModel', () => {
       const row = ['01/15/2025', '10:30:00', 'CONCEPTO', '100.50', '', 'CAD'];
 
       const result = SantanderXlsxModel.mapRowToTransaction(row, {
-        bank: 'TestBank',
+        bankName: 'TestBank',
       });
 
       expect(result).toEqual({

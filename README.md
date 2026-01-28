@@ -1,204 +1,229 @@
 # 🏗️ El Agave Backend
 
-Sistema backend robusto y escalable construido con NestJS para autenticación y procesamiento de transacciones bancarias con una arquitectura extensible basada en modelos (Strategy).
+Sistema backend escalable construido con **NestJS** para procesamiento automatizado de comprobantes de pago, transacciones bancarias y conciliación inteligente.
 
-## 🚀 Características Principales
+> 📚 **Documentación completa**: Ver [docs/README.md](./docs/README.md)
 
-- 🔐 **Autenticación Completa**: Sistema de autenticación con Supabase, OAuth y JWT
-- 💰 **Procesamiento de Transacciones Bancarias**: Carga, validación y procesamiento multi-formato (XLSX, CSV, TXT, JSON)
-- 🧩 **Arquitectura Extensible (Strategy)**: Modelos de extracto por banco/formato mediante `BankStatementModel` (ej. `SantanderXlsx`)
-- 🧱 **Principios SOLID**: Separación de responsabilidades y dependencias por abstracciones
-- 📊 **Validaciones Robustas**: Sistema de validación con reglas de negocio
-- 🛡️ **Seguridad**: Mejores prácticas de seguridad
-- 📈 **Escalable**: Arquitectura modular preparada para crecimiento
-- 🧪 **Testing**: Pruebas unitarias por módulo y E2E
+## 🎯 Estado del Proyecto
 
-## 📚 Documentación
+| Módulo | Estado | Endpoints |
+|--------|--------|-----------|
+| **Vouchers** (OCR + WhatsApp) | ✅ Implementado | 5 |
+| **Transactions Bank** | ✅ Implementado | 11 |
+| **Bank Reconciliation** | ✅ Implementado | 6 |
+| **Authentication** | ✅ Implementado | 8 |
+| **User Management** | ✅ Implementado | 6 |
+| **Payment Management** | ✅ Implementado | 5 |
 
-### 📖 [Documentación Completa](./docs/README.md)
-Accede a toda la documentación organizada del proyecto.
-
-### 🔐 [Módulo de Autenticación](./docs/modules/auth/README.md)
-Sistema completo de autenticación y autorización.
-
-### 💰 [Módulo de Transacciones Bancarias](./docs/modules/transactions-bank/README.md)
-Procesamiento de archivos bancarios y exportación.
-
-### 🔗 [API Documentation](./docs/api/README.md)
-Documentación completa de todos los endpoints.
-
-### 📖 [Guías de Desarrollo](./docs/guides/README.md)
-Guías paso a paso para configuración y desarrollo.
-
-### 💡 [Ejemplos de Uso](./docs/examples/README.md)
-Ejemplos prácticos y casos de uso reales.
-
-## 🏗️ Estructura del Proyecto
-
-```
-src/
-├── auth/                         # Módulo de autenticación
-│   ├── controllers/
-│   ├── services/
-│   ├── guards/
-│   ├── decorators/
-│   └── dto/
-├── transactions-bank/            # Módulo de transacciones bancarias
-│   ├── controllers/
-│   ├── services/
-│   ├── models/                   # BankStatementModel, model-resolver, SantanderXlsx
-│   ├── dto/
-│   └── interfaces/
-├── common/                       # Utilidades y constantes compartidas
-├── config/                       # Configuración
-└── main.ts                       # Punto de entrada
-```
+**Total de endpoints funcionales: 41**
 
 ## 🚀 Inicio Rápido
 
-### Prerrequisitos
-
-- Node.js 18+ 
+### Requisitos
+- Node.js 18+
 - npm o yarn
-- Cuenta de Supabase
+- PostgreSQL (para base de datos)
+- Supabase (autenticación)
 
 ### Instalación
 
-1. **Clonar el repositorio**
 ```bash
+# 1. Clonar repositorio
 git clone https://github.com/your-org/agave-backend.git
 cd agave-backend
-```
 
-2. **Instalar dependencias**
-```bash
+# 2. Instalar dependencias
 npm install
-```
 
-3. **Configurar variables de entorno**
-```bash
-cp env.example .env
-# Editar .env con tus credenciales de Supabase
-```
+# 3. Configurar variables de entorno
+cp .env.example .env
+# Editar .env con credenciales
 
-4. **Ejecutar en desarrollo**
-```bash
+# 4. Verificar configuración de autenticación
+npm run verify:auth
+
+# 5. Configurar base de datos
+npm run db:setup
+
+# 6. Ejecutar en desarrollo
 npm run start:dev
 ```
 
-5. **Ejecutar pruebas**
-```bash
-npm test
-```
+> 💡 **Tip**: Ejecuta `npm run verify:auth` antes de desplegar para validar que las variables de autenticación estén correctas.
 
-6. **Probar endpoint raíz**
-```bash
-curl http://localhost:3000/
-# El Agave
-```
+## 📡 Funcionalidades Principales
 
-## 📡 Endpoints Principales
+### 💰 Vouchers - Procesamiento de Comprobantes
+- Extracción OCR con Google Cloud Vision API
+- Integración WhatsApp Business API
+- Procesamiento inteligente con IA (OpenAI/Vertex AI)
+- Generación automática de códigos de confirmación
+- **Endpoint**: `POST /vouchers/ocr-service`
 
-### Autenticación
-- `POST /auth/signup` - Registro de usuarios
-- `POST /auth/signin` - Inicio de sesión
-- `GET /auth/me` - Obtener usuario actual
+### 🏦 Transactions Bank - Procesamiento Bancario
+- Carga multi-formato (XLSX, CSV, JSON, TXT)
+- Detección automática de duplicados
+- Soporte Santander (extensible a otros bancos)
+- Exportación a CSV/JSON
+- **Endpoints**: `POST /transactions-bank/upload`, `GET /transactions-bank`
 
-### Transacciones
-- `POST /transactions-bank/upload` - Cargar archivo de transacciones
-- `GET /transactions-bank` - Listar transacciones
-- `GET /transactions-bank/export/csv` - Exportar a CSV
-- `GET /transactions-bank/export/json` - Exportar a JSON
+### 🔄 Bank Reconciliation - Conciliación Automática
+- Matching automático por monto y fecha
+- Identificación de casa por centavos
+- Niveles de confianza (HIGH, MEDIUM, LOW, MANUAL)
+- Validación transaccional con rollback
+- Validación manual y depósitos no reclamados
+- **Endpoints**: `POST /bank-reconciliation/reconcile`, `GET /bank-reconciliation/manual-validation/pending`
 
-### Raíz de la API
-- `GET /` - Devuelve: `El Agave`
+### 🔐 Authentication - Autenticación con Firebase
+- Login con email/password y OAuth (Google, Facebook)
+- JWT tokens (access + refresh)
+- Cookies httpOnly con detección automática cross-domain
+- Verificación de email obligatoria
+- **Endpoints**: `POST /auth/signin`, `POST /auth/oauth/callback`
 
-## 🛠️ Comandos Disponibles
+### 👥 User Management - Gestión de Usuarios
+- CRUD completo de usuarios
+- Asignación de casas y roles
+- Suspensión y eliminación segura
+- Solo accesible para administradores
+- **Endpoints**: `GET /user-management/users`, `PATCH /user-management/users/:userId/role`
+
+## 🛠️ Comandos Principales
 
 ```bash
 # Desarrollo
-npm run start:dev          # Servidor de desarrollo
-npm run start:debug        # Servidor con debugging
-npm run start:prod         # Servidor de producción
+npm run start:dev          # Servidor con hot-reload
+npm run start:debug        # Con debugging
+npm run start:prod         # Producción
 
 # Testing
-npm run test               # Ejecutar pruebas
-npm run test:watch         # Pruebas en modo watch
-npm run test:cov           # Pruebas con cobertura
-npm run test:e2e           # Pruebas end-to-end
+npm test                   # Pruebas unitarias
+npm run test:cov           # Con cobertura
+npm run test:e2e           # End-to-end
 
-# Build
-npm run build              # Compilar proyecto
-npm run format             # Formatear código
-npm run lint               # Linting
+# Base de datos
+npm run db:setup           # Setup completo (triggers + indexes)
+npm run db:deploy          # Aplicar migraciones
+
+# Autenticación
+npm run verify:auth        # Verificar configuración de auth
+
+# Calidad de código
+npm run lint               # ESLint
+npm run format             # Prettier
 ```
 
-## 🔧 Configuración
+## 📚 Documentación
 
-### Variables de Entorno
+- **[API Documentation](./docs/api/README.md)** - Todos los endpoints con ejemplos
+- **[Features](./docs/features/)** - Documentación detallada de módulos
+- **[Database Schema](./docs/database/schema.md)** - Estructura de tablas
+- **[Database Triggers](./docs/database/triggers.md)** - Lógica automática
+- **[Setup & Configuration](./docs/database/setup.md)** - Configuración completa
+- **[Google Cloud Setup](./docs/modules/google-cloud/README.md)** - GCP configuration
+
+## 🔧 Variables de Entorno Requeridas
+
+Ver [env.example](./env.example) para la lista completa.
+
+### Variables Críticas
 
 ```env
-# Supabase
-SUPABASE_URL=your_supabase_url
-SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
-
-# App
+# App Configuration
 PORT=3000
-NODE_ENV=development
-FRONTEND_URL=http://localhost:3000
+NODE_ENV=development|staging|production
+FRONTEND_URL=https://your-frontend-url.com  # ⚠️ OBLIGATORIO
+BACKEND_URL=https://your-backend-url.com    # ⚠️ Recomendado para cross-domain
+
+# Database
+DATABASE_URL=postgresql://user:pass@host:port/db
+DIRECT_URL=postgresql://user:pass@host:port/db
+
+# JWT
+JWT_SECRET=your-secret-key-min-32-chars
+JWT_ACCESS_EXPIRES_IN=15m
+JWT_REFRESH_EXPIRES_IN=7d
+
+# Firebase (Authentication)
+FIREBASE_PROJECT_ID=your-project-id
+FIREBASE_CLIENT_EMAIL=firebase-adminsdk@your-project.iam.gserviceaccount.com
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+
+# Google Cloud Platform
+PROJECT_ID_GCP=your-project-id
+BUCKET_NAME_GCP=your-bucket-name
+
+# WhatsApp Business API
+TOKEN_WA=your_token
+PHONE_NUMBER_ID_WA=your_phone_id
+
+# OpenAI
+OPENAI_API_KEY=sk-your-key
 ```
+
+### 🔐 Configuración de Autenticación Cross-Domain
+
+Para evitar problemas de autenticación entre dominios diferentes (ej: frontend en dominio propio, backend en Railway):
+
+1. **Ejecuta el verificador:**
+   ```bash
+   npm run verify:auth
+   ```
+
+2. **Configura variables críticas:**
+   - `FRONTEND_URL`: URL completa del frontend (sin `/` al final)
+   - `BACKEND_URL`: URL completa del backend (para detectar cross-domain)
+
+3. **Documentación completa:**
+   - [CROSS_DOMAIN_AUTH_SETUP.md](./CROSS_DOMAIN_AUTH_SETUP.md) - Configuración técnica
+   - [RAILWAY_STAGING_SETUP.md](../RAILWAY_STAGING_SETUP.md) - Guía para Railway
+   - [PRODUCTION_SETUP.md](../PRODUCTION_SETUP.md) - Configuración de producción
+
+## 🏗️ Arquitectura
+
+El proyecto sigue **Clean Architecture** con separación clara de capas:
+- **Domain**: Lógica de negocio pura
+- **Application**: Casos de uso
+- **Infrastructure**: Servicios externos
+- **Presentation**: Controladores REST
+
+Ver [CLAUDE.md](./CLAUDE.md) para detalles completos.
 
 ## 🧪 Testing
 
-El proyecto incluye pruebas completas para todos los módulos:
-
 ```bash
-# Pruebas unitarias
+# Todos los tests
 npm test
 
-# Pruebas específicas por módulo
-npx jest --runInBand --testPathPattern=auth
-npx jest --runInBand --testPathPattern=transactions-bank
+# Tests específicos
+npm test -- vouchers
+npm test -- transactions-bank
+npm test -- bank-reconciliation
 
-# Cobertura de código
+# Con cobertura
 npm run test:cov
 ```
 
-## 📊 Estado del Proyecto
+## 📖 Próximos Pasos
 
-### ✅ Módulos Implementados
-- [x] **Auth**: Sistema completo de autenticación
-- [x] **Transactions Bank**: Procesamiento de transacciones con modelos de extracto
-
-### 🚧 En Desarrollo
-- [ ] **Users**: Gestión de usuarios y perfiles
-- [ ] **Reports**: Generación de reportes
-
-### 📋 Planificados
-- [ ] **Notifications**: Sistema de notificaciones
-- [ ] **Audit**: Logs de auditoría
-- [ ] **Payments**: Integración con pasarelas de pago
-
-
-## 📝 Licencia
-
-Este proyecto está bajo la Licencia MIT. Ver el archivo [LICENSE](LICENSE) para más detalles.
+1. **Agregar más bancos** - Extender soporte a Bancolombia, BBVA, Davivienda
+2. **Notificaciones** - Sistema de alertas por email/WhatsApp
+3. **Reportes financieros** - Generación automática de reportes
+4. **Optimización** - Mejoras de rendimiento y caching
 
 ## 🆘 Soporte
 
-- 📧 **Email**: backend@elagave.com
-- 💬 **Slack**: #backend-support
-- 🐛 **Issues**: [GitHub Issues](https://github.com/your-org/agave-backend/issues)
+- 📖 [Documentación Completa](./docs/README.md)
+- 📋 [Troubleshooting](./docs/database/setup.md#troubleshooting)
+- 🐛 [Issues](https://github.com/your-org/agave-backend/issues)
 
-## 🙏 Agradecimientos
+## 📝 Licencia
 
-- [NestJS](https://nestjs.com/) - Framework de backend
-- [Supabase](https://supabase.com/) - Backend as a Service
-- [TypeScript](https://www.typescriptlang.org/) - Lenguaje de programación
+MIT - Ver [LICENSE](LICENSE) para detalles
 
 ---
 
-**Versión**: 1.0.1  
-**Última actualización**: $(date)  
+**Versión**: 2.0.0
+**Última actualización**: Enero 2026
 **Desarrollado con ❤️ por el equipo de El Agave**

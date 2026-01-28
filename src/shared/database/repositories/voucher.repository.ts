@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { Repository, Between } from 'typeorm';
+import { Repository, Between, Not } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Voucher } from '../entities/voucher.entity';
+import { ValidationStatus } from '../entities/enums';
+import { Retry } from '../../decorators/retry.decorator';
 
 export interface CreateVoucherDto {
   date: Date | string;
@@ -28,6 +30,11 @@ export class VoucherRepository {
   /**
    * Crea un nuevo voucher en la base de datos
    */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+    backoffMultiplier: 2,
+  })
   async create(data: CreateVoucherDto): Promise<Voucher> {
     // Convertir string a Date si es necesario
     // Si ya es Date object (con hora incluida), se usa directamente
@@ -62,13 +69,41 @@ export class VoucherRepository {
   /**
    * Busca un voucher por su ID
    */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
   async findById(id: number): Promise<Voucher | null> {
     return this.voucherRepository.findOne({ where: { id } });
   }
 
   /**
+   * Busca un voucher por su ID con información de casa asociada
+   */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
+  async findByIdWithHouse(id: number): Promise<Voucher | null> {
+    return this.voucherRepository.findOne({
+      where: { id },
+      relations: {
+        records: {
+          houseRecords: {
+            house: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
    * Busca un voucher por su código de confirmación
    */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
   async findByConfirmationCode(
     confirmationCode: string,
   ): Promise<Voucher | null> {
@@ -80,6 +115,10 @@ export class VoucherRepository {
   /**
    * Obtiene todos los vouchers
    */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
   async findAll(): Promise<Voucher[]> {
     return this.voucherRepository.find({
       order: { created_at: 'DESC' },
@@ -87,8 +126,33 @@ export class VoucherRepository {
   }
 
   /**
+   * Obtiene todos los vouchers con información de casa asociada
+   * Incluye las relaciones: voucher -> records -> house_records -> house
+   */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
+  async findAllWithHouse(): Promise<Voucher[]> {
+    return this.voucherRepository.find({
+      relations: {
+        records: {
+          houseRecords: {
+            house: true,
+          },
+        },
+      },
+      order: { created_at: 'DESC' },
+    });
+  }
+
+  /**
    * Obtiene vouchers por estado de confirmación
    */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
   async findByConfirmationStatus(confirmed: boolean): Promise<Voucher[]> {
     return this.voucherRepository.find({
       where: { confirmation_status: confirmed },
@@ -97,8 +161,35 @@ export class VoucherRepository {
   }
 
   /**
+   * Obtiene vouchers por estado de confirmación con información de casa asociada
+   */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
+  async findByConfirmationStatusWithHouse(
+    confirmed: boolean,
+  ): Promise<Voucher[]> {
+    return this.voucherRepository.find({
+      where: { confirmation_status: confirmed },
+      relations: {
+        records: {
+          houseRecords: {
+            house: true,
+          },
+        },
+      },
+      order: { created_at: 'DESC' },
+    });
+  }
+
+  /**
    * Obtiene vouchers en un rango de fechas
    */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
   async findByDateRange(startDate: Date, endDate: Date): Promise<Voucher[]> {
     return this.voucherRepository.find({
       where: {
@@ -109,8 +200,39 @@ export class VoucherRepository {
   }
 
   /**
+   * Obtiene vouchers en un rango de fechas con información de casa asociada
+   */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
+  async findByDateRangeWithHouse(
+    startDate: Date,
+    endDate: Date,
+  ): Promise<Voucher[]> {
+    return this.voucherRepository.find({
+      where: {
+        date: Between(startDate, endDate),
+      },
+      relations: {
+        records: {
+          houseRecords: {
+            house: true,
+          },
+        },
+      },
+      order: { date: 'DESC' },
+    });
+  }
+
+  /**
    * Actualiza un voucher por su ID
    */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+    backoffMultiplier: 2,
+  })
   async update(id: number, data: UpdateVoucherDto): Promise<Voucher> {
     await this.voucherRepository.update(id, data);
     const updated = await this.findById(id);
@@ -123,6 +245,10 @@ export class VoucherRepository {
   /**
    * Elimina un voucher por su ID
    */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
   async delete(id: number): Promise<void> {
     await this.voucherRepository.delete(id);
   }
@@ -130,6 +256,10 @@ export class VoucherRepository {
   /**
    * Cuenta vouchers por estado de confirmación
    */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
   async countByStatus(): Promise<{
     total: number;
     confirmed: number;
@@ -142,5 +272,60 @@ export class VoucherRepository {
     const pending = total - confirmed;
 
     return { total, confirmed, pending };
+  }
+
+  /**
+   * Verifica si un archivo GCS está referenciado en algún voucher
+   * Usado por VoucherGarbageCollectorService para detectar archivos huérfanos
+   *
+   * @param filename Nombre del archivo GCS (ej: p-2024-01-15_14-30-45-uuid.jpg)
+   * @returns true si existe voucher con url = filename, false si no
+   */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
+  async isFileReferenced(filename: string): Promise<boolean> {
+    const count = await this.voucherRepository.count({
+      where: { url: filename },
+    });
+    return count > 0;
+  }
+
+  /**
+   * Obtiene vouchers no conciliados asociados a una casa
+   *
+   * Criterio de "no conciliado":
+   * - confirmation_status = false (aún no confirmado)
+   * - TransactionStatus.identified_house_number = numberHouse
+   * - TransactionStatus.validation_status != CONFIRMED (no está reconciliado)
+   *
+   * Utiliza relaciones de TypeORM en lugar de SQL directo.
+   * Flujo de relaciones:
+   * Voucher → TransactionStatus → identified_house_number
+   *
+   * @param numberHouse Número de casa (number_house)
+   * @returns Array de vouchers no conciliados
+   */
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
+  async findUnreconciledByHouseNumber(numberHouse: number): Promise<Voucher[]> {
+    return this.voucherRepository
+      .createQueryBuilder('v')
+      .leftJoinAndSelect(
+        'v.transactionStatuses',
+        'ts',
+      )
+      .where('v.confirmation_status = :confirmationStatus', {
+        confirmationStatus: false,
+      })
+      .andWhere('ts.identified_house_number = :numberHouse', { numberHouse })
+      .andWhere('ts.validation_status != :confirmedStatus', {
+        confirmedStatus: ValidationStatus.CONFIRMED,
+      })
+      .orderBy('v.created_at', 'DESC')
+      .getMany();
   }
 }

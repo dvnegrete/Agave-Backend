@@ -1,10 +1,12 @@
 import { Module } from '@nestjs/common';
+import { AuthModule } from '@/shared/auth/auth.module';
 import { TransactionsBankController } from './controllers/transactions-bank.controller';
 import { TransactionsBankService } from './services/transactions-bank.service';
 import { FileProcessorService } from './services/file-processor.service';
 import { TransactionValidatorService } from './services/transaction-validator.service';
 
 @Module({
+  imports: [AuthModule],
   controllers: [TransactionsBankController],
   providers: [
     TransactionsBankService,

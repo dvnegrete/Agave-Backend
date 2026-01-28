@@ -1,25 +1,30 @@
 import {
   Entity,
-  PrimaryColumn,
+  PrimaryGeneratedColumn,
   Column,
   ManyToOne,
+  OneToMany,
+  OneToOne,
   JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { User } from './user.entity';
-import { Record } from './record.entity';
+import { HouseRecord } from './house-record.entity';
+import { HouseBalance } from './house-balance.entity';
+import { HousePeriodOverride } from './house-period-override.entity';
+import { RecordAllocation } from './record-allocation.entity';
 
 @Entity('houses')
 export class House {
-  @PrimaryColumn({ type: 'int', unique: true })
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column({ type: 'int', unique: true })
   number_house: number;
 
   @Column({ type: 'uuid' })
   user_id: string;
-
-  @Column({ type: 'int' })
-  record_id: number;
 
   @CreateDateColumn()
   created_at: Date;
@@ -34,10 +39,23 @@ export class House {
   @JoinColumn({ name: 'user_id' })
   user: User;
 
-  @ManyToOne(() => Record, (record) => record.houses, {
-    onUpdate: 'CASCADE',
-    onDelete: 'CASCADE',
+  @OneToMany(() => HouseRecord, (houseRecord) => houseRecord.house)
+  houseRecords: HouseRecord[];
+
+  @OneToOne(() => HouseBalance, (balance) => balance.house, {
+    nullable: true,
   })
-  @JoinColumn({ name: 'record_id' })
-  record: Record;
+  houseBalance: HouseBalance;
+
+  @OneToMany(
+    () => HousePeriodOverride,
+    (override) => override.house,
+  )
+  housePeriodOverrides: HousePeriodOverride[];
+
+  @OneToMany(
+    () => RecordAllocation,
+    (allocation) => allocation.house,
+  )
+  recordAllocations: RecordAllocation[];
 }

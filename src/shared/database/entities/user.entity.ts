@@ -8,10 +8,11 @@ import {
 } from 'typeorm';
 import { Role, Status } from './enums';
 import { House } from './house.entity';
+import { ManualValidationApproval } from './manual-validation-approval.entity';
 
 @Entity('users')
 export class User {
-  @PrimaryColumn('uuid')
+  @PrimaryColumn('varchar', { length: 128 })
   id: string;
 
   @Column({
@@ -32,7 +33,7 @@ export class User {
   name: string;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  mail: string;
+  email: string;
 
   @Column({ type: 'numeric', nullable: true })
   cel_phone: number;
@@ -46,6 +47,12 @@ export class User {
   @Column({ type: 'text', nullable: true })
   observations: string;
 
+  @Column({ type: 'boolean', default: false })
+  email_verified: boolean;
+
+  @Column({ type: 'timestamp', nullable: true })
+  email_verified_at: Date;
+
   @CreateDateColumn()
   created_at: Date;
 
@@ -54,4 +61,10 @@ export class User {
 
   @OneToMany(() => House, (house) => house.user)
   houses: House[];
+
+  @OneToMany(
+    () => ManualValidationApproval,
+    (approval) => approval.approvedByUser,
+  )
+  manualValidationApprovals: ManualValidationApproval[];
 }

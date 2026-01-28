@@ -3,23 +3,30 @@ import {
   PrimaryGeneratedColumn,
   Column,
   OneToMany,
+  ManyToOne,
+  JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 import { CtaExtraordinaryFee } from './cta-extraordinary-fee.entity';
 import { CtaMaintenance } from './cta-maintenance.entity';
 import { CtaPenalties } from './cta-penalties.entity';
 import { CtaWater } from './cta-water.entity';
+import { PeriodConfig } from './period-config.entity';
+import { RecordAllocation } from './record-allocation.entity';
+import { HousePeriodOverride } from './house-period-override.entity';
 
 @Entity('periods')
+@Index(['year', 'month'], { unique: true })
 export class Period {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ type: 'int', unique: true })
+  @Column({ type: 'int' })
   year: number;
 
-  @Column({ type: 'int', unique: true })
+  @Column({ type: 'int' })
   month: number;
 
   @Column({
@@ -36,11 +43,18 @@ export class Period {
   })
   end_date: Date;
 
+  @Column({ type: 'int', nullable: true })
+  period_config_id: number;
+
   @CreateDateColumn()
   created_at: Date;
 
   @UpdateDateColumn()
   updated_at: Date;
+
+  @ManyToOne(() => PeriodConfig, { nullable: true })
+  @JoinColumn({ name: 'period_config_id' })
+  periodConfig: PeriodConfig;
 
   @OneToMany(() => CtaExtraordinaryFee, (fee) => fee.period)
   extraordinaryFees: CtaExtraordinaryFee[];
@@ -53,4 +67,16 @@ export class Period {
 
   @OneToMany(() => CtaWater, (water) => water.period)
   waters: CtaWater[];
+
+  @OneToMany(
+    () => RecordAllocation,
+    (allocation) => allocation.period,
+  )
+  recordAllocations: RecordAllocation[];
+
+  @OneToMany(
+    () => HousePeriodOverride,
+    (override) => override.period,
+  )
+  housePeriodOverrides: HousePeriodOverride[];
 }

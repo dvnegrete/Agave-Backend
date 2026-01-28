@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OpenAIClient } from './openai.client';
+import { getOCRExtractionPrompt } from '@/shared/config/ocr-prompts.config';
 import OpenAI from 'openai';
 
 @Injectable()
@@ -18,9 +19,7 @@ export class OpenAIService {
       throw new Error('El servicio de OpenAI no está configurado.');
     }
 
-    const systemPrompt =
-      customPrompt ||
-      "Eres un extractor de datos de comprobantes de pago. Responde SOLO en JSON. Campos requeridos: monto (MXN), fecha_pago (YYYY-MM-DD), referencia, hora_transaccion. Si algún campo falta o es inválido, incluye 'faltan_datos': true y 'pregunta' con texto breve para pedirlo. Si todo está correcto, 'faltan_datos': false.";
+    const systemPrompt = getOCRExtractionPrompt(customPrompt);
 
     try {
       const completion = await client.chat.completions.create({

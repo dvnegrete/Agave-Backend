@@ -104,7 +104,7 @@ await sendWhatsAppMessage(
   phoneNumber,
   OffTopicMessages.paymentsInfo(URLs.portalWeb)
 );
-// → "Para consultar información sobre tus pagos... https://agave1.up.railway.app"
+// → "Para consultar información sobre tus pagos... https://your-api-domain.com"
 ```
 
 ### Mensajes de Transacciones Bancarias
@@ -152,7 +152,7 @@ const structuredData = await openAI.processTextWithPrompt('', prompt);
 ```typescript
 // URLs
 const portalUrl = URLs.portalWeb;
-// → 'https://agave1.up.railway.app'
+// → 'https://your-api-domain.com'
 
 // Valores de negocio
 const minCasa = BusinessValues.houses.min; // → 1

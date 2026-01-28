@@ -3,21 +3,23 @@
  */
 
 import { ConfirmationData } from '../types';
+import { formatFecha } from '@/features/vouchers/shared/helpers/voucher-formatter.helper';
 
 export const ConfirmationMessages = {
   /**
    * Solicita confirmación del usuario sobre los datos del voucher
+   * NOTA: El campo 'referencia' es opcional
    */
   request: (
     data: ConfirmationData,
-  ) => `Voy a registrar tu pago con el estatus "pendiente verificación en banco" con los siguientes datos que he encontrado en el comprobante:
-      Monto de pago: ${data.monto}
-      Fecha de Pago: ${data.fecha_pago}
-      Numero de Casa: ${data.casa}
-      Referencia: ${data.referencia}
-      Hora de Transacción: ${data.hora_transaccion}
+  ) => `Voy a registrar tu pago con el estatus *"pendiente verificación en banco"* con los siguientes datos que he encontrado en el comprobante:
+      💰 Monto: *$${data.monto}*
+      📅 Fecha: *${formatFecha(data.fecha_pago)}*
+      🏠 Casa: *${data.casa}*
+      🔢 Referencia: *${data.referencia || 'No disponible'}*
+      ⏰ Hora: *${data.hora_transaccion}*
 
-      Si los datos son correctos, escribe SI`,
+      ¿Son correctos los datos?`,
 
   /**
    * Mensaje de éxito cuando el usuario confirma el registro
@@ -29,7 +31,8 @@ export const ConfirmationMessages = {
     return `¡Perfecto! Tu pago ha sido registrado exitosamente con el estatus "pendiente verificación en banco".
 
 Casa: ${data.casa}
-Monto: ${data.monto}${confirmationInfo}
+Monto: ${data.monto}
+Fecha: ${formatFecha(data.fecha_pago)}${confirmationInfo}
 
 Te notificaremos cuando sea verificado. ¡Gracias!`;
   },

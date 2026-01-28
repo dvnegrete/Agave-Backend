@@ -8,6 +8,7 @@ import {
 } from 'typeorm';
 import { TransactionStatus } from './transaction-status.entity';
 import { LastTransactionBank } from './last-transaction-bank.entity';
+import { ManualValidationApproval } from './manual-validation-approval.entity';
 
 @Entity('transactions_bank')
 export class TransactionBank {
@@ -58,4 +59,10 @@ export class TransactionBank {
     (lastTransaction) => lastTransaction.transactionBank,
   )
   lastTransactions: LastTransactionBank[];
+
+  @OneToMany(
+    () => ManualValidationApproval,
+    (approval) => approval.transactionBank,
+  )
+  manualValidationApprovals: ManualValidationApproval[];
 }

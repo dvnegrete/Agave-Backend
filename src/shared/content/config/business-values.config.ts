@@ -1,14 +1,12 @@
-/**
- * Valores de negocio centralizados
- */
+import { MIN_HOUSE_NUMBER, MAX_HOUSE_NUMBER } from '@/shared/config/business-rules.config';
 
 export const BusinessValues = {
   /**
    * Configuración de casas del condominio
    */
   houses: {
-    min: 1,
-    max: 66,
+    min: MIN_HOUSE_NUMBER,
+    max: MAX_HOUSE_NUMBER,
   },
 
   /**

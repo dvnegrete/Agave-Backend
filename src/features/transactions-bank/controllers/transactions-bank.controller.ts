@@ -9,11 +9,17 @@ import {
   Query,
   UploadedFile,
   UseInterceptors,
+  UseGuards,
   BadRequestException,
   ParseFilePipe,
   MaxFileSizeValidator,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { AuthGuard } from '@/shared/auth/guards/auth.guard';
+import { RoleGuard } from '@/shared/auth/guards/roles.guard';
+import { Roles } from '@/shared/auth/decorators/roles.decorator';
+import { Role } from '@/shared/database/entities/enums';
 import { TransactionsBankService } from '../services/transactions-bank.service';
 import {
   CreateTransactionBankDto,
@@ -28,7 +34,18 @@ import {
   TransactionsBankErrorMessages,
   BusinessValues,
 } from '@/shared/content';
+import {
+  ApiUploadBankFile,
+  ApiGetAllTransactions,
+  ApiGetTransactionSummary,
+  ApiGetTransactionById,
+  ApiCreateTransaction,
+  ApiUpdateTransaction,
+  ApiDeleteTransaction,
+  ApiReconcileTransactionsLegacy,
+} from '../decorators/swagger.decorators';
 
+@ApiTags('transactions-bank')
 @Controller('transactions-bank')
 export class TransactionsBankController {
   constructor(
@@ -36,7 +53,9 @@ export class TransactionsBankController {
   ) {}
 
   @Post('upload')
+  @UseGuards(AuthGuard)
   @UseInterceptors(FileInterceptor('file'))
+  @ApiUploadBankFile()
   async uploadFile(
     @UploadedFile(
       new ParseFilePipe({
@@ -62,15 +81,16 @@ export class TransactionsBankController {
     )
     file: Express.Multer.File,
     @Body() uploadFileDto: UploadFileDto,
-    @Query('bank') bank?: string,
+    @Query('bankName') bankName?: string,
   ) {
     try {
-      // Combinar el parámetro bank del query con las opciones del DTO
+      // Combinar el parámetro bankName del query con las opciones del DTO
       const options: UploadFileDto = {
         ...uploadFileDto,
-        bank: bank || uploadFileDto.bank,
+        bankName: bankName || uploadFileDto.bankName,
       };
 
+      //TODO: Validar que el campo previouslyProcessedTransactions contenga información válida o eliminarlo si no es necesario
       const result = await this.transactionsBankService.processFile(
         file,
         options,
@@ -89,6 +109,8 @@ export class TransactionsBankController {
   }
 
   @Get()
+  @UseGuards(AuthGuard)
+  @ApiGetAllTransactions()
   async getAllTransactions(
     @Query('status') status?: 'pending' | 'processed' | 'failed' | 'reconciled',
     @Query('startDate') startDate?: string,
@@ -111,11 +133,15 @@ export class TransactionsBankController {
   }
 
   @Get('summary')
+  @UseGuards(AuthGuard)
+  @ApiGetTransactionSummary()
   async getTransactionSummary() {
     return await this.transactionsBankService.getTransactionSummary();
   }
 
   @Get(':id')
+  @UseGuards(AuthGuard)
+  @ApiGetTransactionById()
   async getTransactionById(
     @Param('id') id: string,
   ): Promise<ProcessedBankTransaction> {
@@ -123,6 +149,8 @@ export class TransactionsBankController {
   }
 
   @Post()
+  @UseGuards(AuthGuard)
+  @ApiCreateTransaction()
   async createTransaction(
     @Body() createTransactionDto: CreateTransactionBankDto,
   ): Promise<ProcessedBankTransaction> {
@@ -132,6 +160,8 @@ export class TransactionsBankController {
   }
 
   @Put(':id')
+  @UseGuards(AuthGuard)
+  @ApiUpdateTransaction()
   async updateTransaction(
     @Param('id') id: string,
     @Body() updateTransactionDto: UpdateTransactionBankDto,
@@ -143,6 +173,8 @@ export class TransactionsBankController {
   }
 
   @Delete(':id')
+  @UseGuards(AuthGuard)
+  @ApiDeleteTransaction()
   async deleteTransaction(
     @Param('id') id: string,
   ): Promise<{ message: string }> {
@@ -151,6 +183,7 @@ export class TransactionsBankController {
   }
 
   @Post('batch')
+  @UseGuards(AuthGuard)
   async createBatchTransactions(
     @Body() transactions: CreateTransactionBankDto[],
   ): Promise<ProcessedBankTransaction[]> {
@@ -183,6 +216,8 @@ export class TransactionsBankController {
   }
 
   @Post('reconcile')
+  @UseGuards(AuthGuard)
+  @ApiReconcileTransactionsLegacy()
   async reconcileTransactions(@Body() reconciliationDto: ReconciliationDto) {
     try {
       const result =
@@ -203,6 +238,7 @@ export class TransactionsBankController {
   }
 
   @Get('export/csv')
+  @UseGuards(AuthGuard)
   async exportToCSV(
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
@@ -235,6 +271,7 @@ export class TransactionsBankController {
   }
 
   @Get('export/json')
+  @UseGuards(AuthGuard)
   async exportToJSON(
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,

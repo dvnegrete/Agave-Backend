@@ -15,7 +15,31 @@ docs/
 ├── DOCUMENTATION_STRUCTURE.md            # Este archivo
 │
 ├── api/                                   # Documentación de API
-│   └── README.md
+│   ├── README.md                          # Índice de endpoints
+│   └── swagger-integration.md             # Guía de Swagger/OpenAPI
+│
+├── auth/                                  # Documentación de autenticación
+│   ├── INDEX.md                          # Índice de autenticación
+│   ├── CROSS_DOMAIN_AUTH_SETUP.md        # Configuración cross-domain
+│   ├── DECISION-POINTS.md                # Decisiones de diseño (privilegios)
+│   ├── analysis/
+│   │   └── 01-CURRENT-STATE.md           # Estado actual
+│   ├── design/
+│   │   ├── 02-PRIVILEGE-HIERARCHY.md     # Jerarquía de privilegios
+│   │   ├── 03-DATA-ARCHITECTURE.md       # Arquitectura de datos
+│   │   ├── 04-AUTHENTICATION-FLOW.md     # Flujos de autenticación
+│   │   └── 06-PERMISSION-MATRIX.md       # Matriz de permisos
+│   ├── architecture/
+│   │   └── 05-COMPONENTS.md              # Componentes técnicos
+│   ├── implementation/
+│   │   └── [archivos de implementación]
+│   └── guides/
+│       ├── 00-README.md                  # Bienvenida a guías
+│       ├── INDEX.md                      # Índice de guías
+│       ├── FIREBASE_ENVIRONMENTS.md      # Configuración de ambientes
+│       ├── HYBRID_TOKEN_STRATEGY.md      # Estrategia híbrida de tokens
+│       ├── ENV_VARIABLES_QUICK_REFERENCE.md  # Referencia rápida
+│       └── VERIFICATION_SCRIPT.md        # Verificación automática
 │
 ├── database/                              # Documentación de base de datos
 │   ├── schema.md                         # Esquema de tablas
@@ -24,8 +48,15 @@ docs/
 │   └── setup.md                          # Comandos de setup
 │
 ├── features/                              # Documentación de features
-│   └── transactions-bank/
-│       └── README.md                     # Feature de transacciones bancarias
+│   ├── transactions-bank/
+│   │   └── README.md                     # Feature de transacciones bancarias
+│   ├── bank-reconciliation/
+│   │   └── README.md                     # Feature de conciliación bancaria
+│   ├── vouchers/
+│   │   └── README.md                     # Feature de procesamiento de vouchers
+│   └── payment-management/
+│       ├── README.md                     # Feature de gestión de pagos
+│       └── MIGRATIONS.md                 # Guía de migraciones de BD
 │
 ├── modules/                               # Documentación de módulos compartidos
 │   ├── README.md                         # Índice de módulos
@@ -53,6 +84,31 @@ docs/
 ### Documentación de Arquitectura
 - **[README.md](README.md)** - Índice principal con overview del proyecto
 - **[../CLAUDE.md](../CLAUDE.md)** - Estructura del proyecto y comandos para Claude Code
+
+### Autenticación
+
+#### Firebase Authentication
+- **Ubicación en código**: `src/shared/auth/`
+- **Documentación Principal**: [auth/INDEX.md](auth/INDEX.md)
+- **Configuración Cross-Domain**: [auth/CROSS_DOMAIN_AUTH_SETUP.md](auth/CROSS_DOMAIN_AUTH_SETUP.md)
+- **Guías**: [auth/guides/INDEX.md](auth/guides/INDEX.md)
+
+Sistema de autenticación con Firebase:
+- Autenticación con email y password
+- OAuth (Google, Facebook)
+- JWT tokens (access + refresh)
+- Cookies httpOnly con sameSite dinámico
+- Cross-domain authentication (staging/producción)
+- Hybrid token strategy (cookies + Authorization header)
+
+**Documentos clave:**
+- **CROSS_DOMAIN_AUTH_SETUP.md** - Solución cross-domain, configuración por ambiente
+- **FIREBASE_ENVIRONMENTS.md** - Configuración de NODE_ENV y ambientes
+- **HYBRID_TOKEN_STRATEGY.md** - Implementación técnica completa
+
+**Sistema de Privilegios (Pendiente)**:
+- Documentación de análisis y diseño en `auth/design/`
+- Decisiones pendientes en `auth/DECISION-POINTS.md`
 
 ### Módulos Compartidos
 
@@ -90,16 +146,42 @@ Módulo de procesamiento de transacciones bancarias con:
 - Validación de datos
 - Exportación de reportes
 
+#### Bank Reconciliation
+- **Ubicación en código**: `src/features/bank-reconciliation/`
+- **Documentación**: [features/bank-reconciliation/README.md](features/bank-reconciliation/README.md)
+
+Módulo de conciliación bancaria automática con:
+- Matching de transacciones con vouchers (monto+fecha, centavos, concepto con IA)
+- 4 categorías de resultados (conciliados, vouchers sin fondos, depósitos no reclamados, validación manual)
+- Gestión de casos ambiguos con validación manual
+- Asignación manual de depósitos no reclamados
+- Integración automática con Payment Management
+
+#### Payment Management
+- **Ubicación en código**: `src/features/payment-management/`
+- **Documentación**: [features/payment-management/README.md](features/payment-management/README.md)
+- **Migraciones**: [features/payment-management/MIGRATIONS.md](features/payment-management/MIGRATIONS.md)
+
+Módulo de gestión de períodos de facturación con:
+- Creación automática de períodos durante conciliación
+- Configuración versionada de montos y reglas de pago
+- Montos personalizados por casa (convenios de pago)
+- Distribución detallada de pagos entre conceptos
+- Sistema de acumulación de centavos y balances
+
 #### Vouchers & OCR
 - **Ubicación en código**: `src/features/vouchers/`
-- **Documentación General**: [modules/vouchers/README.md](modules/vouchers/README.md)
-- **Implementación OCR**: [modules/vouchers/ocr-implementation.md](modules/vouchers/ocr-implementation.md)
+- **Documentación Práctica**: [features/vouchers/README.md](features/vouchers/README.md)
+- **Documentación Técnica**: [features/vouchers/TECHNICAL.md](features/vouchers/TECHNICAL.md)
 
 Módulo de procesamiento de comprobantes con:
 - OCR con Google Cloud Vision
-- Integración con WhatsApp Business API
+- Soporte multi-canal (WhatsApp, Telegram, HTTP)
 - Gestión de conversaciones con contexto
 - Clasificación de mensajes con IA
+- Transacciones ACID multi-tabla
+- Detección automática de duplicados
+- Sistema stateless para frontend
 
 ### Base de Datos
 - **[database/schema.md](database/schema.md)** - Estructura completa de tablas
@@ -112,7 +194,7 @@ Módulo de procesamiento de comprobantes con:
 Los siguientes archivos fueron migrados a la estructura centralizada:
 
 ### Movidos
-- `IMPLEMENTACION_OCR_GCP.md` → `docs/modules/vouchers/ocr-implementation.md`
+- `IMPLEMENTACION_OCR_GCP.md` → `docs/features/vouchers/TECHNICAL.md` (consolidado)
 
 ### Copiados (mantienen versión en src/)
 - `src/shared/libs/google-cloud/README.md` → `docs/modules/google-cloud/README.md`
@@ -129,7 +211,15 @@ Los siguientes archivos fueron migrados a la estructura centralizada:
 - [Development Guidelines](README.md#development-guidelines)
 - [Code Quality](README.md#code-quality)
 
+**Autenticación**:
+- [Authentication Overview](auth/INDEX.md)
+- [Cross-Domain Setup](auth/CROSS_DOMAIN_AUTH_SETUP.md)
+- [Firebase Environments](auth/guides/FIREBASE_ENVIRONMENTS.md)
+- [Configuration Guides](auth/guides/INDEX.md)
+
 **API**:
+- [API Documentation](api/README.md)
+- [Swagger/OpenAPI Integration](api/swagger-integration.md)
 - [Transactions Bank API](README.md#transactions-bank-endpoints)
 - [Vouchers & OCR API](README.md#vouchers--ocr-endpoints)
 
@@ -181,6 +271,8 @@ find docs/ -name "*keyword*.md"
 ### Por Categoría
 
 - **Arquitectura**: `docs/README.md`, `CLAUDE.md`
+- **Autenticación**: `docs/auth/INDEX.md`, `docs/auth/CROSS_DOMAIN_AUTH_SETUP.md`
+- **API**: `docs/api/README.md`, `docs/api/swagger-integration.md`
 - **Features**: `docs/features/`
 - **Módulos Compartidos**: `docs/modules/`
 - **Base de Datos**: `docs/database/`
@@ -225,5 +317,31 @@ Si tienes dudas sobre dónde ubicar documentación:
 
 ---
 
+## 📝 Actualizaciones Recientes
+
+### Enero 2026
+- ✅ **Reorganización de Autenticación**:
+  - Migrado a Firebase Authentication (desde Supabase Auth)
+  - Movido CROSS_DOMAIN_AUTH_SETUP.md a docs/auth/
+  - Eliminados SUPABASE_CONFIGURATION.md y ARCHITECTURE_PHASE_2.md (obsoletos)
+  - Eliminadas guías obsoletas de Supabase Auth (SUPABASE_AUTH_ONLY, SUPABASE_SETUP, SUPABASE_STEP_BY_STEP)
+  - Actualizados INDEX.md y guías para reflejar Firebase
+  - Documentación completa de cross-domain authentication
+  - Hybrid token strategy (cookies + Authorization header)
+- ✅ Limpieza exhaustiva de documentación de Vouchers
+- ✅ Consolidación de 14 archivos en 2 (README.md + TECHNICAL.md)
+- ✅ Limpieza exhaustiva de documentación de Bank Reconciliation
+- ✅ Consolidación de 6 archivos en 1 (README.md)
+- ✅ Eliminados archivos históricos (QUERIES, SETUP, concept-matching-examples, MANUAL-VALIDATION, UNCLAIMED-DEPOSITS)
+- ✅ Documentación concisa, práctica y sin redundancias para desarrolladores
+
+### Noviembre 2025
+- ✅ Agregada documentación de Swagger/OpenAPI Integration
+- ✅ Implementada arquitectura híbrida de decoradores para Swagger
+- ✅ Documentados 11 endpoints con Swagger (bank-reconciliation: 1, transactions-bank: 8, vouchers: 2)
+- ✅ Actualizada estructura de directorios en `docs/api/`
+
+---
+
 **Mantenido por**: Equipo de Desarrollo Agave
-**Última actualización**: Octubre 2025
+**Última actualización**: Enero 2026

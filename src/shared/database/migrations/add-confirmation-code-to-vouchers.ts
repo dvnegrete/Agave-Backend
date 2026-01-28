@@ -4,17 +4,27 @@ export class AddConfirmationCodeToVouchers implements MigrationInterface {
   name = 'AddConfirmationCodeToVouchers' + Date.now();
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // Agregar la columna confirmation_code a la tabla vouchers
-    await queryRunner.query(`
-      ALTER TABLE "vouchers"
-      ADD COLUMN "confirmation_code" VARCHAR(20) UNIQUE;
+    // Verificar si la columna confirmation_code ya existe
+    const columnExists = await queryRunner.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.columns
+        WHERE table_name = 'vouchers' AND column_name = 'confirmation_code'
+      );
     `);
 
-    // Crear índice único para el campo confirmation_code
-    await queryRunner.query(`
-      CREATE UNIQUE INDEX "idx_voucher_confirmation_code"
-      ON "vouchers" ("confirmation_code");
-    `);
+    if (!columnExists[0].exists) {
+      // Agregar la columna confirmation_code a la tabla vouchers
+      await queryRunner.query(`
+        ALTER TABLE "vouchers"
+        ADD COLUMN "confirmation_code" VARCHAR(20) UNIQUE;
+      `);
+
+      // Crear índice único para el campo confirmation_code
+      await queryRunner.query(`
+        CREATE UNIQUE INDEX "idx_voucher_confirmation_code"
+        ON "vouchers" ("confirmation_code");
+      `);
+    }
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

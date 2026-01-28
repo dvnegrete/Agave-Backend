@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { GoogleCloudConfigService } from './google-cloud.config';
 import { GoogleCloudClient } from './google-cloud.client';
 import { CloudStorageService } from './storage/cloud-storage.service';
+import { GcsCleanupService } from './gcs-cleanup.service';
 
 @Global()
 @Module({
@@ -18,7 +19,13 @@ import { CloudStorageService } from './storage/cloud-storage.service';
       inject: [GoogleCloudConfigService],
     },
     CloudStorageService,
+    GcsCleanupService,
   ],
-  exports: [GoogleCloudConfigService, GoogleCloudClient, CloudStorageService],
+  exports: [
+    GoogleCloudConfigService,
+    GoogleCloudClient,
+    CloudStorageService,
+    GcsCleanupService,
+  ],
 })
 export class GoogleCloudModule {}

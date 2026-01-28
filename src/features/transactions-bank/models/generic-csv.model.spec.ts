@@ -13,7 +13,7 @@ describe('GenericCsvModel', () => {
       ];
 
       const result = GenericCsvModel.mapRowToTransaction(row, {
-        bank: 'TestBank',
+        bankName: 'TestBank',
       });
 
       expect(result).toEqual({
@@ -33,7 +33,7 @@ describe('GenericCsvModel', () => {
       const row = ['2025-01-15', '10:30:00', 'PAGO SERVICIOS', '100.50', ''];
 
       const result = GenericCsvModel.mapRowToTransaction(row, {
-        bank: 'TestBank',
+        bankName: 'TestBank',
       });
 
       expect(result).toEqual({
@@ -53,7 +53,7 @@ describe('GenericCsvModel', () => {
       const row = ['2025-01-15', '10:30:00', 'DEPOSITO NOMINA', '', '2500.00'];
 
       const result = GenericCsvModel.mapRowToTransaction(row, {
-        bank: 'TestBank',
+        bankName: 'TestBank',
       });
 
       expect(result).toEqual({
@@ -80,7 +80,7 @@ describe('GenericCsvModel', () => {
       ];
 
       const result = GenericCsvModel.mapRowToTransaction(row, {
-        bank: 'TestBank',
+        bankName: 'TestBank',
       });
 
       expect(result).toEqual({
@@ -106,7 +106,7 @@ describe('GenericCsvModel', () => {
       ];
 
       const result = GenericCsvModel.mapRowToTransaction(row, {
-        bank: 'TestBank',
+        bankName: 'TestBank',
       });
 
       expect(result).toEqual({
@@ -126,7 +126,7 @@ describe('GenericCsvModel', () => {
       const row = ['2025-01-15', '10:30:00', 'COMPRA', '-500.00'];
 
       const result = GenericCsvModel.mapRowToTransaction(row, {
-        bank: 'TestBank',
+        bankName: 'TestBank',
       });
 
       expect(result).toEqual({
@@ -146,7 +146,7 @@ describe('GenericCsvModel', () => {
       const row = ['2025-01-15', '10:30:00', 'INGRESO', '1000.00'];
 
       const result = GenericCsvModel.mapRowToTransaction(row, {
-        bank: 'TestBank',
+        bankName: 'TestBank',
       });
 
       expect(result).toEqual({
@@ -166,7 +166,7 @@ describe('GenericCsvModel', () => {
       const row = ['2025-01-15', '10:30:00'];
 
       expect(() => {
-        GenericCsvModel.mapRowToTransaction(row, { bank: 'TestBank' });
+        GenericCsvModel.mapRowToTransaction(row, { bankName: 'TestBank' });
       }).toThrow('CSV debe tener al menos 4 columnas');
     });
 
@@ -174,7 +174,7 @@ describe('GenericCsvModel', () => {
       const row = ['2025-01-15', '10:30:00', 'CONCEPTO', '', ''];
 
       expect(() => {
-        GenericCsvModel.mapRowToTransaction(row, { bank: 'TestBank' });
+        GenericCsvModel.mapRowToTransaction(row, { bankName: 'TestBank' });
       }).toThrow('Monto requerido');
     });
 
@@ -182,7 +182,7 @@ describe('GenericCsvModel', () => {
       const row = ['01/15/2025', '10:30:00', 'CONCEPTO', '100.00', ''];
 
       const result = GenericCsvModel.mapRowToTransaction(row, {
-        bank: 'TestBank',
+        bankName: 'TestBank',
       });
 
       expect(result).toBeTruthy();
@@ -195,7 +195,7 @@ describe('GenericCsvModel', () => {
       const row = ['12/31/25', '10:30:00', 'CONCEPTO', '100.00', ''];
 
       const result = GenericCsvModel.mapRowToTransaction(row, {
-        bank: 'TestBank',
+        bankName: 'TestBank',
       });
 
       expect(result).toBeTruthy();
@@ -208,7 +208,7 @@ describe('GenericCsvModel', () => {
       const row = ['15/01/2025', '10:30:00', 'CONCEPTO', '100.00', ''];
 
       const result = GenericCsvModel.mapRowToTransaction(row, {
-        bank: 'TestBank',
+        bankName: 'TestBank',
       });
 
       expect(result).toBeTruthy();
@@ -221,7 +221,7 @@ describe('GenericCsvModel', () => {
       const row = ['01/15/2025', '10:30:00', 'CONCEPTO', '100.00', ''];
 
       const result = GenericCsvModel.mapRowToTransaction(row, {
-        bank: 'TestBank',
+        bankName: 'TestBank',
       });
 
       expect(result).toBeTruthy();
@@ -234,7 +234,7 @@ describe('GenericCsvModel', () => {
       const row = ['02/01/2025', '10:30:00', 'CONCEPTO', '100.00', ''];
 
       const result = GenericCsvModel.mapRowToTransaction(row, {
-        bank: 'TestBank',
+        bankName: 'TestBank',
       });
 
       expect(result).toBeTruthy();
@@ -247,7 +247,7 @@ describe('GenericCsvModel', () => {
       const row = ['2025-01-15', '10:30:00', 'CONCEPTO', '100.00', ''];
 
       const result = GenericCsvModel.mapRowToTransaction(row, {
-        bank: 'TestBank',
+        bankName: 'TestBank',
       });
 
       expect(result).toBeTruthy();
@@ -260,7 +260,7 @@ describe('GenericCsvModel', () => {
       const row = ['invalid-date', '10:30:00', 'CONCEPTO', '100.00', ''];
 
       const result = GenericCsvModel.mapRowToTransaction(row, {
-        bank: 'TestBank',
+        bankName: 'TestBank',
       });
 
       expect(result).toBeTruthy();
@@ -281,7 +281,7 @@ describe('GenericCsvModel', () => {
         is_deposit: true,
       };
 
-      const result = GenericCsvModel.mapJsonItem!(item, { bank: 'TestBank' });
+      const result = GenericCsvModel.mapJsonItem!(item, { bankName: 'TestBank' });
 
       expect(result.currency).toBe('USD');
       expect(result.amount).toBe(100);
@@ -297,7 +297,7 @@ describe('GenericCsvModel', () => {
         is_deposit: true,
       };
 
-      const result = GenericCsvModel.mapJsonItem!(item, { bank: 'TestBank' });
+      const result = GenericCsvModel.mapJsonItem!(item, { bankName: 'TestBank' });
 
       expect(result.currency).toBe('MXN');
       expect(result.amount).toBe(100);
@@ -312,7 +312,7 @@ describe('GenericCsvModel', () => {
         retiro: 100,
       };
 
-      const result = GenericCsvModel.mapJsonItem!(item, { bank: 'TestBank' });
+      const result = GenericCsvModel.mapJsonItem!(item, { bankName: 'TestBank' });
 
       expect(result.currency).toBe('MXN');
       expect(result.amount).toBe(100);

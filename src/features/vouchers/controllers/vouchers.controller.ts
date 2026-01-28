@@ -2,8 +2,6 @@ import {
   Controller,
   Post,
   Get,
-  Put,
-  Delete,
   Body,
   Param,
   Query,
@@ -16,42 +14,42 @@ import {
   FileTypeValidator,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { VouchersService } from '../services/vouchers.service';
-import { OcrService } from '../services/ocr.service';
+import { VouchersService } from '../infrastructure/persistence/vouchers.service';
+import { OcrService } from '../infrastructure/ocr/ocr.service';
 import { OcrServiceDto } from '../dto/ocr-service.dto';
-import { WhatsAppMessageClassifierService } from '../services/whatsapp-message-classifier.service';
-import {
-  VoucherProcessorService,
-  StructuredDataWithCasa,
-} from '../services/voucher-processor.service';
-import { WhatsAppMediaService } from '../services/whatsapp-media.service';
-import { WhatsAppMessagingService } from '../services/whatsapp-messaging.service';
-import {
-  ConversationStateService,
-  ConversationState,
-} from '../services/conversation-state.service';
-import {
-  ConfirmationMessages,
-  ErrorMessages,
-  ContextualMessages,
-  OffTopicMessages,
-} from '@/shared/content';
+import { VoucherProcessorService } from '../infrastructure/ocr/voucher-processor.service';
 import { VoucherRepository } from '@/shared/database/repositories/voucher.repository';
 import { CloudStorageService } from '@/shared/libs/google-cloud';
+// Use Cases
+import { HandleWhatsAppWebhookUseCase } from '../application/handle-whatsapp-webhook.use-case';
+import { HandleTelegramWebhookUseCase } from '../application/handle-telegram-webhook.use-case';
+import { TelegramWebhookDto } from '../dto/telegram-webhook.dto';
+// Infrastructure
+import { TelegramMessagingService } from '../infrastructure/telegram/telegram-messaging.service';
+import { TelegramApiService } from '../infrastructure/telegram/telegram-api.service';
+// Swagger Decorators
+import {
+  ApiGetAllVouchers,
+  ApiGetVoucherById,
+} from '../decorators/swagger.decorators';
 
+@ApiTags('vouchers')
 @Controller('vouchers')
 export class VouchersController {
   constructor(
     private readonly vouchersService: VouchersService,
     private readonly ocrService: OcrService,
-    private readonly messageClassifier: WhatsAppMessageClassifierService,
     private readonly voucherProcessor: VoucherProcessorService,
-    private readonly whatsappMedia: WhatsAppMediaService,
-    private readonly whatsappMessaging: WhatsAppMessagingService,
-    private readonly conversationState: ConversationStateService,
     private readonly voucherRepository: VoucherRepository,
     private readonly cloudStorageService: CloudStorageService,
+    // Use Cases
+    private readonly handleWhatsAppWebhookUseCase: HandleWhatsAppWebhookUseCase,
+    private readonly handleTelegramWebhookUseCase: HandleTelegramWebhookUseCase,
+    // Telegram Services
+    private readonly telegramMessaging: TelegramMessagingService,
+    private readonly telegramApi: TelegramApiService,
   ) {}
 
   @Post('ocr-service')
@@ -71,7 +69,6 @@ export class VouchersController {
     @Body() ocrServiceDto: OcrServiceDto,
   ) {
     try {
-      // Procesar voucher usando el servicio unificado
       const result = await this.voucherProcessor.processVoucher(
         file.buffer,
         file.originalname,
@@ -89,132 +86,66 @@ export class VouchersController {
     }
   }
 
-  /**
-   * TODO: Verificar si es funcional en producción, sino es así, eliminar este endpoint.
-   * @returns JSON con el estado de configuración del servicio OCR (Google Cloud)
-   */
-  @Get('ocr-service/status')
-  async getOcrStatus(): Promise<{
-    isConfigured: boolean;
-    services: {
-      vision: boolean;
-      storage: boolean;
-      translate: boolean;
-      textToSpeech: boolean;
-      speech: boolean;
-    };
-    projectId?: string;
-    message: string;
-  }> {
-    try {
-      const visionClient =
-        this.ocrService['googleCloudClient'].getVisionClient();
-      const translateClient =
-        this.ocrService['googleCloudClient'].getTranslateClient();
-      const textToSpeechClient =
-        this.ocrService['googleCloudClient'].getTextToSpeechClient();
-      const speechClient =
-        this.ocrService['googleCloudClient'].getSpeechClient();
-
-      const config = this.ocrService['googleCloudClient'].getConfig();
-
-      // Verificar Cloud Storage usando CloudStorageService
-      let storageAvailable = false;
-      try {
-        const storageClient = this.ocrService['googleCloudClient'].getStorageClient();
-        storageAvailable = !!storageClient;
-      } catch {
-        storageAvailable = false;
-      }
-
-      return {
-        isConfigured: this.ocrService['googleCloudClient'].isReady(),
-        services: {
-          vision: !!visionClient,
-          storage: storageAvailable,
-          translate: !!translateClient,
-          textToSpeech: !!textToSpeechClient,
-          speech: !!speechClient,
-        },
-        projectId: config?.projectId,
-        message: this.ocrService['googleCloudClient'].isReady()
-          ? 'Google Cloud está configurado y funcionando correctamente'
-          : 'Google Cloud no está configurado o hay errores en la configuración',
-      };
-    } catch (error) {
-      return {
-        isConfigured: false,
-        services: {
-          vision: false,
-          storage: false,
-          translate: false,
-          textToSpeech: false,
-          speech: false,
-        },
-        message: `Error al verificar configuración: ${error.message}`,
-      };
-    }
-  }
-
   @Get()
+  @ApiGetAllVouchers()
   async getAllTransactions(
     @Query('confirmation_status') confirmationStatus?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
-    // Filtrar por confirmation_status (true = confirmado, false = pendiente)
+    let vouchers;
+
     if (confirmationStatus !== undefined) {
       const isConfirmed = confirmationStatus === 'true';
-      return await this.vouchersService.getTransactionsByStatus(isConfirmed);
-    }
-
-    // Filtrar por rango de fechas
-    if (startDate && endDate) {
+      vouchers = await this.vouchersService.getTransactionsByStatus(
+        isConfirmed,
+      );
+    } else if (startDate && endDate) {
       const start = new Date(startDate);
       const end = new Date(endDate);
-      return await this.vouchersService.getTransactionsByDateRange(start, end);
+      vouchers = await this.vouchersService.getTransactionsByDateRange(
+        start,
+        end,
+      );
+    } else {
+      vouchers = await this.vouchersService.getAllTransactions();
     }
 
-    // Retornar todos los vouchers
-    return await this.vouchersService.getAllTransactions();
+    // Transformar respuesta para incluir number_house
+    return vouchers.map((voucher) => this.transformVoucherResponse(voucher));
   }
 
-  /**
-   * Obtiene un voucher por ID y genera URL firmada para visualizar el archivo
-   * @param id - ID del voucher en la base de datos
-   * @returns Datos del voucher con URL de visualización temporal
-   */
   @Get(':id')
+  @ApiGetVoucherById()
   async getTransactionById(@Param('id') id: string) {
-    // Buscar voucher en la base de datos
-    const voucher = await this.voucherRepository.findById(parseInt(id));
+    const voucher = await this.voucherRepository.findByIdWithHouse(
+      parseInt(id),
+    );
 
     if (!voucher) {
       throw new NotFoundException(`Voucher con ID ${id} no encontrado`);
     }
 
-    // Generar URL firmada si existe el archivo en Cloud Storage
     let viewUrl: string | null = null;
     if (voucher.url) {
       try {
-        // Generar URL firmada válida por 1 hora
         viewUrl = await this.cloudStorageService.getSignedUrl(voucher.url, {
           expiresInMinutes: 60,
           action: 'read',
         });
       } catch (error) {
-        console.error(
-          `⚠️  Error al generar URL de visualización para voucher ${id}: ${error.message}`,
-        );
-        // No detener la respuesta si falla la generación de URL
         viewUrl = null;
       }
     }
 
+    // Extraer número de casa de las relaciones
+    const numberHouse = this.extractHouseNumber(voucher);
+
     return {
       confirmation_status: voucher.confirmation_status,
       url: voucher.url,
-      viewUrl, // URL firmada para visualización temporal
+      viewUrl,
+      number_house: numberHouse,
     };
   }
 
@@ -238,890 +169,272 @@ export class VouchersController {
   }
 
   /**
-   * Procesa mensajes entrantes desde el webhook de WhatsApp.
-   * Este endpoint recibe las notificaciones de mensajes enviados por usuarios de WhatsApp.
-   * Usa IA para clasificar el mensaje y determinar la respuesta apropiada.
-   * Si recibe una imagen o PDF, procesa el comprobante de pago automáticamente.
+   * Webhook de WhatsApp - Recibe y procesa mensajes entrantes
    *
-   * @param body - Payload del webhook de WhatsApp con la estructura de mensajes
-   * @returns Objeto con status de éxito
-   * @throws BadRequestException si hay error procesando el mensaje
+   * IMPORTANTE: Este endpoint debe responder en menos de 20 segundos o WhatsApp
+   * considerará que falló. Por eso procesamos el mensaje de forma asíncrona
+   * y respondemos inmediatamente con success: true.
+   *
+   * DEDUPLICACIÓN: WhatsApp puede reintentar enviar el mismo mensaje si:
+   * - No recibe respuesta en 20 segundos
+   * - Recibe un error 5xx
+   * - Hay problemas de red
+   *
+   * Para prevenir procesamiento duplicado, validamos la estructura básica
+   * del webhook y usamos el message.id para detectar duplicados.
    */
   @Post('webhook/whatsapp')
-  async receiveWhatsAppMessage(@Body() body: any) {
-    try {
-      // Extraer datos del webhook de WhatsApp
-      const entry = body.entry?.[0];
-      const changes = entry?.changes?.[0];
-      const value = changes?.value;
-      const messages = value?.messages?.[0];
+  receiveWhatsAppMessage(@Body() body: unknown) {
+    // Validación básica de la estructura del webhook
+    // Esto ayuda a rechazar payloads malformados antes de procesarlos
+    const isObject = body && typeof body === 'object';
+    const hasEntry =
+      isObject &&
+      'entry' in body &&
+      Array.isArray(body.entry) &&
+      body.entry.length > 0;
 
-      if (messages) {
-        const phoneNumber = messages.from;
-        const messageType = messages.type; // 'text', 'image', 'document', etc.
-
-        console.log('Número de WhatsApp:', phoneNumber);
-        console.log('Tipo de mensaje:', messageType);
-
-        // CASO 1: Mensaje con imagen
-        if (messageType === 'image' && messages.image) {
-          const mediaId = messages.image.id;
-          const mimeType = messages.image.mime_type;
-          const caption = messages.image.caption || '';
-
-          console.log(`Imagen recibida: ${mediaId}, tipo: ${mimeType}`);
-          if (caption) console.log(`Caption: ${caption}`);
-
-          await this.processWhatsAppMedia(phoneNumber, mediaId, 'image');
-          return { success: true };
-        }
-
-        // CASO 2: Mensaje con documento (PDF)
-        if (messageType === 'document' && messages.document) {
-          const mediaId = messages.document.id;
-          const mimeType = messages.document.mime_type;
-          const filename = messages.document.filename || 'documento.pdf';
-
-          console.log(`
-            Documento recibido: ${mediaId}, tipo: ${mimeType}, nombre: ${filename}`);
-
-          // Solo procesar si es PDF
-          if (mimeType === 'application/pdf') {
-            await this.processWhatsAppMedia(phoneNumber, mediaId, 'document');
-          } else {
-            await this.sendWhatsAppMessage(
-              phoneNumber,
-              ErrorMessages.onlyPdfSupported,
-            );
-          }
-          return { success: true };
-        }
-
-        // CASO 3: Mensaje interactivo (botones o listas)
-        if (messageType === 'interactive' && messages.interactive) {
-          let userResponse: string | undefined;
-
-          if (messages.interactive.type === 'button_reply') {
-            userResponse = messages.interactive.button_reply.id; // ID del botón presionado
-            console.log(`Botón presionado: ${userResponse}`);
-          } else if (messages.interactive.type === 'list_reply') {
-            userResponse = messages.interactive.list_reply.id; // ID de la opción seleccionada
-            console.log(`Opción de lista seleccionada: ${userResponse}`);
-          }
-
-          // Validar que se haya recibido una respuesta
-          if (!userResponse) {
-            console.log('Mensaje interactivo sin respuesta identificable');
-            return { success: true };
-          }
-
-          // Procesar según el estado de la conversación
-          const context = this.conversationState.getContext(phoneNumber);
-
-          if (context) {
-            console.log(`Contexto activo detectado: ${context.state}`);
-
-            // Actualizar timestamp de último mensaje
-            this.conversationState.updateLastMessageTime(phoneNumber);
-
-            // Manejar según el estado del contexto
-            await this.handleContextualMessage(phoneNumber, userResponse, context.state);
-            return { success: true };
-          }
-
-          return { success: true };
-        }
-
-        // CASO 4: Mensaje de texto
-        if (messageType === 'text' && messages.text) {
-          const messageText = messages.text.body || '';
-          console.log('Mensaje de texto recibido:', messageText);
-
-          // PRIMERO: Verificar si hay un contexto de conversación activo
-          const context = this.conversationState.getContext(phoneNumber);
-
-          if (context) {
-            console.log(`Contexto activo detectado: ${context.state}`);
-
-            // Actualizar timestamp de último mensaje
-            this.conversationState.updateLastMessageTime(phoneNumber);
-
-            // Manejar según el estado del contexto
-            await this.handleContextualMessage(phoneNumber, messageText, context.state);
-            return { success: true };
-          }
-
-          // Si NO hay contexto, procesar normalmente con el clasificador de IA
-          console.log('No hay contexto activo, clasificando mensaje...');
-
-          const classification =
-            await this.messageClassifier.classifyMessage(messageText);
-
-          console.log('Clasificación:', {
-            intent: classification.intent,
-            confidence: classification.confidence,
-          });
-
-          // Enviar respuesta basada en la clasificación
-          await this.sendWhatsAppMessage(phoneNumber, classification.response);
-          return { success: true };
-        }
-
-        // CASO 5: Otros tipos de mensaje no soportados
-        console.log(`Tipo de mensaje no soportado: ${messageType}`);
-        await this.sendWhatsAppMessage(
-          phoneNumber,
-          ErrorMessages.unsupportedMessageType,
-        );
-      }
-
+    if (!hasEntry) {
+      // Respondemos con éxito para que WhatsApp no reintente
+      // (probablemente es spam o un webhook de status)
       return { success: true };
-    } catch (error) {
-      console.error('Error procesando mensaje de WhatsApp:', error);
-      throw new BadRequestException('Error processing WhatsApp message');
     }
+
+    // Procesar el mensaje de forma asíncrona (fire-and-forget)
+    // No esperamos a que termine para responder a WhatsApp
+
+    this.handleWhatsAppWebhookUseCase.execute(body as any).catch((error) => {
+      // IMPORTANTE: No re-lanzamos el error para que el controlador
+      // siempre responda 200 a WhatsApp y evite reintentos
+    });
+
+    // Responder inmediatamente a WhatsApp para evitar timeout
+    return { success: true };
   }
 
   /**
-   * Procesa un archivo multimedia (imagen o PDF) recibido desde WhatsApp
-   * Descarga el archivo, lo procesa con OCR y envía la respuesta
+   * Webhook de Telegram - Recibe y procesa updates del bot
+   *
+   * IMPORTANTE: Este endpoint debe responder rápidamente o Telegram
+   * puede considerar que el webhook no está funcionando.
+   * Procesamos el mensaje de forma asíncrona y respondemos inmediatamente.
+   *
+   * Los updates de Telegram incluyen:
+   * - Mensajes de texto
+   * - Fotos y documentos
+   * - Callback queries (botones inline presionados)
+   * - Comandos (/start, /ayuda, etc.)
    */
-  private async processWhatsAppMedia(
-    phoneNumber: string,
-    mediaId: string,
-    mediaType: 'image' | 'document',
-  ): Promise<void> {
+  @Post('webhook/telegram')
+  receiveTelegramUpdate(@Body() body: TelegramWebhookDto) {
+    // Validación básica de la estructura del webhook
+    if (!body || !body.update_id) {
+      return { success: true };
+    }
+
+    // Procesar el update de forma asíncrona (fire-and-forget)
+    this.handleTelegramWebhookUseCase.execute(body).catch((error) => {
+      // IMPORTANTE: No re-lanzamos el error para que el controlador
+      // siempre responda 200 a Telegram
+    });
+
+    // Responder inmediatamente a Telegram
+    return { ok: true };
+  }
+
+  /**
+   * ENDPOINT TEMPORAL DE PRUEBA - Verificar configuración de Telegram
+   * Eliminar después de verificar que funciona
+   */
+  @Get('telegram/test')
+  async testTelegram(@Query('chat_id') chatId?: string) {
     try {
-      console.log(`Descargando ${mediaType} de WhatsApp: ${mediaId}`);
-
-      // 1. Descargar el archivo desde WhatsApp
-      const { buffer, mimeType, filename } =
-        await this.whatsappMedia.downloadMedia(mediaId);
-
-      console.log(
-        `Archivo descargado: ${filename}, tamaño: ${buffer.length} bytes`,
-      );
-
-      // 2. Validar que el tipo de archivo sea soportado
-      if (!this.whatsappMedia.isSupportedMediaType(mimeType)) {
-        await this.sendWhatsAppMessage(
-          phoneNumber,
-          ErrorMessages.unsupportedFileType(mimeType),
-        );
-        return;
+      // 1. Verificar que el servicio está configurado
+      if (!this.telegramApi.isConfigured()) {
+        return {
+          error: 'TELEGRAM_BOT_TOKEN no está configurado en las variables de entorno',
+          configured: false,
+        };
       }
 
-      // 3. Procesar el comprobante usando el servicio unificado
-      const result = await this.voucherProcessor.processVoucher(
-        buffer,
-        filename,
-        'es', // Idioma español por defecto
-        phoneNumber, // Para tracking
-      );
+      // 2. Obtener información del bot
+      const botInfo = await this.telegramApi.getMe();
 
-      // 4. Guardar contexto según el resultado
-      const voucherData = result.structuredData;
+      // 3. Obtener información del webhook
+      const webhookInfo = await this.telegramApi.getWebhookInfo();
 
-      if (!voucherData.faltan_datos && typeof voucherData.casa === 'number') {
-        // CASO 1: Datos completos, guardar para esperar confirmación (SIN código aún)
-        this.conversationState.saveVoucherForConfirmation(
-          phoneNumber,
-          voucherData,
-          result.gcsFilename,
-          result.originalFilename,
-          // NO pasamos confirmationCode aquí - se generará después del INSERT
+      // 4. Si se proporciona chat_id, enviar mensaje de prueba
+      let testMessageSent = false;
+      if (chatId) {
+        await this.telegramMessaging.sendTextMessage(
+          chatId,
+          '✅ ¡Prueba exitosa! El bot de Telegram está funcionando correctamente.',
         );
-        console.log(
-          `Esperando confirmación de ${phoneNumber} para voucher con casa ${voucherData.casa}`,
-        );
-
-        // 5a. Enviar mensaje de confirmación con botones interactivos
-        await this.sendWhatsAppButtonMessage(
-          phoneNumber,
-          result.whatsappMessage,
-          [
-            { id: 'confirm', title: '✅ Sí, es correcto' },
-            { id: 'cancel', title: '❌ No, cancelar' },
-          ],
-        );
-      } else if (!voucherData.faltan_datos && voucherData.casa === null) {
-        // CASO 2: Falta número de casa, guardar y esperar respuesta
-        this.conversationState.setContext(
-          phoneNumber,
-          ConversationState.WAITING_HOUSE_NUMBER,
-          {
-            voucherData,
-            gcsFilename: result.gcsFilename,
-            originalFilename: result.originalFilename,
-          },
-        );
-        console.log(`Esperando número de casa de ${phoneNumber}`);
-
-        // 5b. Enviar mensaje de texto (pregunta por número de casa)
-        await this.sendWhatsAppMessage(phoneNumber, result.whatsappMessage);
-      } else if (voucherData.faltan_datos) {
-        // CASO 3: Faltan datos, identificar campos faltantes
-        const missingFields = this.conversationState.identifyMissingFields(voucherData);
-
-        this.conversationState.setContext(
-          phoneNumber,
-          ConversationState.WAITING_MISSING_DATA,
-          {
-            voucherData,
-            gcsFilename: result.gcsFilename,
-            originalFilename: result.originalFilename,
-            missingFields,
-          },
-        );
-        console.log(`Esperando datos faltantes de ${phoneNumber}. Campos: ${missingFields.join(', ')}`);
-
-        // 5c. Preguntar por el primer campo faltante
-        const firstMissingField = missingFields[0];
-        const fieldLabel = this.conversationState.getFieldLabel(firstMissingField);
-
-        await this.sendWhatsAppMessage(
-          phoneNumber,
-          `No pude extraer todos los datos del comprobante.\n\nPor favor proporciona el siguiente dato:\n\n*${fieldLabel}*`,
-        );
+        testMessageSent = true;
       }
 
-      console.log(`Comprobante procesado y respuesta enviada a ${phoneNumber}`);
-    } catch (error) {
-      console.error(`Error procesando media de WhatsApp: ${error.message}`);
-      await this.sendWhatsAppMessage(
-        phoneNumber,
-        ErrorMessages.processingError,
-      );
-    }
-  }
-
-  /**
-   * Maneja mensajes de texto según el contexto de conversación activo
-   */
-  private async handleContextualMessage(
-    phoneNumber: string,
-    messageText: string,
-    state: ConversationState,
-  ): Promise<void> {
-    switch (state) {
-      case ConversationState.WAITING_CONFIRMATION:
-        await this.handleConfirmation(phoneNumber, messageText);
-        break;
-
-      case ConversationState.WAITING_HOUSE_NUMBER:
-        await this.handleHouseNumberResponse(phoneNumber, messageText);
-        break;
-
-      case ConversationState.WAITING_MISSING_DATA:
-        await this.handleMissingDataResponse(phoneNumber, messageText);
-        break;
-
-      case ConversationState.WAITING_CORRECTION_TYPE:
-        await this.handleCorrectionTypeSelection(phoneNumber, messageText);
-        break;
-
-      case ConversationState.WAITING_CORRECTION_VALUE:
-        await this.handleCorrectionValueResponse(phoneNumber, messageText);
-        break;
-
-      default:
-        console.log(`Estado no manejado: ${state}`);
-        this.conversationState.clearContext(phoneNumber);
-        await this.sendWhatsAppMessage(phoneNumber, ErrorMessages.systemError);
-    }
-  }
-
-  /**
-   * Maneja la confirmación del usuario (SI/NO o botones interactivos)
-   */
-  private async handleConfirmation(
-    phoneNumber: string,
-    messageText: string,
-  ): Promise<void> {
-    // Detectar confirmación: texto "SI" o botón ID "confirm"
-    const isConfirmation =
-      messageText === 'confirm' ||
-      this.conversationState.isConfirmationMessage(messageText);
-
-    // Detectar negación: texto "NO" o botón ID "cancel"
-    const isNegation =
-      messageText === 'cancel' ||
-      this.conversationState.isNegationMessage(messageText);
-
-    if (isConfirmation) {
-      // Usuario confirmó, proceder con el registro
-      const savedData =
-        this.conversationState.getVoucherDataForConfirmation(phoneNumber);
-
-      if (!savedData) {
-        await this.sendWhatsAppMessage(
-          phoneNumber,
-          ErrorMessages.sessionExpired,
-        );
-        this.conversationState.clearContext(phoneNumber);
-        return;
-      }
-
-      console.log(
-        `✅ Usuario ${phoneNumber} confirmó el pago. Datos:`,
-        savedData.voucherData,
-      );
-
-      // PASO 1: Generar código de confirmación único
-      const confirmationCode = this.voucherProcessor.generateConfirmationCode();
-      console.log(`🔐 Código de confirmación generado: ${confirmationCode}`);
-
-      // PASO 2: Combinar fecha y hora para el campo timestamp
-      const dateTime = this.combineDateAndTime(
-        savedData.voucherData.fecha_pago,
-        savedData.voucherData.hora_transaccion,
-      );
-
-      // PASO 3: Insertar voucher en la base de datos
-      try {
-        const voucher = await this.voucherRepository.create({
-          date: dateTime, // Ahora incluye fecha y hora
-          authorization_number: savedData.voucherData.referencia,
-          confirmation_code: confirmationCode,
-          amount: parseFloat(savedData.voucherData.monto),
-          confirmation_status: false, // Pendiente verificación en banco
-          url: savedData.gcsFilename,
-        });
-
-        console.log(
-          `✅ Voucher insertado en BD con ID: ${voucher.id}, Código: ${voucher.confirmation_code}, Fecha/Hora: ${voucher.date.toISOString()}`,
-        );
-      } catch (error) {
-        console.error('❌ Error al insertar voucher en BD:', error);
-        await this.sendWhatsAppMessage(
-          phoneNumber,
-          'Hubo un error al registrar tu pago. Por favor intenta nuevamente más tarde.',
-        );
-        this.conversationState.clearContext(phoneNumber);
-        return;
-      }
-
-      // PASO 3: Enviar mensaje de éxito con el código de confirmación
-      const confirmationData = {
-        casa: savedData.voucherData.casa!,
-        monto: savedData.voucherData.monto,
-        fecha_pago: savedData.voucherData.fecha_pago,
-        referencia: savedData.voucherData.referencia,
-        hora_transaccion: savedData.voucherData.hora_transaccion,
-        confirmation_code: confirmationCode, // ⬅️ Ahora sí incluimos el código
-      };
-
-      await this.sendWhatsAppMessage(
-        phoneNumber,
-        ConfirmationMessages.success(confirmationData),
-      );
-
-      // Limpiar contexto
-      this.conversationState.clearContext(phoneNumber);
-    } else if (isNegation) {
-      // Usuario indicó que los datos NO son correctos - ofrecer corrección
-      console.log(
-        `❌ Usuario ${phoneNumber} indicó que los datos no son correctos`,
-      );
-
-      // Cambiar estado a espera de tipo de corrección
-      const context = this.conversationState.getContext(phoneNumber);
-      if (context?.data) {
-        this.conversationState.setContext(
-          phoneNumber,
-          ConversationState.WAITING_CORRECTION_TYPE,
-          context.data,
-        );
-
-        // Enviar lista de opciones de campos a corregir
-        await this.whatsappMessaging.sendListMessage(
-          phoneNumber,
-          '¿Qué dato deseas corregir?',
-          'Seleccionar dato',
-          [
-            {
-              rows: [
-                {
-                  id: 'casa',
-                  title: 'Número de casa',
-                  description: 'Corregir el número de casa',
-                },
-                {
-                  id: 'referencia',
-                  title: 'Referencia',
-                  description: 'Corregir la referencia bancaria',
-                },
-                {
-                  id: 'fecha_pago',
-                  title: 'Fecha',
-                  description: 'Corregir la fecha de pago',
-                },
-                {
-                  id: 'hora_transaccion',
-                  title: 'Hora',
-                  description: 'Corregir la hora de transacción',
-                },
-                {
-                  id: 'cancelar_todo',
-                  title: '❌ Cancelar registro',
-                  description: 'No registrar este pago',
-                },
-              ],
-            },
-          ],
-        );
-      }
-    } else {
-      // Mensaje no reconocido, pedir confirmación nuevamente
-      await this.sendWhatsAppMessage(phoneNumber, ConfirmationMessages.retry);
-    }
-  }
-
-  /**
-   * Maneja la respuesta del usuario con el número de casa
-   */
-  private async handleHouseNumberResponse(
-    phoneNumber: string,
-    messageText: string,
-  ): Promise<void> {
-    const houseNumber = this.conversationState.extractHouseNumber(messageText);
-
-    if (houseNumber) {
-      const context = this.conversationState.getContext(phoneNumber);
-      const voucherData = context?.data?.voucherData;
-
-      if (!voucherData) {
-        await this.sendWhatsAppMessage(
-          phoneNumber,
-          ErrorMessages.sessionExpired,
-        );
-        this.conversationState.clearContext(phoneNumber);
-        return;
-      }
-
-      // Actualizar los datos con el número de casa
-      voucherData.casa = houseNumber;
-
-      console.log(
-        `🏠 Usuario ${phoneNumber} proporcionó número de casa: ${houseNumber}`,
-      );
-
-      // Guardar para confirmación (SIN código de confirmación aún)
-      // El código se generará después del INSERT en BD
-      this.conversationState.saveVoucherForConfirmation(
-        phoneNumber,
-        voucherData,
-        context.data?.gcsFilename,
-        context.data?.originalFilename,
-        // NO generamos código aquí - se generará después del INSERT
-      );
-
-      // Pedir confirmación con botones interactivos
-      const confirmationData = {
-        casa: voucherData.casa,
-        monto: voucherData.monto,
-        fecha_pago: voucherData.fecha_pago,
-        referencia: voucherData.referencia,
-        hora_transaccion: voucherData.hora_transaccion,
-      };
-
-      await this.sendWhatsAppButtonMessage(
-        phoneNumber,
-        ConfirmationMessages.request(confirmationData),
-        [
-          { id: 'confirm', title: '✅ Sí, es correcto' },
-          { id: 'cancel', title: '❌ No, cancelar' },
-        ],
-      );
-    } else {
-      await this.sendWhatsAppMessage(
-        phoneNumber,
-        ContextualMessages.invalidHouseNumber,
-      );
-    }
-  }
-
-  /**
-   * Maneja la respuesta del usuario con datos faltantes
-   */
-  private async handleMissingDataResponse(
-    phoneNumber: string,
-    messageText: string,
-  ): Promise<void> {
-    console.log(
-      `📝 Usuario ${phoneNumber} proporcionó datos faltantes: ${messageText}`,
-    );
-
-    const context = this.conversationState.getContext(phoneNumber);
-
-    if (!context?.data?.voucherData || !context.data.missingFields) {
-      await this.sendWhatsAppMessage(phoneNumber, ErrorMessages.sessionExpired);
-      this.conversationState.clearContext(phoneNumber);
-      return;
-    }
-
-    // Obtener el campo actual que se está solicitando
-    const currentField = this.conversationState.getNextMissingField(phoneNumber);
-
-    if (!currentField) {
-      await this.sendWhatsAppMessage(phoneNumber, ErrorMessages.systemError);
-      this.conversationState.clearContext(phoneNumber);
-      return;
-    }
-
-    // Validar y actualizar el campo según el tipo
-    const validationResult = this.validateAndSetField(
-      context.data.voucherData,
-      currentField,
-      messageText.trim(),
-    );
-
-    if (!validationResult.isValid) {
-      const fieldLabel = this.conversationState.getFieldLabel(currentField);
-      await this.sendWhatsAppMessage(
-        phoneNumber,
-        `❌ ${validationResult.error}\n\nPor favor, proporciona nuevamente el *${fieldLabel}*:`,
-      );
-      return;
-    }
-
-    // Actualizar el campo en el contexto
-    this.conversationState.updateVoucherField(
-      phoneNumber,
-      currentField,
-      validationResult.value!,
-    );
-
-    // Remover el campo de la lista de campos faltantes
-    this.conversationState.removeFromMissingFields(phoneNumber, currentField);
-
-    // Verificar si quedan más campos por completar
-    if (!this.conversationState.areAllFieldsComplete(phoneNumber)) {
-      // Preguntar por el siguiente campo faltante
-      const nextField = this.conversationState.getNextMissingField(phoneNumber);
-      if (nextField) {
-        const fieldLabel = this.conversationState.getFieldLabel(nextField);
-        await this.sendWhatsAppMessage(
-          phoneNumber,
-          `✅ Dato recibido.\n\nAhora, por favor proporciona el siguiente dato:\n\n*${fieldLabel}*`,
-        );
-      }
-    } else {
-      // Todos los campos están completos, solicitar confirmación
-      console.log(`✅ Todos los campos completos para ${phoneNumber}`);
-
-      const voucherData = context.data.voucherData;
-
-      // Cambiar estado a esperando confirmación
-      this.conversationState.setContext(
-        phoneNumber,
-        ConversationState.WAITING_CONFIRMATION,
-        {
-          voucherData,
-          gcsFilename: context.data.gcsFilename,
-          originalFilename: context.data.originalFilename,
+      return {
+        success: true,
+        bot: {
+          id: botInfo.id,
+          username: botInfo.username,
+          first_name: botInfo.first_name,
         },
-      );
-
-      // Enviar mensaje con todos los datos para confirmación
-      await this.whatsappMessaging.sendButtonMessage(
-        phoneNumber,
-        `✅ Datos completos. Por favor confirma que los siguientes datos son correctos:\n\n` +
-        `📍 Casa: *${voucherData.casa}*\n` +
-        `💰 Monto: *${voucherData.monto}*\n` +
-        `📅 Fecha: *${voucherData.fecha_pago}*\n` +
-        `🕒 Hora: *${voucherData.hora_transaccion}*\n` +
-        `🔢 Referencia: *${voucherData.referencia}*\n\n` +
-        `¿Los datos son correctos?`,
-        [
-          { id: 'confirm', title: '✅ Sí, es correcto' },
-          { id: 'cancel', title: '❌ No, corregir' },
-        ],
-      );
+        webhook: {
+          url: webhookInfo.url,
+          has_custom_certificate: webhookInfo.has_custom_certificate,
+          pending_update_count: webhookInfo.pending_update_count,
+          last_error_date: webhookInfo.last_error_date,
+          last_error_message: webhookInfo.last_error_message,
+        },
+        testMessage: testMessageSent
+          ? `Mensaje enviado al chat_id: ${chatId}`
+          : 'No se envió mensaje de prueba (proporciona ?chat_id=TU_CHAT_ID para enviar)',
+      };
+    } catch (error) {
+      return {
+        error: error.message,
+        stack: error.stack,
+      };
     }
   }
 
   /**
-   * Combina fecha y hora en un objeto Date para guardar en BD
-   * @param fecha_pago - Fecha en formato DD/MM/YYYY o YYYY-MM-DD
-   * @param hora_transaccion - Hora en formato HH:MM o HH:MM:SS
-   * @returns Date object con fecha y hora combinadas
+   * ENDPOINT TEMPORAL - Obtener updates recientes (últimos mensajes)
+   * Úsalo para obtener tu chat_id
    */
-  private combineDateAndTime(fecha_pago: string, hora_transaccion: string): Date {
-    // Parsear la fecha (soporta DD/MM/YYYY, DD-MM-YYYY o YYYY-MM-DD)
-    let year: number, month: number, day: number;
-
-    if (fecha_pago.includes('/')) {
-      const parts = fecha_pago.split('/');
-      if (parts[0].length === 4) {
-        // Formato YYYY/MM/DD
-        [year, month, day] = parts.map(Number);
-      } else {
-        // Formato DD/MM/YYYY
-        [day, month, year] = parts.map(Number);
-      }
-    } else if (fecha_pago.includes('-')) {
-      const parts = fecha_pago.split('-');
-      if (parts[0].length === 4) {
-        // Formato YYYY-MM-DD
-        [year, month, day] = parts.map(Number);
-      } else {
-        // Formato DD-MM-YYYY
-        [day, month, year] = parts.map(Number);
-      }
-    } else {
-      throw new Error('Formato de fecha no válido');
-    }
-
-    // Parsear la hora (soporta HH:MM o HH:MM:SS)
-    const timeParts = hora_transaccion.split(':').map(Number);
-    const hours = timeParts[0] || 0;
-    const minutes = timeParts[1] || 0;
-    const seconds = timeParts[2] || 0;
-
-    // Crear Date object (month es 0-indexed en JavaScript)
-    const dateTime = new Date(year, month - 1, day, hours, minutes, seconds);
-
-    console.log(
-      `📅 Fecha combinada: ${fecha_pago} ${hora_transaccion} → ${dateTime.toISOString()}`,
-    );
-
-    return dateTime;
-  }
-
-  /**
-   * Valida y establece el valor de un campo específico
-   */
-  private validateAndSetField(
-    voucherData: StructuredDataWithCasa,
-    fieldName: string,
-    value: string,
-  ): { isValid: boolean; value?: string; error?: string } {
-    switch (fieldName) {
-      case 'monto':
-        // Validar formato de monto (número con o sin decimales)
-        const montoRegex = /^\d+(\.\d{1,2})?$/;
-        if (!montoRegex.test(value)) {
-          return {
-            isValid: false,
-            error: 'El monto debe ser un número válido (ejemplo: 1500 o 1500.50)',
-          };
-        }
-        return { isValid: true, value };
-
-      case 'fecha_pago':
-        // Validar formato de fecha (flexible: DD/MM/YYYY, DD-MM-YYYY, YYYY-MM-DD)
-        const fechaRegex = /^(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}|\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})$/;
-        if (!fechaRegex.test(value)) {
-          return {
-            isValid: false,
-            error: 'La fecha debe estar en formato DD/MM/YYYY o YYYY-MM-DD',
-          };
-        }
-        return { isValid: true, value };
-
-      case 'referencia':
-        // Validar que tenga al menos 3 caracteres
-        if (value.length < 3) {
-          return {
-            isValid: false,
-            error: 'La referencia debe tener al menos 3 caracteres',
-          };
-        }
-        return { isValid: true, value };
-
-      case 'hora_transaccion':
-        // Validar formato de hora (HH:MM o HH:MM:SS)
-        const horaRegex = /^([01]?\d|2[0-3]):([0-5]\d)(:[0-5]\d)?$/;
-        if (!horaRegex.test(value)) {
-          return {
-            isValid: false,
-            error: 'La hora debe estar en formato HH:MM (ejemplo: 14:30)',
-          };
-        }
-        return { isValid: true, value };
-
-      case 'casa':
-        // Validar número de casa (1-66)
-        const casaNumber = parseInt(value, 10);
-        if (isNaN(casaNumber) || casaNumber < 1 || casaNumber > 66) {
-          return {
-            isValid: false,
-            error: 'El número de casa debe ser un valor entre 1 y 66',
-          };
-        }
-        voucherData.casa = casaNumber;
-        return { isValid: true, value: casaNumber.toString() };
-
-      default:
-        return { isValid: true, value };
-    }
-  }
-
-  /**
-   * Maneja la selección del campo a corregir por parte del usuario
-   */
-  private async handleCorrectionTypeSelection(
-    phoneNumber: string,
-    fieldId: string,
-  ): Promise<void> {
-    console.log(
-      `🔧 Usuario ${phoneNumber} seleccionó campo a corregir: ${fieldId}`,
-    );
-
-    // Caso especial: usuario quiere cancelar todo el registro
-    if (fieldId === 'cancelar_todo') {
-      const savedData =
-        this.conversationState.getVoucherDataForConfirmation(phoneNumber);
-
-      if (savedData?.gcsFilename) {
-        try {
-          await this.cloudStorageService.deleteFile(savedData.gcsFilename);
-          console.log(
-            `🗑️  Archivo eliminado de GCS: ${savedData.gcsFilename}`,
-          );
-        } catch (error) {
-          console.error(
-            `⚠️  Error al eliminar archivo de GCS: ${error.message}`,
-          );
-        }
+  @Get('telegram/get-updates')
+  async getTelegramUpdates() {
+    try {
+      if (!this.telegramApi.isConfigured()) {
+        return {
+          error: 'TELEGRAM_BOT_TOKEN no está configurado',
+        };
       }
 
-      await this.sendWhatsAppMessage(
-        phoneNumber,
-        ConfirmationMessages.cancelled,
-      );
+      const botToken = process.env.TELEGRAM_BOT_TOKEN;
 
-      this.conversationState.clearContext(phoneNumber);
-      return;
-    }
-
-    // Validar que el campo seleccionado sea válido
-    const validFields = ['casa', 'referencia', 'fecha_pago', 'hora_transaccion'];
-    if (!validFields.includes(fieldId)) {
-      await this.sendWhatsAppMessage(
-        phoneNumber,
-        'Opción no válida. Por favor selecciona una opción de la lista.',
+      // Llamar directamente a la API de Telegram para obtener updates
+      const response = await fetch(
+        `https://api.telegram.org/bot${botToken}/getUpdates`,
       );
-      return;
-    }
+      const data = await response.json();
 
-    // Guardar el campo a corregir en el contexto
-    const context = this.conversationState.getContext(phoneNumber);
-    if (context?.data) {
-      context.data.fieldToCorrect = fieldId;
-      this.conversationState.setContext(
-        phoneNumber,
-        ConversationState.WAITING_CORRECTION_VALUE,
-        context.data,
-      );
+      if (!data.ok) {
+        return {
+          error: 'Error al obtener updates',
+          details: data,
+        };
+      }
 
-      // Pedir el nuevo valor con mensaje de responsabilidad
-      const fieldLabel = this.conversationState.getFieldLabel(fieldId);
-      await this.sendWhatsAppMessage(
-        phoneNumber,
-        `Por favor, envía el nuevo valor para: *${fieldLabel}*\n\n` +
-          `⚠️ *IMPORTANTE:* Es tu responsabilidad proporcionar los datos correctos para la verificación de tu pago. ` +
-          `Verifica cuidadosamente la información antes de enviarla.`,
-      );
+      // Extraer chat_ids de los updates
+      const chatIds = data.result
+        .map((update: any) => ({
+          chat_id:
+            update.message?.chat?.id || update.callback_query?.message?.chat?.id,
+          username: update.message?.from?.username || update.callback_query?.from?.username,
+          first_name: 
+            update.message?.from?.first_name || update.callback_query?.from?.first_name,
+          message_text: update.message?.text,
+          date: update.message?.date,
+        }))
+        .filter((item: any) => item.chat_id);
+
+      return {
+        success: true,
+        total_updates: data.result.length,
+        chat_ids: chatIds,
+        instruction:
+          'Si no ves tu chat_id, envía /start al bot y vuelve a consultar este endpoint',
+        raw_updates: data.result,
+      };
+    } catch (error) {
+      return {
+        error: error.message,
+        stack: error.stack,
+      };
     }
   }
 
   /**
-   * Maneja la respuesta del usuario con el nuevo valor para el campo a corregir
+   * ENDPOINT TEMPORAL - Configurar webhook de Telegram
+   * Eliminar después de configurar
    */
-  private async handleCorrectionValueResponse(
-    phoneNumber: string,
-    newValue: string,
-  ): Promise<void> {
-    const context = this.conversationState.getContext(phoneNumber);
+  @Post('telegram/setup-webhook')
+  async setupTelegramWebhook(@Body('webhook_url') webhookUrl?: string) {
+    try {
+      if (!this.telegramApi.isConfigured()) {
+        return {
+          error: 'TELEGRAM_BOT_TOKEN no está configurado',
+        };
+      }
 
-    if (!context?.data?.fieldToCorrect) {
-      await this.sendWhatsAppMessage(
-        phoneNumber,
-        ErrorMessages.sessionExpired,
-      );
-      this.conversationState.clearContext(phoneNumber);
-      return;
+      // Usar TELEGRAM_WEBHOOK_URL del .env si no se proporciona
+      const url = webhookUrl || process.env.TELEGRAM_WEBHOOK_URL || '';
+
+      if (!url) {
+        return {
+          error:
+            'Proporciona webhook_url en el body o configura TELEGRAM_WEBHOOK_URL en .env',
+          example: {
+            webhook_url: 'https://tu-dominio.com/vouchers/webhook/telegram',
+          },
+        };
+      }
+
+      const result = await this.telegramApi.setWebhook(url);
+
+      return {
+        success: result,
+        webhook_url: url,
+        message: result
+          ? 'Webhook configurado exitosamente'
+          : 'Error al configurar webhook',
+      };
+    } catch (error) {
+      return {
+        error: error.message,
+        stack: error.stack,
+      };
     }
-
-    const fieldToCorrect = context.data.fieldToCorrect;
-    const fieldLabel = this.conversationState.getFieldLabel(fieldToCorrect);
-
-    console.log(
-      `✏️ Usuario ${phoneNumber} actualizó ${fieldToCorrect}: ${newValue}`,
-    );
-
-    // Actualizar el campo en los datos del voucher
-    this.conversationState.updateVoucherField(
-      phoneNumber,
-      fieldToCorrect,
-      newValue,
-    );
-
-    // Limpiar el campo temporal
-    delete context.data.fieldToCorrect;
-
-    // Volver al estado de confirmación
-    this.conversationState.setContext(
-      phoneNumber,
-      ConversationState.WAITING_CONFIRMATION,
-      context.data,
-    );
-
-    // Obtener datos actualizados
-    const updatedData = context.data.voucherData;
-
-    if (!updatedData) {
-      await this.sendWhatsAppMessage(
-        phoneNumber,
-        ErrorMessages.sessionExpired,
-      );
-      this.conversationState.clearContext(phoneNumber);
-      return;
-    }
-
-    // Enviar confirmación con datos actualizados y botones
-    await this.whatsappMessaging.sendButtonMessage(
-      phoneNumber,
-      `✅ *${fieldLabel}* actualizado correctamente.\n\n` +
-        `Por favor, confirma que los siguientes datos son correctos:\n\n` +
-        `📍 Casa: *${updatedData.casa}*\n` +
-        `💰 Monto: *${updatedData.monto}*\n` +
-        `📅 Fecha: *${updatedData.fecha_pago}*\n` +
-        `🕒 Hora: *${updatedData.hora_transaccion}*\n` +
-        `🔢 Referencia: *${updatedData.referencia}*\n\n` +
-        `¿Los datos son correctos?`,
-      [
-        { id: 'confirm', title: '✅ Sí, es correcto' },
-        { id: 'cancel', title: '❌ No, corregir' },
-      ],
-    );
   }
 
   /**
-   * Envía un mensaje de texto a través de WhatsApp Business API
-   * @param to Número de teléfono del destinatario
-   * @param message Mensaje de texto a enviar
+   * Extrae el número de casa de un voucher con relaciones cargadas
+   * @param voucher - Voucher con relaciones records -> house_records -> house
+   * @returns Número de casa o null si no está asociado
+   * @private
    */
-  private async sendWhatsAppMessage(
-    to: string,
-    message: string,
-  ): Promise<void> {
-    await this.whatsappMessaging.sendTextMessage(to, message);
+  private extractHouseNumber(voucher: any): number | null {
+    // Navegar por las relaciones: voucher -> records -> house_records -> house
+    if (voucher.records && voucher.records.length > 0) {
+      const record = voucher.records[0]; // Tomar el primer record
+      if (record.houseRecords && record.houseRecords.length > 0) {
+        const houseRecord = record.houseRecords[0]; // Tomar el primer house_record
+        if (houseRecord.house && houseRecord.house.number_house) {
+          return houseRecord.house.number_house;
+        }
+      }
+    }
+    return null;
   }
 
   /**
-   * Envía un mensaje con botones interactivos (SI/NO) a través de WhatsApp Business API
-   * @param to Número de teléfono del destinatario
-   * @param bodyText Texto del mensaje
-   * @param buttons Arreglo de botones con id y título (máximo 3)
+   * Transforma un voucher para incluir number_house en la respuesta
+   * @param voucher - Voucher con relaciones cargadas
+   * @returns Objeto voucher con number_house agregado, sin relaciones anidadas
+   * @private
    */
-  private async sendWhatsAppButtonMessage(
-    to: string,
-    bodyText: string,
-    buttons: Array<{ id: string; title: string }>,
-  ): Promise<void> {
-    await this.whatsappMessaging.sendButtonMessage(to, bodyText, buttons);
+  private transformVoucherResponse(voucher: any) {
+    const numberHouse = this.extractHouseNumber(voucher);
+
+    // Desestructurar para eliminar 'records' de la respuesta
+    const { records, ...cleanVoucher } = voucher;
+
+    // Retornar voucher limpio con number_house agregado
+    return {
+      ...cleanVoucher,
+      number_house: numberHouse,
+    };
   }
 }

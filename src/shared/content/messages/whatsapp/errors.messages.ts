@@ -7,7 +7,7 @@ export const ErrorMessages = {
    * Error genérico al procesar el comprobante
    */
   processingError:
-    'Hubo un error al procesar tu comprobante. Por favor intenta nuevamente o envía una imagen más clara.',
+    'Hubo un error al procesar tu comprobante. Por favor intenta nuevamente o envía una imagen más clara del comprobante.',
 
   /**
    * Error cuando el tipo de archivo no es soportado
@@ -19,7 +19,7 @@ export const ErrorMessages = {
    * Error cuando el tipo de mensaje no es soportado
    */
   unsupportedMessageType:
-    'Por favor envía un comprobante de pago como imagen o PDF, o escribe tu consulta sobre pagos.',
+    'Por favor envía un comprobante de pago como imagen o PDF, o escribe tu consulta sobre pagos. Toma en cuenta que mis funciones tan limitadas al registro de pagos.',
 
   /**
    * Error cuando solo se soportan documentos PDF

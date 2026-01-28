@@ -23,13 +23,15 @@
     "db:generate": "npm run typeorm migration:generate -- -d src/shared/config/datasource.ts",
     "db:deploy": "npm run typeorm migration:run -- -d src/shared/config/datasource.ts",
     "db:dev": "npm run typeorm migration:run -- -d src/shared/config/datasource.ts",
-    "db:push": "psql $DATABASE_URL -f bd_initial.sql",
+    "db:push": "bash -c 'set -a && source .env && set +a && psql \"${DATABASE_URL/\\?pgbouncer=true/}\" -f bd_initial.sql'",
     "db:install-triggers": "bash -c 'set -a && source .env && set +a && psql \"${DATABASE_URL/\\?pgbouncer=true/}\" -f src/shared/database/functions/duplicate_detection.sql'",
     "db:install-indexes": "bash -c 'set -a && source .env && set +a && psql \"${DATABASE_URL/\\?pgbouncer=true/}\" -f src/shared/database/indexes/deposits_unconfirmed_index.sql'",
     "db:setup": "npm run db:install-triggers && npm run db:install-indexes",
-    "db:test-triggers": "bash -c 'set -a && source .env && set +a && psql $DATABASE_URL -f src/shared/database/functions/test_duplicate_detection.sql'",
+    "db:test-triggers": "bash -c 'set -a && source .env && set +a && psql \"${DATABASE_URL/\\?pgbouncer=true/}\" -f src/shared/database/functions/test_duplicate_detection.sql'",
     "db:check-schema": "bash -c 'set -a && source .env && set +a && psql \"${DATABASE_URL/\\?pgbouncer=true/}\" -c \"\\d last_transaction_bank\"'",
-    "db:check-transactions": "bash -c 'set -a && source .env && set +a && psql \"${DATABASE_URL/\\?pgbouncer=true/}\" -c \"\\d transactions_bank\"'"
+    "db:check-transactions": "bash -c 'set -a && source .env && set +a && psql \"${DATABASE_URL/\\?pgbouncer=true/}\" -c \"\\d transactions_bank\"'",
+    "db:ensure-system-user": "bash -c 'set -a && source .env && set +a && psql \"${DATABASE_URL/\\?pgbouncer=true/}\" -f src/shared/database/scripts/ensure-system-user.sql'",
+    "verify:auth": "node scripts/verify-auth-config.js"
   },
   "dependencies": {
     "@google-cloud/speech": "^7.2.0",
@@ -41,20 +43,27 @@
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",
+    "@nestjs/jwt": "^11.0.2",
     "@nestjs/platform-express": "^11.1.6",
+    "@nestjs/swagger": "^11.2.1",
     "@nestjs/typeorm": "^11.0.0",
     "@supabase/supabase-js": "^2.54.0",
+    "firebase-admin": "^12.7.0",
     "@types/multer": "^2.0.0",
+    "@types/node-telegram-bot-api": "^0.64.12",
     "@types/pg": "^8.15.5",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
+    "cookie-parser": "^1.4.7",
     "multer": "^2.0.2",
+    "node-telegram-bot-api": "^0.66.0",
     "openai": "^5.12.2",
     "pg": "^8.16.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "tsconfig-paths": "^4.2.0",
     "typeorm": "^0.3.26",
+    "uuid": "^9.0.1",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
@@ -65,10 +74,12 @@
     "@nestjs/testing": "^11.0.1",
     "@swc/cli": "^0.6.0",
     "@swc/core": "^1.10.7",
+    "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.0",
     "@types/jest": "^29.5.14",
     "@types/node": "^22.10.7",
     "@types/supertest": "^6.0.2",
+    "@types/uuid": "^10.0.0",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",
@@ -98,6 +109,9 @@
       "**/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/$1"
+    }
   }
 }

@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { VertexAIClient } from './vertex-ai.client';
+import { getOCRExtractionPromptWithDocument } from '@/shared/config/ocr-prompts.config';
 import {
   VertexAI,
   HarmCategory,
@@ -37,9 +38,7 @@ export class VertexAIService {
       },
     });
 
-    const prompt =
-      customPrompt ||
-      `Eres un extractor de datos de comprobantes de pago. Responde SOLO en JSON. Campos requeridos: monto (MXN), fecha_pago (YYYY-MM-DD), referencia, hora_transaccion. Si algún campo falta o es inválido, incluye 'faltan_datos': true y 'pregunta' con texto breve para pedirlo. Si todo está correcto, 'faltan_datos': false. El texto a analizar es: \n\n${text}`;
+    const prompt = customPrompt || getOCRExtractionPromptWithDocument(text);
 
     try {
       const resp = await generativeModel.generateContent(prompt);
@@ -50,7 +49,18 @@ export class VertexAIService {
         throw new Error('La respuesta de Vertex AI no contiene contenido.');
       }
 
-      return JSON.parse(jsonString);
+      let parsedData = JSON.parse(jsonString);
+
+      // IMPORTANTE: Vertex AI a veces retorna un array con un objeto dentro [{}]
+      // en lugar de un objeto directo {}. Detectar y corregir esto.
+      if (Array.isArray(parsedData) && parsedData.length > 0) {
+        this.logger.log(
+          'Vertex AI retornó un array, extrayendo primer elemento',
+        );
+        parsedData = parsedData[0];
+      }
+
+      return parsedData;
     } catch (error) {
       this.logger.error('Error al procesar el texto con Vertex AI:', error);
       throw new Error(

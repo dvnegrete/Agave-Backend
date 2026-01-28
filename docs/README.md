@@ -9,14 +9,23 @@ Documentación completa del backend de Agave, incluyendo arquitectura, features,
 ## Table of Contents
 
 ### 🏗️ Architecture
-- [Project Structure](../CLAUDE.md) - Estructura del proyecto y comandos principales
+- [Project Structure](../claude.md) - Estructura del proyecto y comandos principales
 - [Clean Architecture](features/transactions-bank/README.md#architecture) - Patrón de arquitectura implementado
 
+### 🔐 Authentication
+- [**Authentication Overview**](auth/INDEX.md) - Firebase Authentication y sistema de privilegios
+- [**Cross-Domain Auth Setup**](auth/CROSS_DOMAIN_AUTH_SETUP.md) - Configuración cross-domain (staging/producción)
+- [Firebase Environments](auth/guides/FIREBASE_ENVIRONMENTS.md) - Configuración de ambientes
+- [Hybrid Token Strategy](auth/guides/HYBRID_TOKEN_STRATEGY.md) - Estrategia híbrida de tokens
+- [Configuration Guides](auth/guides/INDEX.md) - Guías de configuración paso a paso
+
 ### 💾 Database
-- [**Schema & Tables**](database/schema.md) - Estructura de tablas y relaciones
+- [**Schema & Tables**](database/schema.md) - Estructura completa de tablas (Transactions Bank + Vouchers/Houses)
+- [**Schema Visualization**](database/schema-visualization.md) - Diagrama visual con DBML (DrawDB/dbdiagram.io)
 - [**Triggers & Functions**](database/triggers.md) - Lógica automática de duplicados
 - [**Indexes & Optimization**](database/indexes.md) - Optimización de performance
 - [**Setup & Commands**](database/setup.md) - Comandos npm y configuración
+- [**Migration History**](database/schema.md#migration-history) - Historial de cambios de esquema
 
 ### 🏦 Features
 
@@ -27,15 +36,33 @@ Documentación completa del backend de Agave, incluyendo arquitectura, features,
 - [File Processing](features/transactions-bank/README.md#supported-formats) - Formatos soportados
 
 #### Vouchers & OCR
-- [**Vouchers Module Overview**](modules/vouchers/README.md) - Módulo de procesamiento de comprobantes
-- [**OCR Implementation**](modules/vouchers/ocr-implementation.md) - Implementación de OCR con Google Cloud Vision
-- [WhatsApp Integration](modules/vouchers/README.md#whatsapp-integration) - Integración con WhatsApp Business API
+- [**Vouchers Feature Overview**](features/vouchers/README.md) - Módulo completo de procesamiento de comprobantes
+- [**Technical Architecture**](features/vouchers/TECHNICAL.md) - Arquitectura, Clean Architecture, servicios y decisiones de diseño
+- [Database Integration](features/vouchers/README.md#registro-en-base-de-datos) - Sistema transaccional ACID multi-tabla
+- [WhatsApp Integration](features/vouchers/README.md#whatsapp) - Integración con WhatsApp Business API
+
+#### Bank Reconciliation
+- [**Feature Overview**](features/bank-reconciliation/README.md) - Conciliación automática de vouchers vs transacciones bancarias
+- [API Endpoints](features/bank-reconciliation/README.md#api-endpoints) - Endpoint de conciliación
+- [Business Logic](features/bank-reconciliation/README.md#business-logic) - Algoritmo de matching y reglas
+- [Configuration](features/bank-reconciliation/README.md#configuration) - Configuración de tolerancias y umbrales
+
+#### Payment Management
+- [**Feature Overview**](features/payment-management/README.md) - Sistema de gestión de períodos de facturación y distribución de pagos
+- [API Endpoints](features/payment-management/README.md#api-endpoints) - Endpoints de períodos y configuración
+- [Database Entities](features/payment-management/README.md#database-entities) - PeriodConfig, HouseBalance, RecordAllocation
+- [Migrations Guide](features/payment-management/MIGRATIONS.md) - Guía de migraciones de base de datos
+- [Integration](features/payment-management/README.md#integration-with-bank-reconciliation) - Integración con conciliación bancaria
+
+### 📋 Pending Features
+- [**Pending Features**](PENDING_FEATURES.md) - Funcionalidades planificadas para implementación futura
 
 ### 📦 Shared Modules
 
 #### Google Cloud Platform
 - [**Google Cloud Library**](modules/google-cloud/README.md) - Librería unificada para servicios de GCP
-- [Vision API Setup](../GOOGLE_CLOUD_VISION_SETUP.md) - Configuración de Google Cloud Vision
+- [**Vision API Setup**](modules/google-cloud/vision-api-setup.md) - Configuración de Google Cloud Vision para OCR
+- [Cloud Storage Service](modules/google-cloud/README.md#cloud-storage-service) - Servicio centralizado de almacenamiento
 - [Services Available](modules/google-cloud/README.md#servicios-disponibles) - Vision, Storage, Translate, TTS, STT
 
 #### Content Dictionary System
@@ -80,6 +107,13 @@ npm run db:check-transactions  # View table schema
 ```
 
 ## Key Features
+
+### 🔐 Firebase Authentication with Cross-Domain Support
+- **Firebase Auth**: Email/password and OAuth (Google, Facebook)
+- **JWT Tokens**: Access and refresh tokens with httpOnly cookies
+- **Cross-Domain**: Automatic detection and configuration for staging/production
+- **Hybrid Strategy**: Cookies + Authorization header fallback
+- **Secure**: httpOnly cookies with dynamic sameSite policy
 
 ### 🔄 Automatic Duplicate Detection
 - **Database-level**: SQL triggers handle all duplicate logic
@@ -134,14 +168,22 @@ src/
 
 ## Database Schema Overview
 
-### Core Tables
+### Transactions Bank Module
 - `transactions_bank`: Main transactions storage
 - `last_transaction_bank`: Processing reference tracking
 
+### Vouchers & Houses Module
+- `vouchers`: Comprobantes de pago con OCR
+- `records`: Registros centrales que relacionan vouchers con casas
+- `houses`: Casas/propiedades del sistema
+- `house_records`: Tabla intermedia (múltiples pagos por casa)
+- `users`: Usuarios con autenticación y números de teléfono internacionales
+
 ### Automatic Features
-- **Duplicate Detection**: SQL trigger prevents duplicates
+- **Duplicate Detection**: SQL trigger prevents duplicates (transactions-bank)
 - **Performance Optimization**: Partial indexes for common queries
-- **Reference Tracking**: Incremental processing support
+- **Transactional Integrity**: ACID transactions for voucher registration
+- **Multi-table Relationships**: Normalized schema with proper foreign keys
 
 ## API Overview
 
@@ -160,8 +202,15 @@ GET    /transactions-bank/export/json    # Export to JSON
 ```http
 POST   /vouchers/ocr-service             # Process voucher with OCR
 GET    /vouchers/ocr-service/languages   # Get supported languages
-POST   /vouchers/whatsapp-webhook        # WhatsApp webhook
+POST   /vouchers/whatsapp-webhook        # WhatsApp webhook (register voucher + multi-table insert)
 GET    /vouchers/whatsapp-webhook        # WhatsApp verification
+GET    /vouchers                         # Get all vouchers (with filters)
+GET    /vouchers/:id                     # Get voucher by ID with signed URL
+```
+
+### Bank Reconciliation Endpoints
+```http
+POST   /bank-reconciliation/reconcile    # Execute reconciliation (all or by date range)
 ```
 
 ## Development Guidelines
@@ -190,14 +239,26 @@ npm run test:e2e      # End-to-end tests
 
 ### Required Variables
 ```env
-# Database connection
+# Database connection (Supabase PostgreSQL)
 DATABASE_URL=postgresql://user:pass@host:port/db
 
 # Application settings
 PORT=3000
 NODE_ENV=development
 
-# External services
+# Firebase Authentication
+FIREBASE_PROJECT_ID=your-firebase-project-id
+FIREBASE_CLIENT_EMAIL=your-service-account-email
+FIREBASE_PRIVATE_KEY=your-firebase-private-key
+
+# Cross-Domain Auth Configuration (REQUIRED)
+FRONTEND_URL=http://localhost:5173
+BACKEND_URL=http://localhost:3000
+
+# Optional: Cookie Domain (for subdomain sharing)
+COOKIE_DOMAIN=.tu-dominio.com
+
+# Supabase (Database only - Auth is handled by Firebase)
 SUPABASE_URL=your_supabase_url
 SUPABASE_ANON_KEY=your_supabase_key
 
@@ -214,6 +275,15 @@ VERIFY_TOKEN_WA=your_verify_token
 # AI Services
 OPENAI_API_KEY=your_openai_key
 ```
+
+**Important Notes:**
+- **Firebase Authentication**: Used for user authentication and OAuth (Google, Facebook)
+- **Supabase**: Used ONLY for PostgreSQL database, NOT for authentication
+- **FRONTEND_URL**: Required for cross-domain auth cookie configuration
+- **BACKEND_URL**: Used to detect cross-domain vs same-domain scenarios
+- **NODE_ENV**: Affects cookie security and database pool size
+
+See [Cross-Domain Auth Setup](auth/CROSS_DOMAIN_AUTH_SETUP.md) for detailed configuration by environment.
 
 ## Monitoring & Debugging
 

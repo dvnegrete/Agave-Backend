@@ -27,8 +27,19 @@ Guía para desarrolladores que trabajan en el proyecto:
 - Convenciones de código
 - Flujo de trabajo Git
 
+### 🚀 [Railway Deployment](./RAILWAY_DEPLOYMENT.md) ⭐ NUEVO
+**Nivel**: Avanzado
+**Tiempo estimado**: 30 minutos
+
+Guía paso a paso para desplegar en Railway (Staging y Producción):
+- Configuración de variables de entorno por ambiente
+- Staging deployment
+- Production deployment con backups
+- Validación y smoke testing
+- Troubleshooting
+
 ### 🚀 [Despliegue](./deployment.md)
-**Nivel**: Avanzado  
+**Nivel**: Avanzado
 **Tiempo estimado**: 60 minutos
 
 Guía para desplegar el sistema en producción:
@@ -59,8 +70,18 @@ Guía para escribir y ejecutar pruebas:
 - Pruebas end-to-end
 - Cobertura de código
 
+### ⚡ [Quick Reference - Environment Variables](./QUICK_REFERENCE.md) ⭐ NUEVO
+**Nivel**: Principiante
+**Tiempo estimado**: 2 minutos
+
+Referencia rápida con configuraciones copy-paste:
+- Variables para development, staging, production
+- Decision tree para elegir ambiente
+- Validation rules
+- Common issues y soluciones
+
 ### 🔒 [Seguridad](./security.md)
-**Nivel**: Avanzado  
+**Nivel**: Avanzado
 **Tiempo estimado**: 50 minutos
 
 Guía de mejores prácticas de seguridad:
@@ -76,11 +97,12 @@ Guía de mejores prácticas de seguridad:
 |-----------|----------|--------|
 | Configuración | 2 | ✅ Completadas |
 | Desarrollo | 2 | ✅ Completadas |
-| Despliegue | 1 | ✅ Completada |
+| Despliegue | 2 | ✅ Completadas (+ Railway) |
 | Testing | 1 | ✅ Completada |
 | Seguridad | 1 | ✅ Completada |
+| Referencia Rápida | 1 | ✅ Completada |
 
-**Total de guías**: 7
+**Total de guías**: 9
 
 ## 🎯 Audiencia Objetivo
 
@@ -149,6 +171,11 @@ graph TD
 - **GitHub Issues**: Para reportar problemas
 
 ## 🚀 Próximas Guías
+
+### Recientemente Agregadas ✅
+- [x] **Railway Deployment**: Guía paso a paso para Railway (Staging y Producción)
+- [x] **Quick Reference**: Variables copy-paste por ambiente
+- [x] **Firebase Environments**: Configuración NODE_ENV por ambiente (en docs/auth/guides/)
 
 ### Planificadas
 - [ ] **Microservicios**: Arquitectura de microservicios

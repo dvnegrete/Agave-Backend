@@ -16,6 +16,7 @@ Esta librería proporciona una interfaz unificada para acceder a múltiples serv
 - **Cliente**: `ImageAnnotatorClient`
 - **Uso**: OCR, detección de objetos, análisis de imágenes
 - **Método**: `getVisionClient()`
+- **Guía de configuración**: Ver [Vision API Setup](vision-api-setup.md)
 
 ### 2. Cloud Storage
 - **Cliente**: `Storage`
@@ -432,6 +433,10 @@ try {
 }
 ```
 
+## Guías de Configuración
+
+- [**Vision API Setup**](vision-api-setup.md) - Configuración completa de Google Cloud Vision API para OCR
+
 ## Notas Importantes
 
 1. **Credenciales**: Nunca subas las credenciales a control de versiones
@@ -439,3 +444,9 @@ try {
 3. **Límites**: Revisa los límites de cuota de cada API
 4. **Región**: Configura la región apropiada para tu aplicación
 5. **Cloud Storage**: Usa `CloudStorageService` en lugar de acceso directo al cliente
+
+## Documentación Relacionada
+
+- [Vouchers Feature](../../features/vouchers/README.md) - Implementación de OCR para comprobantes
+- [Vouchers Technical Docs](../../features/vouchers/TECHNICAL.md) - Arquitectura técnica y servicios OCR
+- [Database Schema](../../database/schema.md) - Estructura de base de datos

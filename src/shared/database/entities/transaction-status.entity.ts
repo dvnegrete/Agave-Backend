@@ -26,10 +26,30 @@ export class TransactionStatus {
   validation_status: ValidationStatus;
 
   @Column({ type: 'bigint', nullable: true })
-  transactions_bank_id: string;
+  transactions_bank_id: number;
 
   @Column({ type: 'int', nullable: true })
   vouchers_id: number;
+
+  @Column({ type: 'text', nullable: true })
+  reason: string;
+
+  @Column({ type: 'int', nullable: true })
+  identified_house_number: number;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  processed_at: Date;
+
+  @Column({ type: 'jsonb', nullable: true })
+  metadata: {
+    possibleMatches?: Array<{
+      voucherId: number;
+      similarity: number;
+      dateDifferenceHours: number;
+    }>;
+    matchCriteria?: string[];
+    confidenceLevel?: string;
+  };
 
   @CreateDateColumn()
   created_at: Date;

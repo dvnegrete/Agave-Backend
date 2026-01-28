@@ -47,7 +47,7 @@ export class TransactionsBankService {
       );
 
       // Determinar el nombre del banco del archivo actual
-      const currentBankName = options?.bank || options?.bankName || '';
+      const currentBankName = options?.bankName || '';
 
       // Validar transacciones
       const validationResults = await Promise.all(
@@ -97,7 +97,6 @@ export class TransactionsBankService {
             })),
           );
         } catch (error) {
-          console.error('Error al insertar transacciones:', error);
           throw new BadRequestException(
             TransactionsBankErrorMessages.savingError(error.message),
           );
@@ -371,11 +370,7 @@ export class TransactionsBankService {
   ): Promise<void> {
     try {
       await this.lastTransactionBankRepository.create(transactionId);
-      console.log(
-        `Última transacción guardada en last_transaction_bank: ${transactionId}`,
-      );
     } catch (error) {
-      console.error('Error al guardar la última transacción:', error);
       // No lanzamos la excepción para no interrumpir el proceso principal
     }
   }
@@ -388,7 +383,6 @@ export class TransactionsBankService {
       }
       return lastRecord.transactionBank;
     } catch (error) {
-      console.error('Error al obtener la última transacción procesada:', error);
       return null;
     }
   }
