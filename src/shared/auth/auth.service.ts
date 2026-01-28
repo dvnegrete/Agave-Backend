@@ -9,11 +9,9 @@ import { Response } from 'express';
 import {
   SignUpDto,
   SignInDto,
-  RefreshTokenDto,
   AuthResponseDto,
   OAuthCallbackDto,
 } from './dto/auth.dto';
-import { User as DbUser } from '../database/entities/user.entity';
 import { Status, Role } from '../database/entities/enums';
 import { JwtAuthService } from './services/jwt-auth.service';
 import { FirebaseAuthConfig } from './services/firebase-auth.config';
@@ -35,7 +33,7 @@ export class AuthService {
     private userRepository: UserRepository,
     private jwtAuthService: JwtAuthService,
     private firebaseConfig: FirebaseAuthConfig,
-  ) {}
+  ) { }
 
   private ensureEnabled() {
     if (!this.firebaseConfig.isEnabled()) {
@@ -133,6 +131,79 @@ export class AuthService {
       `configure COOKIE_DOMAIN environment variable (e.g., COOKIE_DOMAIN=.up.railway.app)`
     );
     return undefined;
+  }
+
+  /**
+   * Determina el valor de sameSite basándose en si frontend y backend comparten dominio.
+   *
+   * IMPORTANTE para evitar loops de 401:
+   * - Cross-domain (staging Railway): sameSite: 'none' (permite enviar cookies cross-site)
+   * - Same-domain (localhost, producción mismo dominio): sameSite: 'lax' (más seguro)
+   *
+   * sameSite: 'none' requiere secure: true (HTTPS)
+   */
+  private getCookieSameSite(): 'lax' | 'none' {
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL');
+
+    if (!frontendUrl) {
+      return 'lax';
+    }
+
+    // Extraer hostname del frontend
+    const frontendHostname = frontendUrl
+      .replace(/^https?:\/\//, '')
+      .split(':')[0];
+
+    // Obtener hostname del backend (desde variable de entorno o inferir del request)
+    // En Railway, cada servicio tiene su propio dominio: xxx.up.railway.app
+    const backendUrl = this.configService.get<string>('BACKEND_URL');
+
+    // Si no hay BACKEND_URL, asumir que no comparten dominio (staging)
+    if (!backendUrl) {
+      // Localhost siempre usa lax
+      if (frontendHostname === 'localhost' || frontendHostname === '127.0.0.1') {
+        this.logger.log(`🍪 Cookie sameSite: lax (localhost)`);
+        return 'lax';
+      }
+
+      // Otros casos: asumir cross-domain (staging Railway)
+      this.logger.log(`🍪 Cookie sameSite: none (cross-domain, BACKEND_URL not set)`);
+      return 'none';
+    }
+
+    const backendHostname = backendUrl
+      .replace(/^https?:\/\//, '')
+      .split(':')[0];
+
+    // Comparar dominios base (sin subdominios)
+    const frontendBaseDomain = this.extractBaseDomain(frontendHostname);
+    const backendBaseDomain = this.extractBaseDomain(backendHostname);
+
+    const isSameDomain = frontendBaseDomain === backendBaseDomain;
+
+    this.logger.log(
+      `🍪 Cookie sameSite: ${isSameDomain ? 'lax' : 'none'} ` +
+      `(Frontend: ${frontendHostname}, Backend: ${backendHostname})`
+    );
+
+    return isSameDomain ? 'lax' : 'none';
+  }
+
+  private extractBaseDomain(hostname: string): string {
+    const parts = hostname.split('.');
+
+    // localhost o IP
+    if (parts.length <= 1) {
+      return hostname;
+    }
+
+    // Tomar los últimos 2 segmentos (dominio.tld)
+    // Para dominios como .com.mx, tomar los últimos 3
+    if (parts[parts.length - 1] === 'mx' || parts[parts.length - 1] === 'uk' || parts[parts.length - 1] === 'br') {
+      return parts.slice(-3).join('.');
+    }
+
+    return parts.slice(-2).join('.');
   }
 
   async signUp(signUpDto: SignUpDto): Promise<AuthResponseDto> {
@@ -326,7 +397,7 @@ export class AuthService {
       res.cookie('access_token', accessToken, {
         httpOnly: true,
         secure: this.getCookieSecureFlag(),
-        sameSite: 'lax',
+        sameSite: this.getCookieSameSite(),
         domain: this.getCookieDomain(),
         maxAge: 15 * 60 * 1000, // 15 minutos
       });
@@ -414,7 +485,7 @@ export class AuthService {
       res.cookie('access_token', jwtAccessToken, {
         httpOnly: true,
         secure: this.getCookieSecureFlag(),
-        sameSite: 'lax',
+        sameSite: this.getCookieSameSite(),
         domain: this.getCookieDomain(),
         maxAge: 15 * 60 * 1000, // 15 minutos
       });
@@ -461,7 +532,7 @@ export class AuthService {
       res.cookie('access_token', newAccessToken, {
         httpOnly: true,
         secure: this.getCookieSecureFlag(),
-        sameSite: 'lax',
+        sameSite: this.getCookieSameSite(),
         domain: this.getCookieDomain(),
         maxAge: 15 * 60 * 1000, // 15 minutes
       });
@@ -519,7 +590,7 @@ export class AuthService {
       res.cookie('access_token', accessToken, {
         httpOnly: true,
         secure: this.getCookieSecureFlag(),
-        sameSite: 'lax',
+        sameSite: this.getCookieSameSite(),
         domain: this.getCookieDomain(),
         maxAge: 15 * 60 * 1000, // 15 minutos
       });
