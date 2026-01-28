@@ -5,7 +5,7 @@ Documentación completa de todos los endpoints disponibles en el feature de Paym
 ## Base URL
 
 ```
-GET https://api.agave-backend.local/api/payment-management
+GET https://your-api-domain/api/payment-management
 ```
 
 ## Tabla de Contenidos

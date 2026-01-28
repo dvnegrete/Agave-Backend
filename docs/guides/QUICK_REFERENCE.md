@@ -32,7 +32,7 @@ BUCKET_NAME_VOUCHERS=your-vouchers-bucket-development
 
 ```bash
 NODE_ENV=staging
-FRONTEND_URL=https://your-frontend-staging.up.railway.app
+FRONTEND_URL=https://your-frontend-domain.com
 DATABASE_URL=<copy-from-railway-postgres>
 DIRECT_URL=<copy-from-railway-postgres>
 PORT=3000
@@ -77,7 +77,7 @@ BUCKET_NAME_VOUCHERS=your-vouchers-bucket-production
 | Variable | Development | Staging | Production |
 |----------|------------|---------|-----------|
 | `NODE_ENV` | development | staging | production |
-| `FRONTEND_URL` | http://localhost:5173 | https://your-frontend-staging.up.railway.app | https://your-domain.com |
+| `FRONTEND_URL` | http://localhost:5173 | https://your-frontend-domain.com | https://your-domain.com |
 | Database Pool | 5 | 10 | 20 |
 | Query Logging | ON | OFF | OFF |
 | Cookie Secure | false | true | true |
@@ -93,7 +93,7 @@ Laptop/PC?              → NODE_ENV=development
                            FRONTEND_URL=http://localhost:5173
 
 Railway Testing?        → NODE_ENV=staging
-                           FRONTEND_URL=https://your-frontend-staging.up.railway.app
+                           FRONTEND_URL=https://your-frontend-domain.com
 
 Railway Real Users?     → NODE_ENV=production
                            FRONTEND_URL=https://your-domain.com

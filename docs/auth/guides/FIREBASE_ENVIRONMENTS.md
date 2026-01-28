@@ -124,7 +124,7 @@ CLIENT_ID_GCP=your-client-id
 **Environment Variables:**
 ```env
 NODE_ENV=staging
-FRONTEND_URL=https://your-frontend-staging.up.railway.app
+FRONTEND_URL=https://your-frontend-domain.com
 DATABASE_URL=postgresql://... (Railway staging database)
 JWT_SECRET=staging-secret-key-different-from-prod
 
@@ -223,7 +223,7 @@ When the backend starts, it validates environment configuration:
 ```
 🔐 Validando configuración de variables de entorno...
 📋 Environment: staging
-✅ FRONTEND_URL: https://your-frontend-staging.up.railway.app
+✅ FRONTEND_URL: https://your-frontend-domain.com
 ✅ All environment variables validated successfully!
 ```
 
@@ -235,7 +235,7 @@ When the backend starts, it validates environment configuration:
 
    Configure FRONTEND_URL in your environment:
    - Development: FRONTEND_URL=http://localhost:5173
-   - Staging: FRONTEND_URL=https://your-frontend-staging.up.railway.app
+   - Staging: FRONTEND_URL=https://your-frontend-domain.com
    - Production: FRONTEND_URL=https://your-domain.com
 
    And ensure GCP credentials are configured: PROJECT_ID_GCP, PRIVATE_KEY_ID, PRIVATE_KEY_GCP, CLIENT_EMAIL_GCP, CLIENT_ID_GCP
@@ -284,7 +284,7 @@ Process exit(1)
 **Solution:**
 ```bash
 # In Railway Dashboard → Backend → Variables
-FRONTEND_URL=https://your-frontend-staging.up.railway.app
+FRONTEND_URL=https://your-frontend-domain.com
 
 # Then redeploy
 ```
@@ -304,11 +304,11 @@ FRONTEND_URL=https://your-frontend-staging.up.railway.app
 ```bash
 # ❌ WRONG:
 FRONTEND_URL=localhost:5173
-FRONTEND_URL=your-frontend-staging.up.railway.app
+FRONTEND_URL=your-frontend-domain.com
 
 # ✅ CORRECT:
 FRONTEND_URL=http://localhost:5173
-FRONTEND_URL=https://your-frontend-staging.up.railway.app
+FRONTEND_URL=https://your-frontend-domain.com
 ```
 
 ---
@@ -370,7 +370,7 @@ CLIENT_ID_GCP=your-client-id
 ### Before Staging Deployment
 
 - [ ] `NODE_ENV=staging` configured in Railway
-- [ ] `FRONTEND_URL=https://your-frontend-staging.up.railway.app` exact match
+- [ ] `FRONTEND_URL=https://your-frontend-domain.com` exact match
 - [ ] DATABASE_URL points to staging database
 - [ ] GCP credentials configured (PROJECT_ID_GCP, PRIVATE_KEY_GCP, CLIENT_EMAIL_GCP, CLIENT_ID_GCP)
 - [ ] Backups configured (though staging data isn't critical)

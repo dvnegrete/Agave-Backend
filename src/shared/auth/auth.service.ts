@@ -67,9 +67,8 @@ export class AuthService {
         `   Cookie security depends on FRONTEND_URL protocol (http:// vs https://)\n` +
         `\n` +
         `   Configure FRONTEND_URL in your environment:\n` +
-        `   - Development: FRONTEND_URL=http://localhost:5173\n` +
-        `   - Staging: FRONTEND_URL=https://agave-frontend-development.up.railway.app\n` +
-        `   - Production: FRONTEND_URL=https://condominioelagave.com.mx`;
+        `   - Development: FRONTEND_URL=http://localhost:PORT\n` +
+        `   - Staging/Production: FRONTEND_URL=https://your-frontend-domain.com`;
 
       this.logger.error(errorMsg);
       throw new Error(
@@ -86,6 +85,35 @@ export class AuthService {
     );
 
     return isSecure;
+  }
+
+  /**
+   * Extrae el dominio base de FRONTEND_URL para que las cookies sean compartidas
+   * entre frontend y backend en el mismo dominio raíz.
+   *
+   * - Para localhost: retorna undefined (el navegador lo determina automáticamente)
+   * - Para dominios reales: retorna el dominio con punto prefijo para compartir entre subdominos
+   */
+  private getCookieDomain(): string | undefined {
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL');
+
+    if (!frontendUrl) {
+      return undefined;
+    }
+
+    // Remover protocolo y puerto
+    const domainWithPort = frontendUrl
+      .replace(/^https?:\/\//, '')
+      .split(':')[0];
+
+    // Si es localhost, no establecer domain (permitir que el navegador lo determine automáticamente)
+    if (domainWithPort === 'localhost' || domainWithPort === '127.0.0.1') {
+      return undefined;
+    }
+
+    // Para dominios reales, establecer el dominio raíz con punto prefijo
+    // Esto permite que la cookie sea compartida entre subdominos
+    return `.${domainWithPort}`;
   }
 
   async signUp(signUpDto: SignUpDto): Promise<AuthResponseDto> {
@@ -280,6 +308,7 @@ export class AuthService {
         httpOnly: true,
         secure: this.getCookieSecureFlag(),
         sameSite: 'lax',
+        domain: this.getCookieDomain(),
         maxAge: 15 * 60 * 1000, // 15 minutos
       });
 
@@ -366,6 +395,7 @@ export class AuthService {
         httpOnly: true,
         secure: this.getCookieSecureFlag(),
         sameSite: 'lax',
+        domain: this.getCookieDomain(),
         maxAge: 15 * 60 * 1000, // 15 minutos
       });
 
@@ -412,6 +442,7 @@ export class AuthService {
         httpOnly: true,
         secure: this.getCookieSecureFlag(),
         sameSite: 'lax',
+        domain: this.getCookieDomain(),
         maxAge: 15 * 60 * 1000, // 15 minutes
       });
 
@@ -469,6 +500,7 @@ export class AuthService {
         httpOnly: true,
         secure: this.getCookieSecureFlag(),
         sameSite: 'lax',
+        domain: this.getCookieDomain(),
         maxAge: 15 * 60 * 1000, // 15 minutos
       });
 

@@ -22,9 +22,8 @@ function validateEnvironmentVariables(): void {
       `This is REQUIRED in all environments for cookie security configuration.\n\n` +
       `   Current NODE_ENV: ${nodeEnv}\n\n` +
       `Configure FRONTEND_URL in your .env:\n` +
-      `   - Development: FRONTEND_URL=http://localhost:5173\n` +
-      `   - Staging: FRONTEND_URL=https://agave-frontend-development.up.railway.app\n` +
-      `   - Production: FRONTEND_URL=https://condominioelagave.com.mx\n\n` +
+      `   - Development: FRONTEND_URL=http://localhost:PORT\n` +
+      `   - Staging/Production: FRONTEND_URL=https://your-frontend-domain.com\n\n` +
       `Without FRONTEND_URL, authentication will fail!\n`;
 
     console.error(errorMsg);
@@ -49,9 +48,8 @@ function validateEnvironmentVariables(): void {
       `   Current: ${frontendUrl}\n` +
       `   Invalid!\n\n` +
       `Correct examples:\n` +
-      `   - http://localhost:5173\n` +
-      `   - https://agave-frontend-development.up.railway.app\n` +
-      `   - https://condominioelagave.com.mx\n`;
+      `   - http://localhost:PORT\n` +
+      `   - https://your-frontend-domain.com\n`;
 
     console.error(errorMsg);
     process.exit(1);

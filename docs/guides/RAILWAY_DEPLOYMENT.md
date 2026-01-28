@@ -16,7 +16,7 @@ This guide provides step-by-step instructions for deploying Agave Backend to Rai
 
 | Environment | NODE_ENV | FRONTEND_URL | Branch | Database |
 |-------------|----------|--------------|--------|----------|
-| **Staging** | `staging` | `https://your-frontend-staging.up.railway.app` | `development` | Staging DB |
+| **Staging** | `staging` | `https://your-frontend-domain.com` | `development` | Staging DB |
 | **Production** | `production` | `https://your-domain.com` | `main` | Production DB |
 
 ---
@@ -39,7 +39,7 @@ This guide provides step-by-step instructions for deploying Agave Backend to Rai
 NODE_ENV=staging
 
 # Frontend (MUST match your frontend URL)
-FRONTEND_URL=https://your-frontend-staging.up.railway.app
+FRONTEND_URL=https://your-frontend-domain.com
 
 # Database (Copy from your Railway PostgreSQL instance)
 DATABASE_URL=postgresql://postgres:PASSWORD@HOST:PORT/railway?pgbouncer=true
@@ -105,7 +105,7 @@ railway logs
 # Look for:
 🔐 Validando configuración de variables de entorno...
 📋 Environment: staging
-✅ FRONTEND_URL: https://your-frontend-staging.up.railway.app
+✅ FRONTEND_URL: https://your-frontend-domain.com
 ✅ All environment variables validated successfully!
 
 # Then:
@@ -123,7 +123,7 @@ railway logs
 
 ```
 1. Frontend test:
-   → Visit https://your-frontend-staging.up.railway.app
+   → Visit https://your-frontend-domain.com
    → Should load without CORS errors
 
 2. Login test:
@@ -354,7 +354,7 @@ railway logs
 
 **Solution:**
 1. Railway → Backend → Variables
-2. Add: `FRONTEND_URL=https://your-frontend-staging.up.railway.app` (or your production domain)
+2. Add: `FRONTEND_URL=https://your-frontend-domain.com` (or your production domain)
 3. Save and Redeploy
 
 ### Error: "DATABASE_URL invalid"
