@@ -34,17 +34,14 @@ export class FixNullUserIdBeforeTypeChange1769550000001 implements MigrationInte
             WHERE "approved_by_user_id" IS NULL
         `);
 
-        // 3. Si la columna user_id aún no es NOT NULL, agregarlo
-        // Primero verificar el estado actual
-        const userIdConstraint = await queryRunner.query(`
-            SELECT constraint_name FROM information_schema.table_constraints
-            WHERE table_name = 'houses'
-            AND column_name = 'user_id'
-            AND constraint_type = 'NOT NULL'
+        // 3. Verificar si user_id es nullable y hacerlo NOT NULL
+        const userIdColumn = await queryRunner.query(`
+            SELECT is_nullable FROM information_schema.columns
+            WHERE table_name = 'houses' AND column_name = 'user_id'
         `);
 
-        if (userIdConstraint.length === 0) {
-            // Agregar NOT NULL si no existe
+        if (userIdColumn.length > 0 && userIdColumn[0].is_nullable === 'YES') {
+            // Agregar NOT NULL
             await queryRunner.query(`
                 ALTER TABLE "houses"
                 ALTER COLUMN "user_id" SET NOT NULL
@@ -60,18 +57,27 @@ export class FixNullUserIdBeforeTypeChange1769550000001 implements MigrationInte
         // Si es UUID, cambiar a varchar(128)
         if (userIdType.length > 0 && userIdType[0].data_type === 'uuid') {
             // Primero eliminar la FK para poder cambiar el tipo
-            const fkConstraint = await queryRunner.query(`
+            const fkConstraints = await queryRunner.query(`
                 SELECT constraint_name FROM information_schema.table_constraints
                 WHERE table_name = 'houses'
                 AND constraint_type = 'FOREIGN KEY'
-                AND column_name = 'user_id'
             `);
 
-            if (fkConstraint.length > 0) {
-                await queryRunner.query(`
-                    ALTER TABLE "houses"
-                    DROP CONSTRAINT "${fkConstraint[0].constraint_name}"
+            for (const fk of fkConstraints) {
+                // Verificar si es la FK de user_id consultando key_column_usage
+                const keyInfo = await queryRunner.query(`
+                    SELECT column_name FROM information_schema.key_column_usage
+                    WHERE constraint_name = '${fk.constraint_name}'
+                    AND column_name = 'user_id'
                 `);
+
+                if (keyInfo.length > 0) {
+                    await queryRunner.query(`
+                        ALTER TABLE "houses"
+                        DROP CONSTRAINT "${fk.constraint_name}"
+                    `);
+                    break;
+                }
             }
 
             // Cambiar el tipo de uuid a varchar(128)
@@ -91,24 +97,44 @@ export class FixNullUserIdBeforeTypeChange1769550000001 implements MigrationInte
         }
 
         // 5. Hacer lo mismo para manual_validation_approvals.approved_by_user_id
+        const approvedByColumn = await queryRunner.query(`
+            SELECT is_nullable FROM information_schema.columns
+            WHERE table_name = 'manual_validation_approvals' AND column_name = 'approved_by_user_id'
+        `);
+
+        if (approvedByColumn.length > 0 && approvedByColumn[0].is_nullable === 'YES') {
+            await queryRunner.query(`
+                ALTER TABLE "manual_validation_approvals"
+                ALTER COLUMN "approved_by_user_id" SET NOT NULL
+            `);
+        }
+
         const approvedByType = await queryRunner.query(`
             SELECT data_type FROM information_schema.columns
             WHERE table_name = 'manual_validation_approvals' AND column_name = 'approved_by_user_id'
         `);
 
         if (approvedByType.length > 0 && approvedByType[0].data_type === 'uuid') {
-            const fkConstraint = await queryRunner.query(`
+            const fkConstraints = await queryRunner.query(`
                 SELECT constraint_name FROM information_schema.table_constraints
                 WHERE table_name = 'manual_validation_approvals'
                 AND constraint_type = 'FOREIGN KEY'
-                AND column_name = 'approved_by_user_id'
             `);
 
-            if (fkConstraint.length > 0) {
-                await queryRunner.query(`
-                    ALTER TABLE "manual_validation_approvals"
-                    DROP CONSTRAINT "${fkConstraint[0].constraint_name}"
+            for (const fk of fkConstraints) {
+                const keyInfo = await queryRunner.query(`
+                    SELECT column_name FROM information_schema.key_column_usage
+                    WHERE constraint_name = '${fk.constraint_name}'
+                    AND column_name = 'approved_by_user_id'
                 `);
+
+                if (keyInfo.length > 0) {
+                    await queryRunner.query(`
+                        ALTER TABLE "manual_validation_approvals"
+                        DROP CONSTRAINT "${fk.constraint_name}"
+                    `);
+                    break;
+                }
             }
 
             await queryRunner.query(`
