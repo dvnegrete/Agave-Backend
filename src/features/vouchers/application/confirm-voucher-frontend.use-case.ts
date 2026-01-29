@@ -154,8 +154,8 @@ export class ConfirmVoucherFrontendUseCase {
           vouchers_id: voucherId,
           transaction_status_id: null,
           cta_extraordinary_fee_id: null,
-          cta_maintence_id: null,
-          cta_penalities_id: null,
+          cta_maintenance_id: null,
+          cta_penalties_id: null,
           cta_water_id: null,
           cta_other_payments_id: null,
         };

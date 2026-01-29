@@ -184,14 +184,14 @@ export class Period {
   @Column({
     type: 'date',
     generatedType: 'STORED',
-    asExpression: `date_trunc('month', make_date(year, month, 1))::date`
+    asExpression: `make_date(year, month, 1)`
   })
   start_date: Date;
 
   @Column({
     type: 'date',
     generatedType: 'STORED',
-    asExpression: `(date_trunc('month', make_date(year, month, 1)) + interval '1 month' - interval '1 day')::date`
+    asExpression: `(make_date(year, month, 1) + interval '1 month - 1 day')::date`
   })
   end_date: Date;
 

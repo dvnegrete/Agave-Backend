@@ -7,8 +7,8 @@ export interface CreateRecordDto {
   vouchers_id?: number | null;
   transaction_status_id?: number | null;
   cta_extraordinary_fee_id?: number | null;
-  cta_maintence_id?: number | null;
-  cta_penalities_id?: number | null;
+  cta_maintenance_id?: number | null;
+  cta_penalties_id?: number | null;
   cta_water_id?: number | null;
   cta_other_payments_id?: number | null;
 }
@@ -31,8 +31,8 @@ export class RecordRepository {
       vouchers_id: data.vouchers_id ?? undefined,
       transaction_status_id: data.transaction_status_id ?? undefined,
       cta_extraordinary_fee_id: data.cta_extraordinary_fee_id ?? undefined,
-      cta_maintence_id: data.cta_maintence_id ?? undefined,
-      cta_penalities_id: data.cta_penalities_id ?? undefined,
+      cta_maintenance_id: data.cta_maintenance_id ?? undefined,
+      cta_penalties_id: data.cta_penalties_id ?? undefined,
       cta_water_id: data.cta_water_id ?? undefined,
       cta_other_payments_id: data.cta_other_payments_id ?? undefined,
     };
@@ -84,10 +84,10 @@ export class RecordRepository {
       updateData.transaction_status_id = data.transaction_status_id;
     if (data.cta_extraordinary_fee_id !== undefined)
       updateData.cta_extraordinary_fee_id = data.cta_extraordinary_fee_id;
-    if (data.cta_maintence_id !== undefined)
-      updateData.cta_maintence_id = data.cta_maintence_id;
-    if (data.cta_penalities_id !== undefined)
-      updateData.cta_penalities_id = data.cta_penalities_id;
+    if (data.cta_maintenance_id !== undefined)
+      updateData.cta_maintenance_id = data.cta_maintenance_id;
+    if (data.cta_penalties_id !== undefined)
+      updateData.cta_penalties_id = data.cta_penalties_id;
     if (data.cta_water_id !== undefined)
       updateData.cta_water_id = data.cta_water_id;
     if (data.cta_other_payments_id !== undefined)
