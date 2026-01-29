@@ -18,6 +18,39 @@ Project agave_backend {
 }
 
 // =====================================================
+// TRIGGERS & FUNCTIONS (v3.1.0)
+// =====================================================
+
+// Function: update_updated_at_column()
+// Purpose: Automatically updates the updated_at column to NOW()
+// Applied to: 18 tables for audit trail tracking
+// SQL: CREATE OR REPLACE FUNCTION update_updated_at_column()
+//      RETURNS TRIGGER AS $$ BEGIN NEW.updated_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql;
+//
+// Triggers (BEFORE UPDATE on each table):
+// - update_users_updated_at
+// - update_houses_updated_at
+// - update_vouchers_updated_at
+// - update_transactions_bank_updated_at
+// - update_transactions_status_updated_at
+// - update_last_transaction_bank_updated_at
+// - update_records_updated_at
+// - update_house_records_updated_at
+// - update_periods_updated_at
+// - update_period_config_updated_at
+// - update_house_balances_updated_at
+// - update_house_period_overrides_updated_at
+// - update_record_allocations_updated_at
+// - update_cta_maintenance_updated_at
+// - update_cta_water_updated_at
+// - update_cta_penalties_updated_at
+// - update_cta_extraordinary_fee_updated_at
+// - update_cta_other_payments_updated_at
+//
+// Note: TypeORM manages these via @UpdateDateColumn() decorator
+// Synchronization: TypeORM entities use @UpdateDateColumn() which syncs with triggers
+
+// =====================================================
 // ENUMS
 // =====================================================
 
@@ -121,6 +154,7 @@ Table transactions_bank {
     date [name: 'idx_transactions_bank_date']
     confirmation_status [name: 'idx_transactions_bank_confirmation']
     amount [name: 'idx_transactions_bank_amount']
+    (is_deposit, confirmation_status) [name: 'idx_transactions_bank_deposits_unconfirmed', where: 'is_deposit=true AND confirmation_status=false', type: 'PARTIAL', note: 'Partial index for unconfirmed deposits optimization']
   }
 }
 

@@ -485,7 +485,7 @@ END;
 $$ LANGUAGE plpgsql;
 ```
 
-**Triggers Implementados (17 tablas):**
+**Triggers Implementados (18 tablas):**
 1. `users` - BEFORE UPDATE
 2. `houses` - BEFORE UPDATE
 3. `vouchers` - BEFORE UPDATE
@@ -503,6 +503,7 @@ $$ LANGUAGE plpgsql;
 15. `cta_water` - BEFORE UPDATE
 16. `cta_penalties` - BEFORE UPDATE
 17. `cta_extraordinary_fee` - BEFORE UPDATE
+18. `cta_other_payments` - BEFORE UPDATE
 
 **Beneficios:**
 - Auditoría automática de cambios (siempre sabemos cuándo cambió cada registro)
