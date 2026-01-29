@@ -23,7 +23,7 @@ export class House {
   @Column({ type: 'int', unique: true })
   number_house: number;
 
-  @Column({ type: 'uuid' })
+  @Column({ type: 'varchar', length: 128 })
   user_id: string;
 
   @CreateDateColumn()

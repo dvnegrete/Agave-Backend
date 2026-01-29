@@ -86,7 +86,7 @@ Table users {
 Table houses {
   id serial [pk, not null]
   number_house int [not null, unique, note: 'Número de casa (1-66)']
-  user_id uuid [not null, ref: > users.id]
+  user_id varchar(128) [not null, ref: > users.id, note: 'Firebase UID (28 chars) o UUID (36 chars)']
   created_at timestamptz [not null, default: `now()`]
   updated_at timestamptz [not null, default: `now()`]
 
@@ -171,7 +171,7 @@ Table manual_validation_approvals {
   id serial [pk, not null, note: 'ID único del registro de aprobación/rechazo']
   transaction_id bigint [not null, ref: > transactions_bank.id, note: 'ID de la transacción bancaria revisada']
   voucher_id int [ref: > vouchers.id, note: 'ID del voucher elegido (NULL si fue rechazado)']
-  approved_by_user_id uuid [not null, ref: > users.id, note: 'ID del usuario que aprobó/rechazó']
+  approved_by_user_id varchar(128) [not null, ref: > users.id, note: 'ID del usuario que aprobó/rechazó (Firebase UID)']
   approval_notes text [note: 'Notas opcionales del operador sobre la decisión']
   rejection_reason text [note: 'Razón específica del rechazo (si aplica)']
   approved_at timestamptz [not null, default: `now()`, note: 'Timestamp de la aprobación/rechazo']

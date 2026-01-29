@@ -15,7 +15,7 @@ export class LastTransactionBank {
   id: number;
 
   @Column({ type: 'bigint', nullable: true })
-  transactions_bank_id: string;
+  transactions_bank_id: number;
 
   @CreateDateColumn()
   created_at: Date;

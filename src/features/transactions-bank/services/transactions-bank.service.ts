@@ -369,7 +369,7 @@ export class TransactionsBankService {
     transactionId: string,
   ): Promise<void> {
     try {
-      await this.lastTransactionBankRepository.create(transactionId);
+      await this.lastTransactionBankRepository.create(Number(transactionId));
     } catch (error) {
       // No lanzamos la excepción para no interrumpir el proceso principal
     }

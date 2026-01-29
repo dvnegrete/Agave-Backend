@@ -40,7 +40,7 @@ export class ManualValidationApproval {
   /**
    * ID del usuario que aprobó o rechazó el caso
    */
-  @Column({ type: 'uuid', nullable: false })
+  @Column({ type: 'varchar', length: 128, nullable: false })
   approved_by_user_id: string;
 
   /**
