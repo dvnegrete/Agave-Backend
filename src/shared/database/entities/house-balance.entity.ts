@@ -4,6 +4,7 @@ import {
   Column,
   OneToOne,
   JoinColumn,
+  CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { House } from './house.entity';
@@ -46,6 +47,9 @@ export class HouseBalance {
     comment: 'Deuda acumulada por pagos incompletos o faltantes',
   })
   debit_balance: number;
+
+  @CreateDateColumn()
+  created_at: Date;
 
   @UpdateDateColumn()
   updated_at: Date;

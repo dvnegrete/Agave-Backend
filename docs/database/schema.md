@@ -311,31 +311,32 @@ Tablas que definen los conceptos/ítems de pago.
 ```sql
 CREATE TABLE cta_maintenance (
     id              SERIAL PRIMARY KEY,
+    amount          FLOAT NOT NULL,
     period_id       INT NOT NULL REFERENCES periods(id),
-    description     TEXT,
     created_at      TIMESTAMPTZ DEFAULT now(),
     updated_at      TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE cta_water (
     id              SERIAL PRIMARY KEY,
+    amount          FLOAT NOT NULL,
     period_id       INT NOT NULL REFERENCES periods(id),
-    description     TEXT,
     created_at      TIMESTAMPTZ DEFAULT now(),
     updated_at      TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE cta_extraordinary_fee (
     id              SERIAL PRIMARY KEY,
+    amount          FLOAT NOT NULL,
     period_id       INT NOT NULL REFERENCES periods(id),
-    description     TEXT,
     created_at      TIMESTAMPTZ DEFAULT now(),
     updated_at      TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE cta_penalties (
     id              SERIAL PRIMARY KEY,
-    period_id       INT NOT NULL REFERENCES periods(id),
+    amount          FLOAT NOT NULL,
+    period_id       INT,
     description     TEXT,
     created_at      TIMESTAMPTZ DEFAULT now(),
     updated_at      TIMESTAMPTZ DEFAULT now()
@@ -343,7 +344,8 @@ CREATE TABLE cta_penalties (
 
 CREATE TABLE cta_other_payments (
     id              SERIAL PRIMARY KEY,
-    period_id       INT NOT NULL REFERENCES periods(id),
+    amount          FLOAT NOT NULL,
+    pending_confirmation BOOLEAN,
     description     TEXT,
     created_at      TIMESTAMPTZ DEFAULT now(),
     updated_at      TIMESTAMPTZ DEFAULT now()
