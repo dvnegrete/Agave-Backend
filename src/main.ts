@@ -123,25 +123,33 @@ async function bootstrap() {
         return callback(null, true);
       }
 
-      // Extraer dominio del origin (remover protocolo y puerto)
+      // Comparar el origin completo (incluyendo protocolo)
+      if (origin === frontendUrl) {
+        return callback(null, true);
+      }
+
+      // Alternativa: comparar solo dominios (para casos con puertos diferentes)
       const originDomain = origin
         .replace(/^https?:\/\//, '')
+        .replace(/\/$/, '')  // remover trailing slash
         .split(':')[0];
 
       const expectedDomain = frontendUrl
         ?.replace(/^https?:\/\//, '')
+        .replace(/\/$/, '')  // remover trailing slash
         .split(':')[0];
 
       if (expectedDomain && originDomain === expectedDomain) {
-        callback(null, true);
-      } else {
-        console.warn(`❌ CORS rejected origin: ${origin} (expected: ${frontendUrl})`);
-        callback(new Error('Not allowed by CORS'));
+        return callback(null, true);
       }
+
+      console.warn(`❌ CORS rejected origin: ${origin} (expected: ${frontendUrl})`);
+      return callback(null, false);  // ✅ Rechazar sin error (permite respuesta CORS correcta)
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
+    maxAge: 86400,
   });
 
   // Habilitar lectura de cookies
