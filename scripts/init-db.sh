@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "[init-db] Iniciando preparación de base de datos con Prisma"
+echo "[init-db] Iniciando preparación de base de datos con TypeORM"
 
 PROJECT_ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)"
 cd "$PROJECT_ROOT_DIR"
 
 if [[ ! -f .env ]]; then
   echo "[init-db] ⚠️  No se encontró archivo .env en $PROJECT_ROOT_DIR"
-  echo "[init-db] Crea un .env basado en .env.example y define DATABASE_URL (y DIRECT_URL opcional)."
+  echo "[init-db] Crea un .env basado en .env.example y define DATABASE_URL."
   exit 1
 fi
 
@@ -26,23 +26,9 @@ if [[ -z "${DATABASE_URL:-}" ]]; then
   exit 1
 fi
 
-echo "[init-db] Ejecutando prisma generate"
-npx --yes prisma generate
+echo "[init-db] Ejecutando migraciones de TypeORM..."
+npm run db:deploy
 
-MIGRATIONS_DIR="prisma/migrations"
-if [[ -d "$MIGRATIONS_DIR" ]] && compgen -G "$MIGRATIONS_DIR/*" > /dev/null; then
-  echo "[init-db] Se detectaron migraciones. Ejecutando prisma migrate deploy"
-  npx --yes prisma migrate deploy
-else
-  if [[ "${NODE_ENV:-development}" == "production" ]]; then
-    echo "[init-db] ❌ No hay migraciones y estás en producción (NODE_ENV=production)."
-    echo "[init-db] Genera migraciones con 'npm run db:dev -- --name init' en entorno de desarrollo y súbelas antes de desplegar."
-    exit 1
-  fi
-  echo "[init-db] No hay migraciones. Aplicando esquema con prisma db push (entorno no productivo)."
-  npx --yes prisma db push
-fi
-
-echo "[init-db] ✅ Tablas y estructura sincronizadas con prisma/schema.prisma"
-
+echo "[init-db] ✅ Base de datos sincronizada con TypeORM"
+echo "[init-db] Próximo paso: npm run start:dev"
 
