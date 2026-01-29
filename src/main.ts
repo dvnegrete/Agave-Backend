@@ -184,9 +184,9 @@ async function bootstrap() {
   });
 
   const port = process.env.PORT ?? 3000;
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');  // ✅ Escuchar en todas las interfaces (requerido para Railway/Docker)
 
-  console.log(`✅ Servidor iniciado en puerto ${port}`);
+  console.log(`✅ Servidor iniciado en puerto ${port} (0.0.0.0)`);
   console.log(`Swagger UI available at: http://localhost:${port}/api/docs`);
   console.log(
     `OpenAPI JSON available at: http://localhost:${port}/api/docs-json`,
