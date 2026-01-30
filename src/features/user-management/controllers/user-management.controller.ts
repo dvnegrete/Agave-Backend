@@ -33,7 +33,7 @@ import {
   UpdateUserRoleDto,
   UpdateUserStatusDto,
   UpdateUserObservationsDto,
-  AssignHouseDto,
+  AssignHouseToUserDto,
   UserResponseDto,
 } from '../dto';
 
@@ -242,7 +242,7 @@ export class UserManagementController {
     description: 'ID único del usuario',
   })
   @ApiBody({
-    type: AssignHouseDto,
+    type: AssignHouseToUserDto,
     description: 'Número de la casa a asignar',
   })
   @ApiResponse({
@@ -263,7 +263,7 @@ export class UserManagementController {
   })
   async assignHouse(
     @Param('userId') userId: string,
-    @Body() dto: AssignHouseDto,
+    @Body() dto: AssignHouseToUserDto,
   ): Promise<{ message: string; house_number: number; user_id: string }> {
     const house = await this.assignHouseUseCase.execute(userId, dto);
 

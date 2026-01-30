@@ -10,7 +10,7 @@ export class LastTransactionBankRepository {
     private lastTransactionBankRepository: Repository<LastTransactionBank>,
   ) {}
 
-  async create(transactionsBankId: string): Promise<LastTransactionBank> {
+  async create(transactionsBankId: number): Promise<LastTransactionBank> {
     const lastTransaction = this.lastTransactionBankRepository.create({
       transactions_bank_id: transactionsBankId,
     });
@@ -44,7 +44,7 @@ export class LastTransactionBankRepository {
   }
 
   async findByTransactionId(
-    transactionsBankId: string,
+    transactionsBankId: number,
   ): Promise<LastTransactionBank | null> {
     return this.lastTransactionBankRepository.findOne({
       where: { transactions_bank_id: transactionsBankId },

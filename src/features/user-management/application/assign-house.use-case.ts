@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { HouseRepository } from '@/shared/database/repositories/house.repository';
 import { UserRepository } from '@/shared/database/repositories/user.repository';
-import { AssignHouseDto } from '../dto';
+import { AssignHouseToUserDto } from '../dto';
 import { House } from '@/shared/database/entities/house.entity';
 
 @Injectable()
@@ -11,7 +11,7 @@ export class AssignHouseUseCase {
     private readonly userRepository: UserRepository,
   ) {}
 
-  async execute(userId: string, dto: AssignHouseDto): Promise<House> {
+  async execute(userId: string, dto: AssignHouseToUserDto): Promise<House> {
     // Validate user exists
     const user = await this.userRepository.findById(userId);
     if (!user) {

@@ -33,10 +33,10 @@ export class Record {
   cta_extraordinary_fee_id: number;
 
   @Column({ type: 'int', nullable: true })
-  cta_maintence_id: number;
+  cta_maintenance_id: number;
 
   @Column({ type: 'int', nullable: true })
-  cta_penalities_id: number;
+  cta_penalties_id: number;
 
   @Column({ type: 'int', nullable: true })
   cta_water_id: number;
@@ -83,7 +83,7 @@ export class Record {
     onUpdate: 'CASCADE',
     onDelete: 'CASCADE',
   })
-  @JoinColumn({ name: 'cta_maintence_id' })
+  @JoinColumn({ name: 'cta_maintenance_id' })
   ctaMaintenance: CtaMaintenance;
 
   @ManyToOne(() => CtaPenalties, (penalties) => penalties.records, {
@@ -91,7 +91,7 @@ export class Record {
     onUpdate: 'CASCADE',
     onDelete: 'CASCADE',
   })
-  @JoinColumn({ name: 'cta_penalities_id' })
+  @JoinColumn({ name: 'cta_penalties_id' })
   ctaPenalties: CtaPenalties;
 
   @ManyToOne(() => CtaWater, (water) => water.records, {

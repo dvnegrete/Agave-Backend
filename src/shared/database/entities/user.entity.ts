@@ -50,7 +50,7 @@ export class User {
   @Column({ type: 'boolean', default: false })
   email_verified: boolean;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   email_verified_at: Date;
 
   @CreateDateColumn()

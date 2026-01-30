@@ -12,7 +12,7 @@ Este documento describe el esquema de base de datos completo del sistema Agave *
 **Última actualización**: Enero 2026
 **Versión del esquema**: 3.1.0
 **Autenticación**: Firebase Auth con OAuth2 y email/password
-**Total de tablas**: 19
+**Total de tablas**: 21
 **Total de ENUMs**: 6
 
 ## Core Tables
@@ -118,8 +118,8 @@ CREATE TABLE records (
     transaction_status_id       INT REFERENCES transactions_status(id) ON DELETE CASCADE,
     vouchers_id                 INT REFERENCES vouchers(id) ON DELETE SET NULL,
     cta_extraordinary_fee_id    INT REFERENCES cta_extraordinary_fee(id) ON DELETE CASCADE,
-    cta_maintence_id            INT REFERENCES cta_maintenance(id) ON DELETE CASCADE,
-    cta_penalities_id           INT REFERENCES cta_penalties(id) ON DELETE CASCADE,
+    cta_maintenance_id          INT REFERENCES cta_maintenance(id) ON DELETE CASCADE,
+    cta_penalties_id            INT REFERENCES cta_penalties(id) ON DELETE CASCADE,
     cta_water_id                INT REFERENCES cta_water(id) ON DELETE CASCADE,
     cta_other_payments_id       INT REFERENCES cta_other_payments(id) ON DELETE CASCADE,
     created_at                  TIMESTAMPTZ DEFAULT now(),
@@ -311,31 +311,32 @@ Tablas que definen los conceptos/ítems de pago.
 ```sql
 CREATE TABLE cta_maintenance (
     id              SERIAL PRIMARY KEY,
+    amount          FLOAT NOT NULL,
     period_id       INT NOT NULL REFERENCES periods(id),
-    description     TEXT,
     created_at      TIMESTAMPTZ DEFAULT now(),
     updated_at      TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE cta_water (
     id              SERIAL PRIMARY KEY,
+    amount          FLOAT NOT NULL,
     period_id       INT NOT NULL REFERENCES periods(id),
-    description     TEXT,
     created_at      TIMESTAMPTZ DEFAULT now(),
     updated_at      TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE cta_extraordinary_fee (
     id              SERIAL PRIMARY KEY,
+    amount          FLOAT NOT NULL,
     period_id       INT NOT NULL REFERENCES periods(id),
-    description     TEXT,
     created_at      TIMESTAMPTZ DEFAULT now(),
     updated_at      TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE cta_penalties (
     id              SERIAL PRIMARY KEY,
-    period_id       INT NOT NULL REFERENCES periods(id),
+    amount          FLOAT NOT NULL,
+    period_id       INT,
     description     TEXT,
     created_at      TIMESTAMPTZ DEFAULT now(),
     updated_at      TIMESTAMPTZ DEFAULT now()
@@ -343,7 +344,8 @@ CREATE TABLE cta_penalties (
 
 CREATE TABLE cta_other_payments (
     id              SERIAL PRIMARY KEY,
-    period_id       INT NOT NULL REFERENCES periods(id),
+    amount          FLOAT NOT NULL,
+    pending_confirmation BOOLEAN,
     description     TEXT,
     created_at      TIMESTAMPTZ DEFAULT now(),
     updated_at      TIMESTAMPTZ DEFAULT now()
@@ -467,6 +469,51 @@ WHERE is_deposit = true AND confirmation_status = false;
 - Solo indexa registros relevantes (índice parcial)
 - Reduce significativamente el tamaño del índice
 - Mejora performance en consultas frecuentes
+
+## Triggers (v3.1.0)
+
+### update_updated_at_column()
+
+Función PL/pgSQL que actualiza automáticamente la columna `updated_at` cada vez que se ejecuta un UPDATE en cualquier tabla.
+
+**Función:**
+```sql
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+**Triggers Implementados (18 tablas):**
+1. `users` - BEFORE UPDATE
+2. `houses` - BEFORE UPDATE
+3. `vouchers` - BEFORE UPDATE
+4. `transactions_bank` - BEFORE UPDATE
+5. `transactions_status` - BEFORE UPDATE
+6. `last_transaction_bank` - BEFORE UPDATE
+7. `records` - BEFORE UPDATE
+8. `house_records` - BEFORE UPDATE
+9. `periods` - BEFORE UPDATE
+10. `period_config` - BEFORE UPDATE
+11. `house_balances` - BEFORE UPDATE
+12. `house_period_overrides` - BEFORE UPDATE
+13. `record_allocations` - BEFORE UPDATE
+14. `cta_maintenance` - BEFORE UPDATE
+15. `cta_water` - BEFORE UPDATE
+16. `cta_penalties` - BEFORE UPDATE
+17. `cta_extraordinary_fee` - BEFORE UPDATE
+18. `cta_other_payments` - BEFORE UPDATE
+
+**Beneficios:**
+- Auditoría automática de cambios (siempre sabemos cuándo cambió cada registro)
+- Consistencia: todas las tablas tienen el mismo comportamiento
+- Transparencia: los cambios se registran sin intervención de código
+- Sincronización: TypeORM y BD siempre están sincronizados
+
+---
 
 ## Constraints
 

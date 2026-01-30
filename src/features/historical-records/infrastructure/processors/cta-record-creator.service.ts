@@ -11,8 +11,8 @@ import { CtaExtraordinaryFeeRepository } from '@/shared/database/repositories/ct
  */
 export interface CtaRecordIds {
   cta_extraordinary_fee_id?: number;
-  cta_maintence_id?: number;
-  cta_penalities_id?: number;
+  cta_maintenance_id?: number;
+  cta_penalties_id?: number;
   cta_water_id?: number;
 }
 
@@ -70,7 +70,7 @@ export class CtaRecordCreatorService {
               { amount: ctaType.amount, period_id: periodId },
               queryRunner,
             );
-            ids.cta_maintence_id = maintenance.id;
+            ids.cta_maintenance_id = maintenance.id;
             break;
 
           case 'penalties':
@@ -82,7 +82,7 @@ export class CtaRecordCreatorService {
               },
               queryRunner,
             );
-            ids.cta_penalities_id = penalties.id;
+            ids.cta_penalties_id = penalties.id;
             break;
 
           case 'water':

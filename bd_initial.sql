@@ -183,8 +183,8 @@ CREATE TABLE "records" (
 	"transaction_status_id" int,
 	"vouchers_id" int,
 	"cta_extraordinary_fee_id" int,
-	"cta_maintence_id" int,
-	"cta_penalities_id" int,
+	"cta_maintenance_id" int,
+	"cta_penalties_id" int,
 	"cta_water_id" int,
 	"cta_other_payments_id" int,
 	"created_at" timestamptz NOT NULL DEFAULT NOW(),
@@ -446,11 +446,11 @@ ADD FOREIGN KEY("cta_extraordinary_fee_id") REFERENCES "cta_extraordinary_fee"("
 ON UPDATE CASCADE ON DELETE CASCADE;
 
 ALTER TABLE "records"
-ADD FOREIGN KEY("cta_maintence_id") REFERENCES "cta_maintenance"("id")
+ADD FOREIGN KEY("cta_maintenance_id") REFERENCES "cta_maintenance"("id")
 ON UPDATE CASCADE ON DELETE CASCADE;
 
 ALTER TABLE "records"
-ADD FOREIGN KEY("cta_penalities_id") REFERENCES "cta_penalties"("id")
+ADD FOREIGN KEY("cta_penalties_id") REFERENCES "cta_penalties"("id")
 ON UPDATE CASCADE ON DELETE CASCADE;
 
 ALTER TABLE "records"
@@ -542,11 +542,14 @@ CREATE INDEX idx_houses_user_id ON houses(user_id);
 -- House-Records indexes
 CREATE INDEX idx_house_records_house_id ON house_records(house_id);
 CREATE INDEX idx_house_records_record_id ON house_records(record_id);
+CREATE UNIQUE INDEX idx_house_records_unique ON house_records(house_id, record_id);
 
 -- Transaction indexes
 CREATE INDEX idx_transactions_bank_date ON transactions_bank(date);
 CREATE INDEX idx_transactions_bank_confirmation ON transactions_bank(confirmation_status);
 CREATE INDEX idx_transactions_bank_amount ON transactions_bank(amount);
+CREATE INDEX idx_transactions_bank_deposits_unconfirmed ON transactions_bank (is_deposit, confirmation_status)
+WHERE is_deposit = true AND confirmation_status = false;
 
 -- Voucher indexes
 CREATE INDEX idx_vouchers_date ON vouchers(date);
@@ -589,6 +592,80 @@ CREATE INDEX idx_record_allocations_payment_status ON record_allocations(payment
 
 
 -- =====================================================
+-- TRIGGERS PARA ACTUALIZAR updated_at AUTOMÁTICAMENTE
+-- =====================================================
+-- Propósito: Mantener sincronizado updated_at en TODAS las operaciones UPDATE
+-- Compatible con: TypeORM @UpdateDateColumn() behavior
+-- Versión: 1.0 (Añadido en v3.1.0 - Enero 2026)
+--
+-- Esta función PL/pgSQL se ejecuta ANTES de cada UPDATE y establece updated_at = NOW()
+-- Funciona en CUALQUIER tabla que tenga columna updated_at
+
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Triggers por tabla (BEFORE UPDATE)
+CREATE TRIGGER update_users_updated_at
+BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_houses_updated_at
+BEFORE UPDATE ON houses FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_vouchers_updated_at
+BEFORE UPDATE ON vouchers FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_transactions_bank_updated_at
+BEFORE UPDATE ON transactions_bank FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_transactions_status_updated_at
+BEFORE UPDATE ON transactions_status FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_last_transaction_bank_updated_at
+BEFORE UPDATE ON last_transaction_bank FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_records_updated_at
+BEFORE UPDATE ON records FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_house_records_updated_at
+BEFORE UPDATE ON house_records FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_periods_updated_at
+BEFORE UPDATE ON periods FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_period_config_updated_at
+BEFORE UPDATE ON period_config FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_house_balances_updated_at
+BEFORE UPDATE ON house_balances FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_house_period_overrides_updated_at
+BEFORE UPDATE ON house_period_overrides FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_record_allocations_updated_at
+BEFORE UPDATE ON record_allocations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_cta_maintenance_updated_at
+BEFORE UPDATE ON cta_maintenance FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_cta_water_updated_at
+BEFORE UPDATE ON cta_water FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_cta_penalties_updated_at
+BEFORE UPDATE ON cta_penalties FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_cta_extraordinary_fee_updated_at
+BEFORE UPDATE ON cta_extraordinary_fee FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_cta_other_payments_updated_at
+BEFORE UPDATE ON cta_other_payments FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+
+-- =====================================================
 -- INITIAL DATA - PERIOD CONFIGURATION
 -- =====================================================
 -- RECOMENDADO: Insertar configuración inicial de períodos
@@ -618,7 +695,7 @@ ON CONFLICT DO NOTHING;
 -- DATABASE SETUP COMPLETE
 -- =====================================================
 -- Version: 3.1.0
--- Last Updated: Noviembre 14, 2025
+-- Last Updated: Enero 2026
 --
 -- Changes in v3.1.0:
 -- - Added manual_validation_approvals table for audit trail (3NF normalized)
@@ -626,6 +703,10 @@ ON CONFLICT DO NOTHING;
 -- - Removed redundant fields from transactions_status
 -- - Added foreign keys with CASCADE for data integrity
 -- - Added performance indexes on manual_validation_approvals
+-- - Added update_updated_at_column() trigger for automatic timestamp management (17 tables)
+--   * Ensures updated_at is synchronized in all UPDATE operations
+--   * Compatible with TypeORM @UpdateDateColumn() behavior
+--   * Works for both ORM and direct SQL operations
 --
 -- Changes in v3.0.0:
 -- - Added payment management tables: period_config, house_balances,

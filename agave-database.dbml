@@ -18,6 +18,39 @@ Project agave_backend {
 }
 
 // =====================================================
+// TRIGGERS & FUNCTIONS (v3.1.0)
+// =====================================================
+
+// Function: update_updated_at_column()
+// Purpose: Automatically updates the updated_at column to NOW()
+// Applied to: 18 tables for audit trail tracking
+// SQL: CREATE OR REPLACE FUNCTION update_updated_at_column()
+//      RETURNS TRIGGER AS $$ BEGIN NEW.updated_at = NOW(); RETURN NEW; END; $$ LANGUAGE plpgsql;
+//
+// Triggers (BEFORE UPDATE on each table):
+// - update_users_updated_at
+// - update_houses_updated_at
+// - update_vouchers_updated_at
+// - update_transactions_bank_updated_at
+// - update_transactions_status_updated_at
+// - update_last_transaction_bank_updated_at
+// - update_records_updated_at
+// - update_house_records_updated_at
+// - update_periods_updated_at
+// - update_period_config_updated_at
+// - update_house_balances_updated_at
+// - update_house_period_overrides_updated_at
+// - update_record_allocations_updated_at
+// - update_cta_maintenance_updated_at
+// - update_cta_water_updated_at
+// - update_cta_penalties_updated_at
+// - update_cta_extraordinary_fee_updated_at
+// - update_cta_other_payments_updated_at
+//
+// Note: TypeORM manages these via @UpdateDateColumn() decorator
+// Synchronization: TypeORM entities use @UpdateDateColumn() which syncs with triggers
+
+// =====================================================
 // ENUMS
 // =====================================================
 
@@ -86,7 +119,7 @@ Table users {
 Table houses {
   id serial [pk, not null]
   number_house int [not null, unique, note: 'Número de casa (1-66)']
-  user_id uuid [not null, ref: > users.id]
+  user_id varchar(128) [not null, ref: > users.id, note: 'Firebase UID (28 chars) o UUID (36 chars)']
   created_at timestamptz [not null, default: `now()`]
   updated_at timestamptz [not null, default: `now()`]
 
@@ -121,6 +154,7 @@ Table transactions_bank {
     date [name: 'idx_transactions_bank_date']
     confirmation_status [name: 'idx_transactions_bank_confirmation']
     amount [name: 'idx_transactions_bank_amount']
+    (is_deposit, confirmation_status) [name: 'idx_transactions_bank_deposits_unconfirmed', where: 'is_deposit=true AND confirmation_status=false', type: 'PARTIAL', note: 'Partial index for unconfirmed deposits optimization']
   }
 }
 
@@ -171,7 +205,7 @@ Table manual_validation_approvals {
   id serial [pk, not null, note: 'ID único del registro de aprobación/rechazo']
   transaction_id bigint [not null, ref: > transactions_bank.id, note: 'ID de la transacción bancaria revisada']
   voucher_id int [ref: > vouchers.id, note: 'ID del voucher elegido (NULL si fue rechazado)']
-  approved_by_user_id uuid [not null, ref: > users.id, note: 'ID del usuario que aprobó/rechazó']
+  approved_by_user_id varchar(128) [not null, ref: > users.id, note: 'ID del usuario que aprobó/rechazó (Firebase UID)']
   approval_notes text [note: 'Notas opcionales del operador sobre la decisión']
   rejection_reason text [note: 'Razón específica del rechazo (si aplica)']
   approved_at timestamptz [not null, default: `now()`, note: 'Timestamp de la aprobación/rechazo']
@@ -203,8 +237,8 @@ Table records {
   transaction_status_id int [ref: > transactions_status.id]
   vouchers_id int [ref: > vouchers.id, note: 'Voucher asociado (nullable para conciliaciones automáticas)']
   cta_extraordinary_fee_id int [ref: > cta_extraordinary_fee.id]
-  cta_maintence_id int [ref: > cta_maintenance.id]
-  cta_penalities_id int [ref: > cta_penalties.id]
+  cta_maintenance_id int [ref: > cta_maintenance.id]
+  cta_penalties_id int [ref: > cta_penalties.id]
   cta_water_id int [ref: > cta_water.id]
   cta_other_payments_id int [ref: > cta_other_payments.id]
   created_at timestamptz [not null, default: `now()`]

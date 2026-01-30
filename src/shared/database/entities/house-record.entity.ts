@@ -6,11 +6,13 @@ import {
   JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 import { House } from './house.entity';
 import { Record } from './record.entity';
 
 @Entity('house_records')
+@Index(['house_id', 'record_id'], { unique: true })
 export class HouseRecord {
   @PrimaryGeneratedColumn()
   id: number;
