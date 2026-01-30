@@ -1,5 +1,6 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import * as XLSX from 'xlsx';
+import { parseDateFlexible } from '@/shared/common';
 import { HistoricalRecordRow } from '../../domain/historical-record-row.entity';
 
 /**
@@ -177,61 +178,52 @@ export class HistoricalExcelParserService {
   }
 
   /**
-   * Parse date from various formats
-   * Supports: ISO (YYYY-MM-DD), DD/MM/YYYY, DD/MM, Excel serial dates
+   * Parse date from various formats using the flexible parser
+   * Supports: ISO (YYYY-MM-DD), DD/MM/YYYY, DD/MM/YY, DD/mmm/YY, Excel serial dates
+   * Validates that year is within 1950-2100 range
    */
   private parseDate(value: any, rowNumber: number): Date {
-    if (!value) {
-      throw new Error(`FECHA es requerida`);
-    }
-
-    // Try parsing as Date object
-    if (value instanceof Date) {
-      return value;
-    }
-
-    // Try parsing as string
-    const str = String(value).trim();
-
-    // Try ISO format (YYYY-MM-DD)
-    let date = new Date(str);
-    if (!isNaN(date.getTime())) {
-      return date;
-    }
-
-    // Try DD/MM/YYYY format
-    const parts = str.split('/');
-    if (parts.length === 3) {
-      const day = parseInt(parts[0], 10);
-      const month = parseInt(parts[1], 10) - 1; // JS months are 0-indexed
-      const year = parseInt(parts[2], 10);
-      date = new Date(year, month, day);
-      if (!isNaN(date.getTime())) {
-        return date;
+    try {
+      if (!value) {
+        throw new Error('FECHA es requerida');
       }
-    }
 
-    // Try DD/MM format (assume current year)
-    if (parts.length === 2) {
-      const day = parseInt(parts[0], 10);
-      const month = parseInt(parts[1], 10) - 1; // JS months are 0-indexed
-      const year = new Date().getFullYear();
-      date = new Date(year, month, day);
-      if (!isNaN(date.getTime())) {
-        return date;
+      const str = String(value).trim();
+
+      // IMPORTANT: Only treat as Excel serial number if it's PURELY numeric (no /, -, etc)
+      // This prevents parseFloat("10/feb/25") from incorrectly extracting "10"
+      // Valid numeric strings: "45000", "45000.5", "1", etc.
+      const isNumericString = /^\d+(\.\d+)?$/.test(str);
+
+      if (isNumericString) {
+        const serialDate = parseFloat(str);
+
+        // If it's a small serial number, it's likely corrupted data
+        if (serialDate < 500) {
+          console.log("‼️🛑 str", str)
+          console.log("‼️🛑 serial", serialDate)
+          throw new Error(
+            `FECHA inválida: "${value}". Parece ser un número pequeño (probable dato corrupto en Excel)`,
+          );
+        }
+
+        // Special handling for Excel serial dates (numbers >= 500)
+        if (serialDate >= 500 && Number.isInteger(serialDate)) {
+          const date = new Date((serialDate - 25569) * 86400 * 1000);
+          if (!isNaN(date.getTime())) {
+            // Use parseDateFlexible for validation without re-parsing
+            return parseDateFlexible(date, { minYear: 1950, maxYear: 2100 });
+          }
+        }
       }
-    }
 
-    // Try Excel serial date number (days since 1900-01-01)
-    const serialDate = parseFloat(str);
-    if (!isNaN(serialDate)) {
-      date = new Date((serialDate - 25569) * 86400 * 1000);
-      if (!isNaN(date.getTime())) {
-        return date;
-      }
+      // Use the flexible parser for all other formats (DD/MM/YYYY, DD/mmm/YY, ISO, etc)
+      return parseDateFlexible(value, { minYear: 1950, maxYear: 2100 });
+    } catch (error) {
+      const errorMsg =
+        error instanceof Error ? error.message : 'Error al parsear FECHA';
+      throw new Error(`Error en fila ${rowNumber}: ${errorMsg}`);
     }
-
-    throw new Error(`FECHA inválida: ${value}`);
   }
 
   /**
