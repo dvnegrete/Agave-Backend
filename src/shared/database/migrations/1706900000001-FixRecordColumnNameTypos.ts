@@ -26,30 +26,51 @@ export class FixRecordColumnNameTypos1706900000001
   name = 'FixRecordColumnNameTypos1706900000001';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // PASO 1: Renombrar constraint (FK que apunta a cta_maintenance)
-    // Primero eliminar el constraint antiguo
+    // PASO 1: Verificar si la columna antigua existe (migraciones idempotente)
+    const hasOldMaintenceColumn = await queryRunner.hasColumn(
+      'records',
+      'cta_maintence_id'
+    );
+    const hasOldPenaltiesColumn = await queryRunner.hasColumn(
+      'records',
+      'cta_penalities_id'
+    );
+
+    // Si las columnas antiguas NO existen, significa que ya fueron renombradas
+    // o la BD fue creada con los nombres correctos. No hacer nada.
+    if (!hasOldMaintenceColumn && !hasOldPenaltiesColumn) {
+      console.log(
+        'Migration: Columns already renamed or DB created with correct names. Skipping.'
+      );
+      return;
+    }
+
+    // PASO 2: Eliminar constraints antiguos si existen
     await queryRunner.query(`
       ALTER TABLE "records"
       DROP CONSTRAINT IF EXISTS "fk_records_cta_maintence";
     `);
 
-    // PASO 2: Renombrar constraint (FK que apunta a cta_penalties)
     await queryRunner.query(`
       ALTER TABLE "records"
       DROP CONSTRAINT IF EXISTS "fk_records_cta_penalities";
     `);
 
-    // PASO 3: Renombrar primera columna (cta_maintence_id → cta_maintenance_id)
-    await queryRunner.query(`
-      ALTER TABLE "records"
-      RENAME COLUMN "cta_maintence_id" TO "cta_maintenance_id";
-    `);
+    // PASO 3: Renombrar primera columna si existe (cta_maintence_id → cta_maintenance_id)
+    if (hasOldMaintenceColumn) {
+      await queryRunner.query(`
+        ALTER TABLE "records"
+        RENAME COLUMN "cta_maintence_id" TO "cta_maintenance_id";
+      `);
+    }
 
-    // PASO 4: Renombrar segunda columna (cta_penalities_id → cta_penalties_id)
-    await queryRunner.query(`
-      ALTER TABLE "records"
-      RENAME COLUMN "cta_penalities_id" TO "cta_penalties_id";
-    `);
+    // PASO 4: Renombrar segunda columna si existe (cta_penalities_id → cta_penalties_id)
+    if (hasOldPenaltiesColumn) {
+      await queryRunner.query(`
+        ALTER TABLE "records"
+        RENAME COLUMN "cta_penalities_id" TO "cta_penalties_id";
+      `);
+    }
 
     // PASO 5: Recrear constraints con nombres correctos (FK a cta_maintenance)
     await queryRunner.query(`

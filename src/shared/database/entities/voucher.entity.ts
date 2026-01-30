@@ -5,12 +5,17 @@ import {
   OneToMany,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 import { TransactionStatus } from './transaction-status.entity';
 import { Record } from './record.entity';
 import { ManualValidationApproval } from './manual-validation-approval.entity';
 
 @Entity('vouchers')
+@Index('idx_vouchers_confirmation_status', ['confirmation_status'], {
+  where: '"confirmation_status" = false',
+})
+@Index('idx_vouchers_date', ['date'])
 export class Voucher {
   @PrimaryGeneratedColumn()
   id: number;

@@ -5,12 +5,19 @@ import {
   OneToMany,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 import { TransactionStatus } from './transaction-status.entity';
 import { LastTransactionBank } from './last-transaction-bank.entity';
 import { ManualValidationApproval } from './manual-validation-approval.entity';
 
 @Entity('transactions_bank')
+@Index('idx_transactions_bank_date', ['date'], {
+  where: '"is_deposit" = true',
+})
+@Index('idx_transactions_bank_date_bank', ['date', 'bank_name'], {
+  where: '"is_deposit" = true',
+})
 export class TransactionBank {
   @PrimaryGeneratedColumn('increment', { type: 'bigint' })
   id: string;

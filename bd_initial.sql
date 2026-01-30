@@ -545,21 +545,28 @@ CREATE INDEX idx_house_records_record_id ON house_records(record_id);
 CREATE UNIQUE INDEX idx_house_records_unique ON house_records(house_id, record_id);
 
 -- Transaction indexes
-CREATE INDEX idx_transactions_bank_date ON transactions_bank(date);
+CREATE INDEX idx_transactions_bank_date ON transactions_bank(date DESC)
+WHERE is_deposit = true;
+CREATE INDEX idx_transactions_bank_date_bank ON transactions_bank(date DESC, bank_name)
+WHERE is_deposit = true;
 CREATE INDEX idx_transactions_bank_confirmation ON transactions_bank(confirmation_status);
 CREATE INDEX idx_transactions_bank_amount ON transactions_bank(amount);
 CREATE INDEX idx_transactions_bank_deposits_unconfirmed ON transactions_bank (is_deposit, confirmation_status)
 WHERE is_deposit = true AND confirmation_status = false;
 
 -- Voucher indexes
-CREATE INDEX idx_vouchers_date ON vouchers(date);
+CREATE INDEX idx_vouchers_confirmation_status ON vouchers(confirmation_status)
+WHERE confirmation_status = false;
+CREATE INDEX idx_vouchers_date ON vouchers(date DESC);
 CREATE INDEX idx_vouchers_confirmation ON vouchers(confirmation_status);
 CREATE INDEX idx_vouchers_confirmation_code ON vouchers(confirmation_code);
 
 -- Transaction status indexes
 CREATE INDEX idx_transactions_status_bank_id ON transactions_status(transactions_bank_id);
 CREATE INDEX idx_transactions_status_voucher_id ON transactions_status(vouchers_id);
-CREATE INDEX idx_transactions_status_validation_status ON transactions_status(validation_status);
+CREATE INDEX idx_transactions_status_validation_status ON transactions_status(validation_status)
+WHERE validation_status IN ('requires-manual', 'not-found', 'conflict');
+CREATE INDEX idx_transactions_status_created_at ON transactions_status(created_at DESC);
 CREATE INDEX idx_transactions_status_processed_at ON transactions_status(processed_at DESC);
 CREATE INDEX idx_transactions_status_validation_processed ON transactions_status(validation_status, processed_at DESC);
 

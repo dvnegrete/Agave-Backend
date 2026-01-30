@@ -7,6 +7,7 @@ import {
   JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 import { ValidationStatus } from './enums';
 import { TransactionBank } from './transaction-bank.entity';
@@ -14,6 +15,10 @@ import { Voucher } from './voucher.entity';
 import { Record } from './record.entity';
 
 @Entity('transactions_status')
+@Index('idx_transaction_status_validation_status', ['validation_status'], {
+  where: '"validation_status" IN (\'requires-manual\', \'not-found\', \'conflict\')',
+})
+@Index('idx_transaction_status_created_at', ['created_at'])
 export class TransactionStatus {
   @PrimaryGeneratedColumn()
   id: number;
