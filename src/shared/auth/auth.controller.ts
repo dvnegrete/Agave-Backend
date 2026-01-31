@@ -44,7 +44,7 @@ export class AuthController {
   async handleOAuthCallback(
     @Body() dto: OAuthCallbackDto,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<{ refreshToken: string }> {
+  ): Promise<AuthResponseDto> {
     return this.authService.handleOAuthCallback(dto, res);
   }
 

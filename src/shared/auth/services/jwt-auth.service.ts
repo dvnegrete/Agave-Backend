@@ -23,6 +23,7 @@ export interface JwtRefreshPayload {
   firstName?: string;
   lastName?: string;
   role?: string;
+  houseIds?: number[]; // array of number_house
   iat?: number;
   exp?: number;
 }
@@ -67,12 +68,14 @@ export class JwtAuthService {
     }
 
     // New mode: full User object provided
+    const houseIds = user.houses?.map((house) => house.number_house) || [];
     const payload: JwtRefreshPayload = {
       sub: user.id,
       email: user.email,
       firstName: user.name?.split(' ')[0],
       lastName: user.name?.split(' ').slice(1).join(' '),
       role: user.role,
+      houseIds,
     };
 
     return this.jwtService.sign(payload, {
