@@ -357,6 +357,7 @@ export class AuthService {
             lastName: dbUser.name?.split(' ').slice(1).join(' '),
             role: dbUser.role,
             status: dbUser.status,
+            houses: [],
             emailVerified: false,
           },
           requiresEmailConfirmation: true,
@@ -439,7 +440,7 @@ export class AuthService {
   async handleOAuthCallback(
     callbackDto: OAuthCallbackDto,
     res: Response,
-  ): Promise<{ accessToken: string; refreshToken: string }> {
+  ): Promise<AuthResponseDto> {
     this.ensureEnabled();
     try {
       const auth = this.firebaseConfig.getAuth();
@@ -450,8 +451,8 @@ export class AuthService {
       // Obtener usuario completo de Firebase
       const firebaseUser = await auth.getUser(decodedToken.uid);
 
-      // Buscar en PostgreSQL (con reintentos)
-      let dbUser = await this.userRepository.findByEmail(firebaseUser.email!);
+      // Buscar en PostgreSQL (con reintentos) - cargar también las casas
+      let dbUser = await this.userRepository.findByEmailWithHouses(firebaseUser.email!);
 
       if (!dbUser) {
         // Crear nuevo usuario si no existe (auto-registro OAuth, con reintentos)
@@ -468,18 +469,20 @@ export class AuthService {
         this.logger.log(`Nuevo usuario creado desde OAuth: ${firebaseUser.email}`);
       } else {
         // Actualizar last_login y marcar email como verificado (con reintentos)
-        dbUser = await this.userRepository.update(dbUser.id, {
+        await this.userRepository.update(dbUser.id, {
           last_login: new Date(),
           ...(dbUser.email_verified === false && {
             email_verified: true,
             email_verified_at: new Date(),
           }),
         });
+        // Recargar usuario con las casas después de actualizar
+        dbUser = await this.userRepository.findByEmailWithHouses(firebaseUser.email!);
       }
 
       // Generar JWTs propios
-      const jwtAccessToken = await this.jwtAuthService.generateAccessToken(dbUser);
-      const refreshToken = await this.jwtAuthService.generateRefreshToken(dbUser);
+      const jwtAccessToken = await this.jwtAuthService.generateAccessToken(dbUser!);
+      const refreshToken = await this.jwtAuthService.generateRefreshToken(dbUser!);
 
       // Establecer cookie de access token
       res.cookie('access_token', jwtAccessToken, {
@@ -490,7 +493,23 @@ export class AuthService {
         maxAge: 15 * 60 * 1000, // 15 minutos
       });
 
-      return { accessToken: jwtAccessToken, refreshToken };
+      // Extraer números de casa
+      const houseNumbers = dbUser!.houses?.map((house) => house.number_house) || [];
+
+      return {
+        accessToken: jwtAccessToken,
+        refreshToken,
+        user: {
+          id: dbUser!.id,
+          email: dbUser!.email!,
+          firstName: dbUser!.name?.split(' ')[0],
+          lastName: dbUser!.name?.split(' ').slice(1).join(' '),
+          role: dbUser!.role,
+          status: dbUser!.status,
+          houses: houseNumbers,
+          emailVerified: dbUser!.email_verified,
+        },
+      };
     } catch (error) {
       if (error instanceof UnauthorizedException) {
         throw error;
