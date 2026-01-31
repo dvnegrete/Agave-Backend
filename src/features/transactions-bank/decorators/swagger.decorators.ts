@@ -321,3 +321,79 @@ export function ApiReconcileTransactionsLegacy() {
     }),
   );
 }
+
+/**
+ * Decorador de Swagger para el endpoint de gastos por mes
+ */
+export function ApiGetExpenses() {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Obtener gastos del mes',
+      description: `Obtiene todos los gastos (transacciones con is_deposit = false) de un mes específico.
+
+Útil para generar reportes de gastos mensuales.`,
+    }),
+    ApiQuery({
+      name: 'date',
+      required: true,
+      type: String,
+      description: 'Fecha para extraer mes y año (formato: YYYY-MM-DD)',
+      example: '2025-01-15',
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Gastos del mes obtenidos exitosamente',
+      schema: {
+        example: {
+          month: '2025-01',
+          expenses: [
+            {
+              id: '123e4567-e89b-12d3-a456-426614174000',
+              date: '2025-01-15',
+              time: '14:30:00',
+              concept: 'Compra en tienda',
+              amount: 150.5,
+              currency: 'USD',
+              is_deposit: false,
+              bank_name: 'Santander',
+              validation_flag: true,
+              status: 'pending',
+              createdAt: '2025-01-15T14:30:00Z',
+              updatedAt: '2025-01-15T14:30:00Z',
+            },
+            {
+              id: '223e4567-e89b-12d3-a456-426614174001',
+              date: '2025-01-20',
+              time: '09:15:00',
+              concept: 'Servicio de internet',
+              amount: 49.99,
+              currency: 'USD',
+              is_deposit: false,
+              bank_name: 'Santander',
+              validation_flag: true,
+              status: 'pending',
+              createdAt: '2025-01-20T09:15:00Z',
+              updatedAt: '2025-01-20T09:15:00Z',
+            },
+          ],
+          summary: {
+            totalExpenses: 200.49,
+            count: 2,
+            currencies: ['USD'],
+            largestExpense: 150.5,
+          },
+        },
+      },
+    }),
+    ApiResponse({
+      status: 400,
+      description: 'La fecha es requerida o formato inválido',
+      schema: {
+        example: {
+          statusCode: 400,
+          message: 'La fecha es requerida (formato: YYYY-MM-DD)',
+        },
+      },
+    }),
+  );
+}

@@ -94,16 +94,14 @@ npm run start:dev
 
 ### Database Commands
 ```bash
-# Complete setup (recommended)
-npm run db:setup
+# Apply migrations
+npm run db:deploy              # Run all pending migrations
 
-# Individual components
-npm run db:install-triggers    # SQL triggers for duplicate detection
-npm run db:install-indexes     # Performance optimization indexes
+# Setup (triggers + indexes)
+npm run db:setup               # Install triggers and performance indexes
 
-# Testing & verification
-npm run db:test-triggers       # Test trigger functionality
-npm run db:check-transactions  # View table schema
+# Generate migration from entity changes
+npm run db:generate -- -n DescriptionOfChange
 ```
 
 ## Key Features
@@ -225,9 +223,14 @@ npm run test:e2e      # End-to-end tests
 
 ### Database Changes
 1. Modify entities in `src/shared/database/entities/`
-2. Generate migration: `npm run db:generate`
-3. Apply changes: `npm run db:deploy`
-4. Update triggers/indexes if needed: `npm run db:setup`
+2. Add `@Index()` decorators if needed (see v3.2.0 examples)
+3. Generate migration: `npm run db:generate -- -n DescriptionOfChange`
+4. Apply changes: `npm run db:deploy`
+5. Update triggers/indexes if needed: `npm run db:setup`
+6. Run tests: `npm test`
+
+**For v3.2.0 Migration:**
+See [MIGRATION-GUIDE-3.2.0.md](MIGRATION-GUIDE-3.2.0.md) for complete instructions on how to apply the performance indexes.
 
 ### Adding New Banks
 1. Create model in `src/features/transactions-bank/models/`
@@ -334,6 +337,7 @@ npm run start:prod
 - Check [Setup Guide](database/setup.md#troubleshooting) for common issues
 - Verify environment variables are correctly configured
 - Ensure database triggers and indexes are installed: `npm run db:setup`
+- **For v3.2.0 Migration Issues**: See [MIGRATION-GUIDE-3.2.0.md - Troubleshooting](MIGRATION-GUIDE-3.2.0.md#-troubleshooting)
 
 ## Future Roadmap
 

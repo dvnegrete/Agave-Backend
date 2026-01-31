@@ -1,13 +1,64 @@
-export function parseDateFlexible(dateStr: string | Date): Date {
+/**
+ * Parsea una fecha desde múltiples formatos y valida rango de años
+ * @param dateStr - Fecha como string o Date object
+ * @param options - Opciones de validación (minYear, maxYear)
+ * @returns Date object validado
+ * @throws Error si la fecha es inválida o está fuera del rango permitido
+ *
+ * Formatos soportados:
+ * - DD/mmm/YY (ej: 31/jul/25, 15/abr/2025)
+ * - DD/MM/YYYY o DD/MM/YY (ej: 31/12/2025)
+ * - YYYY-MM-DD (ej: 2025-12-31)
+ * - Formatos nativos de JavaScript (ej: 2025-12-31T00:00:00Z)
+ *
+ * Conversión de años de 2 dígitos:
+ * - 00-99 → 2000-2099
+ *
+ * Validación de rango:
+ * - Por defecto: 1950-2100
+ * - Se rechaza cualquier año fuera del rango especificado
+ */
+export function parseDateFlexible(
+  dateStr: string | Date,
+  options?: { minYear?: number; maxYear?: number },
+): Date {
+  const minYear = options?.minYear ?? 1950;
+  const maxYear = options?.maxYear ?? 2100;
+
   if (!dateStr) {
     throw new Error('Fecha requerida');
   }
 
   if (dateStr instanceof Date) {
+    const year = dateStr.getFullYear();
+    if (year < minYear || year > maxYear) {
+      throw new Error(
+        `Año ${year} está fuera del rango permitido (${minYear}-${maxYear})`,
+      );
+    }
     return dateStr;
   }
 
   const trimmed = dateStr.toString().trim();
+
+  // Helper function para validar año
+  const validateYear = (year: number): void => {
+    if (year < minYear || year > maxYear) {
+      throw new Error(
+        `Año ${year} está fuera del rango permitido (${minYear}-${maxYear})`,
+      );
+    }
+  };
+
+  // Helper function para crear Date y validar
+  const createValidatedDate = (fullYear: number, month: number, day: number): Date => {
+    validateYear(fullYear);
+    const date = new Date(fullYear, month, day);
+    if (isNaN(date.getTime())) {
+      throw new Error(`Fecha inválida: ${dateStr}`);
+    }
+    return date;
+  };
 
   // Formato español corto: DD/mmm/YY (ej: 31/jul/25)
   const spanishMonthPattern =
@@ -33,8 +84,7 @@ export function parseDateFlexible(dateStr: string | Date): Date {
     const dayNum = parseInt(day, 10);
     const yearNum = parseInt(year, 10);
     const fullYear = yearNum < 100 ? 2000 + yearNum : yearNum;
-    const date = new Date(fullYear, monthIndex, dayNum);
-    if (!isNaN(date.getTime())) return date;
+    return createValidatedDate(fullYear, monthIndex, dayNum);
   }
 
   // Formato DD/MM/YYYY o DD/MM/YY
@@ -46,8 +96,7 @@ export function parseDateFlexible(dateStr: string | Date): Date {
     const monthNum = parseInt(month, 10) - 1;
     const yearNum = parseInt(year, 10);
     const fullYear = yearNum < 100 ? 2000 + yearNum : yearNum;
-    const date = new Date(fullYear, monthNum, dayNum);
-    if (!isNaN(date.getTime())) return date;
+    return createValidatedDate(fullYear, monthNum, dayNum);
   }
 
   // Formato YYYY-MM-DD
@@ -55,16 +104,23 @@ export function parseDateFlexible(dateStr: string | Date): Date {
   const isoMatch = trimmed.match(isoPattern);
   if (isoMatch) {
     const [, year, month, day] = isoMatch;
-    const date = new Date(
-      parseInt(year, 10),
-      parseInt(month, 10) - 1,
-      parseInt(day, 10),
-    );
-    if (!isNaN(date.getTime())) return date;
+    const yearNum = parseInt(year, 10);
+    const monthNum = parseInt(month, 10) - 1;
+    const dayNum = parseInt(day, 10);
+    return createValidatedDate(yearNum, monthNum, dayNum);
   }
 
+  // Último intento: Usar parser nativo de JavaScript
   const native = new Date(trimmed);
-  if (!isNaN(native.getTime())) return native;
+  if (!isNaN(native.getTime())) {
+    const year = native.getFullYear();
+    if (year < minYear || year > maxYear) {
+      throw new Error(
+        `Año ${year} está fuera del rango permitido (${minYear}-${maxYear})`,
+      );
+    }
+    return native;
+  }
 
   throw new Error(`Formato de fecha inválido: ${dateStr}`);
 }

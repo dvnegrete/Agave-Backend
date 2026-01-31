@@ -151,7 +151,8 @@ Table transactions_bank {
   Note: 'Transacciones bancarias importadas de estados de cuenta'
 
   indexes {
-    date [name: 'idx_transactions_bank_date']
+    date [name: 'idx_transactions_bank_date', where: 'is_deposit=true', type: 'PARTIAL', note: 'Index for date range queries on deposits']
+    (date, bank_name) [name: 'idx_transactions_bank_date_bank', where: 'is_deposit=true', type: 'PARTIAL', note: 'Composite index for date + bank_name queries']
     confirmation_status [name: 'idx_transactions_bank_confirmation']
     amount [name: 'idx_transactions_bank_amount']
     (is_deposit, confirmation_status) [name: 'idx_transactions_bank_deposits_unconfirmed', where: 'is_deposit=true AND confirmation_status=false', type: 'PARTIAL', note: 'Partial index for unconfirmed deposits optimization']
@@ -172,6 +173,7 @@ Table vouchers {
   Note: 'Comprobantes de pago enviados por usuarios (OCR extraído)'
 
   indexes {
+    confirmation_status [name: 'idx_vouchers_confirmation_status', where: 'confirmation_status=false', type: 'PARTIAL', note: 'Partial index for pending vouchers (used in matching)']
     date [name: 'idx_vouchers_date']
     confirmation_status [name: 'idx_vouchers_confirmation']
     confirmation_code [name: 'idx_vouchers_confirmation_code']
@@ -195,7 +197,8 @@ Table transactions_status {
   indexes {
     transactions_bank_id [name: 'idx_transactions_status_bank_id']
     vouchers_id [name: 'idx_transactions_status_voucher_id']
-    validation_status [name: 'idx_transactions_status_validation_status']
+    validation_status [name: 'idx_transactions_status_validation_status', where: "validation_status IN ('requires-manual', 'not-found', 'conflict')", type: 'PARTIAL', note: 'Partial index for actionable statuses (manual validation, unclaimed)']
+    created_at [name: 'idx_transaction_status_created_at', note: 'Index for ordering in paginated queries']
     processed_at [name: 'idx_transactions_status_processed_at']
     (validation_status, processed_at) [name: 'idx_transactions_status_validation_processed']
   }
