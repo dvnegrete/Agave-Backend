@@ -43,6 +43,7 @@ import {
   ApiUpdateTransaction,
   ApiDeleteTransaction,
   ApiReconcileTransactionsLegacy,
+  ApiGetExpenses,
 } from '../decorators/swagger.decorators';
 
 @ApiTags('transactions-bank')
@@ -141,6 +142,16 @@ export class TransactionsBankController {
   @ApiGetTransactionSummary()
   async getTransactionSummary() {
     return await this.transactionsBankService.getTransactionSummary();
+  }
+
+  @Get('expenses')
+  @UseGuards(AuthGuard)
+  @ApiGetExpenses()
+  async getExpenses(@Query('date') date?: string) {
+    if (!date) {
+      throw new BadRequestException('La fecha es requerida (formato: YYYY-MM-DD)');
+    }
+    return await this.transactionsBankService.getExpensesByMonth(date);
   }
 
   @Get(':id')

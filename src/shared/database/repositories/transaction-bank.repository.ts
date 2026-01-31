@@ -320,4 +320,28 @@ export class TransactionBankRepository {
       .addOrderBy('tb.time', 'DESC')
       .getMany();
   }
+
+  @Retry({
+    maxAttempts: 3,
+    delayMs: 1000,
+  })
+  async findExpensesByMonth(date: string | Date): Promise<TransactionBank[]> {
+    // Extraer mes y año de la fecha
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const monthStr = `${year}-${month}`;
+
+    // Buscar transacciones del mes donde is_deposit = false
+    const query = this.transactionBankRepository
+      .createQueryBuilder('tb')
+      .where('CAST(tb.date AS VARCHAR) LIKE :monthPattern', {
+        monthPattern: `${monthStr}%`,
+      })
+      .andWhere('tb.is_deposit = :isDeposit', { isDeposit: false })
+      .orderBy('tb.date', 'DESC')
+      .addOrderBy('tb.time', 'DESC');
+
+    return query.getMany();
+  }
 }

@@ -282,6 +282,52 @@ export class TransactionsBankService {
     return await this.bankTransactionRepository.getTransactionSummary();
   }
 
+  async getExpensesByMonth(
+    date: string | Date,
+  ): Promise<{
+    month: string;
+    expenses: ProcessedBankTransaction[];
+    summary: {
+      totalExpenses: number;
+      count: number;
+      currencies: string[];
+      largestExpense: number;
+    };
+  }> {
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const monthStr = `${year}-${month}`;
+
+    const transactions =
+      await this.bankTransactionRepository.findExpensesByMonth(date);
+    const processedTransactions = transactions.map((t) =>
+      this.mapToProcessedTransaction(t),
+    );
+
+    // Calcular resumen
+    const totalExpenses = processedTransactions.reduce(
+      (sum, t) => sum + t.amount,
+      0,
+    );
+    const currencies = [...new Set(processedTransactions.map((t) => t.currency))];
+    const largestExpense =
+      processedTransactions.length > 0
+        ? Math.max(...processedTransactions.map((t) => t.amount))
+        : 0;
+
+    return {
+      month: monthStr,
+      expenses: processedTransactions,
+      summary: {
+        totalExpenses,
+        count: processedTransactions.length,
+        currencies,
+        largestExpense,
+      },
+    };
+  }
+
   private mapToProcessedTransaction(
     transaction: any,
   ): ProcessedBankTransaction {
