@@ -178,9 +178,8 @@ export class OcrService {
         allText = result.fullTextAnnotation?.text || '';
       }
 
-      let structuredData =
-        await this.openAIService.processTextWithPrompt(allText);
-      // let structuredData = await this.vertexAIService.processTextWithPrompt(allText);
+      // let structuredData = await this.openAIService.processTextWithPrompt(allText);
+      let structuredData = await this.vertexAIService.processTextWithPrompt(allText);
 
       // Normalizar los datos para garantizar tipos correctos
       // Especialmente importante porque JSON.parse() convierte números
