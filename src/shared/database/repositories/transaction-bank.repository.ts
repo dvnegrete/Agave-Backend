@@ -106,8 +106,20 @@ export class TransactionBankRepository {
     maxAttempts: 3,
     delayMs: 1000,
   })
-  async findByStatus(): Promise<TransactionBank[]> {
-    return this.findAll();
+  async findByStatus(
+    status: 'pending' | 'processed' | 'failed' | 'reconciled',
+  ): Promise<TransactionBank[]> {
+    // Map status to confirmation_status
+    // pending/processed/failed → confirmation_status = false
+    // reconciled → confirmation_status = true
+    const confirmationStatus = status === 'reconciled';
+
+    return this.transactionBankRepository.find({
+      where: {
+        confirmation_status: confirmationStatus,
+      },
+      order: { created_at: 'DESC' },
+    });
   }
 
   @Retry({
@@ -115,15 +127,31 @@ export class TransactionBankRepository {
     delayMs: 1000,
   })
   async findByDateRange(
-    startDate: Date,
-    endDate: Date,
+    startDate: string | Date,
+    endDate: string | Date,
   ): Promise<TransactionBank[]> {
-    return this.transactionBankRepository.find({
-      where: {
-        date: Between(startDate, endDate),
-      },
-      order: { created_at: 'DESC' },
-    });
+    // Convertir a string YYYY-MM-DD si es Date
+    const startStr =
+      typeof startDate === 'string'
+        ? startDate
+        : startDate.toISOString().split('T')[0];
+
+    const endStr =
+      typeof endDate === 'string'
+        ? endDate
+        : endDate.toISOString().split('T')[0];
+
+    // TypeORM QueryBuilder con comparación de strings
+    const query = this.transactionBankRepository
+      .createQueryBuilder('tb')
+      .where('CAST(tb.date AS VARCHAR) >= :startDate', { startDate: startStr })
+      .andWhere('CAST(tb.date AS VARCHAR) <= :endDate', { endDate: endStr })
+      .orderBy('tb.date', 'DESC')
+      .addOrderBy('tb.created_at', 'DESC');
+
+    const results = await query.getMany();
+
+    return results;
   }
 
   @Retry({

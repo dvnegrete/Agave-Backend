@@ -116,20 +116,24 @@ export class TransactionsBankController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
+    let transactions: ProcessedBankTransaction[];
+
     if (status) {
-      return await this.transactionsBankService.getTransactionsByStatus(status);
+      transactions =
+        await this.transactionsBankService.getTransactionsByStatus(status);
+    } else if (startDate && endDate) {
+      transactions =
+        await this.transactionsBankService.getTransactionsByDateRange(
+          startDate,
+          endDate,
+        );
+    } else {
+      transactions = await this.transactionsBankService.getAllTransactions();
     }
-
-    if (startDate && endDate) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      return await this.transactionsBankService.getTransactionsByDateRange(
-        start,
-        end,
-      );
-    }
-
-    return await this.transactionsBankService.getAllTransactions();
+    return {
+      transactions,
+      total: transactions.length,
+    };
   }
 
   @Get('summary')

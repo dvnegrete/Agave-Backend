@@ -8,7 +8,6 @@ import { TransactionValidatorService } from './transaction-validator.service';
 import { TransactionBankRepository } from '../../../shared/database/repositories/transaction-bank.repository';
 import { LastTransactionBankRepository } from '../../../shared/database/repositories/last-transaction-bank.repository';
 import {
-  TransactionBank,
   ProcessedBankTransaction,
   FileProcessingResult,
   ReconciliationResult,
@@ -192,13 +191,14 @@ export class TransactionsBankService {
   async getTransactionsByStatus(
     status: 'pending' | 'processed' | 'failed' | 'reconciled',
   ): Promise<ProcessedBankTransaction[]> {
-    const transactions = await this.bankTransactionRepository.findByStatus();
+    const transactions =
+      await this.bankTransactionRepository.findByStatus(status);
     return transactions.map((t) => this.mapToProcessedTransaction(t));
   }
 
   async getTransactionsByDateRange(
-    startDate: Date,
-    endDate: Date,
+    startDate: string | Date,
+    endDate: string | Date,
   ): Promise<ProcessedBankTransaction[]> {
     const transactions = await this.bankTransactionRepository.findByDateRange(
       startDate,
