@@ -233,6 +233,7 @@ CREATE TABLE house_balances (
     accumulated_cents FLOAT DEFAULT 0,
     credit_balance  FLOAT DEFAULT 0,
     debit_balance   FLOAT DEFAULT 0,
+    created_at      TIMESTAMPTZ DEFAULT now(),
     updated_at      TIMESTAMPTZ DEFAULT now()
 );
 ```
@@ -242,6 +243,8 @@ CREATE TABLE house_balances (
 - `accumulated_cents`: Centavos acumulados de pagos (0.00 - 0.99)
 - `credit_balance`: Saldo a favor por pagos adelantados
 - `debit_balance`: Deuda acumulada por pagos incompletos
+- `created_at`: Timestamp de creación del registro
+- `updated_at`: Timestamp de última actualización
 
 #### house_period_overrides
 Tabla que permite montos personalizados por casa/período (convenios de pago, descuentos).

@@ -263,6 +263,7 @@ CREATE TABLE "house_balances" (
 	"accumulated_cents" float NOT NULL DEFAULT 0,
 	"credit_balance" float NOT NULL DEFAULT 0,
 	"debit_balance" float NOT NULL DEFAULT 0,
+	"created_at" timestamptz NOT NULL DEFAULT NOW(),
 	"updated_at" timestamptz NOT NULL DEFAULT NOW(),
 	PRIMARY KEY("id")
 );

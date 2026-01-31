@@ -400,7 +400,8 @@ CREATE TABLE house_balances (
   accumulated_cents FLOAT DEFAULT 0,   -- Fracciones 0.00-0.99
   credit_balance FLOAT DEFAULT 0,      -- Saldo a favor
   debit_balance FLOAT DEFAULT 0,       -- Deuda acumulada
-  updated_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT now(),
+  updated_at TIMESTAMP DEFAULT now(),
 
   CONSTRAINT pk_house_balance UNIQUE(house_id)
 );
