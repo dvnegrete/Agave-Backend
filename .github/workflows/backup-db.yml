@@ -24,8 +24,11 @@ jobs:
             sudo apt-get update
             sudo apt-get install -y postgresql-client-17 google-cloud-cli
 
+            # Add PostgreSQL bin to PATH
+            echo "/usr/lib/postgresql/17/bin" >> $GITHUB_PATH
+
             # Verify installation
-            pg_dump-17 --version
+            /usr/lib/postgresql/17/bin/pg_dump --version
 
         - name: Authenticate to Google Cloud
           uses: google-github-actions/auth@v2
