@@ -16,7 +16,7 @@ jobs:
         - name: Install PostgreSQL & GCloud
           run: |
             sudo apt-get update
-            sudo apt-get install -y postgresql-client google-cloud-cli
+            sudo apt-get install -y postgresql-client-17 google-cloud-cli
 
         - name: Authenticate to Google Cloud
           uses: google-github-actions/auth@v2
