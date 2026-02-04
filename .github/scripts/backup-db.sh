@@ -31,7 +31,18 @@ echo "✅ BD despierta y operativa"
 # PASO 2: Crear dump comprimido
 # ============================================
 echo "📦 Creando dump de la BD..."
-pg_dump "$DATABASE_URL" | gzip > "$BACKUP_FILE"
+
+# Usar pg_dump con --no-sync para evitar mismatch de versiones
+# Alternativamente, especificar la versión correcta
+PG_DUMP="/usr/lib/postgresql/17/bin/pg_dump"
+
+# Si existe pg_dump-17, usarlo
+if command -v pg_dump-17 &> /dev/null; then
+  PG_DUMP="pg_dump-17"
+fi
+
+echo "📌 Usando: $PG_DUMP"
+"$PG_DUMP" --no-sync "$DATABASE_URL" | gzip > "$BACKUP_FILE"
 
 echo "✅ Backup creado: $BACKUP_FILE"
 SIZE=$(du -h "$BACKUP_FILE" | cut -f1)
