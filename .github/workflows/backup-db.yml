@@ -1,0 +1,50 @@
+name: 🔄 Database Backup to GCS
+
+on:
+  schedule:
+    # Cada día a las 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  backup:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+        - uses: actions/checkout@v4
+
+        - name: Install PostgreSQL & GCloud
+          run: |
+            sudo apt-get update
+            sudo apt-get install -y postgresql-client google-cloud-sdk
+
+        - name: Authenticate to Google Cloud
+          uses: google-github-actions/auth@v2
+          with:
+            credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+        - name: Set up Cloud SDK
+          uses: google-github-actions/setup-gcloud@v2
+
+        - name: Create database backup
+          env:
+            DATABASE_URL: ${{ secrets.DATABASE_URL }}
+            GCP_BUCKET_NAME: agave-db-backups
+          run: bash .github/scripts/backup-db.sh
+
+        - name: List recent backups
+          run: |
+            echo "📋 Últimos 10 backups en GCS:"
+            gsutil ls -h gs://agave-db-backups/ | tail -10
+
+        - name: Send notification (opcional)
+          if: failure()
+          uses: actions/github-script@v7
+          with:
+            script: |
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: '❌ Database backup failed!'
+              })
