@@ -70,6 +70,7 @@ export const OAuthMessages = {
 
 export const SessionMessages = {
   TOKEN_EXPIRED: 'Tu sesión ha expirado. Por favor inicia sesión nuevamente.',
+  REFRESH_TOKEN_EXPIRED: 'Tu sesión ha expirado. Por favor inicia sesión nuevamente.',
   REFRESH_FAILED: 'No se pudo refrescar la sesión. Por favor inicia sesión nuevamente.',
   INVALID_TOKEN: 'Tu token no es válido. Por favor inicia sesión nuevamente.',
   SIGNOUT_FAILED: 'No se pudo cerrar la sesión',
