@@ -42,19 +42,20 @@ const DEFAULT_OPTIONS: RetryOptions = {
       'too many connections',
       'connect timed out',
       'broken pipe',
-      'read econnreset',      // Específico para "read ECONNRESET"
-      'write econnreset',     // Específico para "write ECONNRESET"
+      'read econnreset', // Específico para "read ECONNRESET"
+      'write econnreset', // Específico para "write ECONNRESET"
+      'the database system is starting up', // PostgreSQL 57P03 - BD reiniciando
     ];
 
     // Errores que NUNCA debería reintentar
     const nonRetryableMessages = [
-      'no pg_hba.conf entry',  // Config error
-      'syntax error',            // SQL error
-      'duplicate key',           // Constraint violation
-      'permission denied',       // Auth error
-      'does not exist',         // Schema error
-      'invalid input syntax',    // Parse error
-      'undefined table',         // Schema error
+      'no pg_hba.conf entry', // Config error
+      'syntax error', // SQL error
+      'duplicate key', // Constraint violation
+      'permission denied', // Auth error
+      'does not exist', // Schema error
+      'invalid input syntax', // Parse error
+      'undefined table', // Schema error
     ];
 
     // Extraer cadena de error de múltiples posibles localizaciones

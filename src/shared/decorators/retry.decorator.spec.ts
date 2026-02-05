@@ -20,7 +20,7 @@ describe('Retry Decorator', () => {
 
   describe('successful execution', () => {
     it('should execute method successfully on first attempt', async () => {
-      const testClass = class {
+      const testClass: any = class {
         logger = mockLogger;
 
         @Retry({ maxAttempts: 3, delayMs: 100 })
@@ -39,7 +39,7 @@ describe('Retry Decorator', () => {
     it('should succeed after retries on transient error', async () => {
       let attempts = 0;
 
-      const testClass = class {
+      const testClass: any = class {
         logger = mockLogger;
 
         @Retry({ maxAttempts: 3, delayMs: 100 })
@@ -65,7 +65,7 @@ describe('Retry Decorator', () => {
     it('should retry on ECONNRESET error', async () => {
       let attempts = 0;
 
-      const testClass = class {
+      const testClass: any = class {
         logger = mockLogger;
 
         @Retry({ maxAttempts: 3, delayMs: 10 })
@@ -90,7 +90,7 @@ describe('Retry Decorator', () => {
     it('should retry on nested TypeORM error', async () => {
       let attempts = 0;
 
-      const testClass = class {
+      const testClass: any = class {
         logger = mockLogger;
 
         @Retry({ maxAttempts: 3, delayMs: 10 })
@@ -118,7 +118,7 @@ describe('Retry Decorator', () => {
     it('should retry on "too many connections" error', async () => {
       let attempts = 0;
 
-      const testClass = class {
+      const testClass: any = class {
         logger = mockLogger;
 
         @Retry({ maxAttempts: 3, delayMs: 10 })
@@ -143,7 +143,7 @@ describe('Retry Decorator', () => {
     it('should not retry on duplicate key error', async () => {
       let attempts = 0;
 
-      const testClass = class {
+      const testClass: any = class {
         logger = mockLogger;
 
         @Retry({ maxAttempts: 3, delayMs: 10 })
@@ -165,7 +165,7 @@ describe('Retry Decorator', () => {
     it('should not retry on syntax error', async () => {
       let attempts = 0;
 
-      const testClass = class {
+      const testClass: any = class {
         logger = mockLogger;
 
         @Retry({ maxAttempts: 3, delayMs: 10 })
@@ -184,7 +184,7 @@ describe('Retry Decorator', () => {
     it('should not retry on permission denied error', async () => {
       let attempts = 0;
 
-      const testClass = class {
+      const testClass: any = class {
         logger = mockLogger;
 
         @Retry({ maxAttempts: 3, delayMs: 10 })
@@ -203,7 +203,7 @@ describe('Retry Decorator', () => {
     it('should not retry on undefined table error', async () => {
       let attempts = 0;
 
-      const testClass = class {
+      const testClass: any = class {
         logger = mockLogger;
 
         @Retry({ maxAttempts: 3, delayMs: 10 })
@@ -224,7 +224,7 @@ describe('Retry Decorator', () => {
     it('should fail after max attempts reached', async () => {
       let attempts = 0;
 
-      const testClass = class {
+      const testClass: any = class {
         logger = mockLogger;
 
         @Retry({ maxAttempts: 3, delayMs: 10 })
@@ -246,7 +246,7 @@ describe('Retry Decorator', () => {
     it('should respect custom maxAttempts', async () => {
       let attempts = 0;
 
-      const testClass = class {
+      const testClass: any = class {
         logger = mockLogger;
 
         @Retry({ maxAttempts: 5, delayMs: 10 })
@@ -275,7 +275,7 @@ describe('Retry Decorator', () => {
 
       jest.spyOn(global, 'setTimeout').mockImplementation(originalSetTimeout as any);
 
-      const testClass = class {
+      const testClass: any = class {
         logger = mockLogger;
 
         @Retry({
@@ -304,7 +304,7 @@ describe('Retry Decorator', () => {
     it('should respect custom retryableErrors predicate', async () => {
       let attempts = 0;
 
-      const testClass = class {
+      const testClass: any = class {
         logger = mockLogger;
 
         @Retry({
@@ -334,7 +334,7 @@ describe('Retry Decorator', () => {
     it('should not retry when custom predicate returns false', async () => {
       let attempts = 0;
 
-      const testClass = class {
+      const testClass: any = class {
         logger = mockLogger;
 
         @Retry({
@@ -362,7 +362,7 @@ describe('Retry Decorator', () => {
     it('should log retry attempts', async () => {
       let attempts = 0;
 
-      const testClass = class {
+      const testClass: any = class {
         logger = mockLogger;
 
         @Retry({ maxAttempts: 3, delayMs: 10 })
@@ -384,7 +384,7 @@ describe('Retry Decorator', () => {
     });
 
     it('should log final failure', async () => {
-      const testClass = class {
+      const testClass: any = class {
         logger = mockLogger;
 
         @Retry({ maxAttempts: 2, delayMs: 10 })

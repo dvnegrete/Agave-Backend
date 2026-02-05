@@ -618,6 +618,59 @@ WHERE idx_scan = 0;
 
 ---
 
+## Backup y Restauración
+
+### Backup Automático en GitHub Actions
+
+Los backups de la BD se ejecutan **automáticamente cada noche a las 2 AM UTC** en Railway, con almacenamiento en Google Cloud Storage (GCS).
+
+**Ubicación:** `.github/workflows/backup-db.yml`
+
+**Características:**
+- ✅ Backup diario automático en GCS
+- ✅ Compresión automática (gzip)
+- ✅ Despierta la BD si está en sleep mode
+- ✅ Histórico de 30 backups (configurable)
+- ✅ Bucket: `gs://agave-db-backups/`
+
+### Ejecutar Backup Manualmente
+
+```bash
+# GitHub Actions UI (recomendado)
+1. GitHub → Actions → "Database Backup to GCS"
+2. Click "Run workflow"
+3. Espera 3-4 minutos
+
+# O con GitHub CLI
+gh workflow run backup-db.yml --ref main
+```
+
+### Restaurar desde Backup
+
+En caso de necesidad, restaura desde el último backup:
+
+```bash
+# Cargar variables de entorno
+source .env
+
+# Ejecutar script de restauración
+bash scripts/restore-db.sh
+```
+
+**El script:**
+1. Descarga el último backup de GCS
+2. Descomprime el archivo
+3. Restaura la BD
+4. Verifica que funcionó
+5. Limpia archivos temporales
+
+**Requisitos previos:**
+- `gsutil` instalado y autenticado
+- `DATABASE_URL` configurado en `.env`
+- Permisos en GCP para descargar backups
+
+---
+
 ## Documentación Relacionada
 
 - [Índices de la Base de Datos](./indexes.md)
@@ -627,4 +680,4 @@ WHERE idx_scan = 0;
 ---
 
 **Última actualización:** Enero 2026
-**Versión:** 3.1.0 (Payment Management + Firebase Auth + Email Verification)
+**Versión:** 3.1.0 (Payment Management + Firebase Auth + Email Verification + Automated Backups)

@@ -561,6 +561,20 @@ export class AuthService {
       if (error instanceof UnauthorizedException) {
         throw error;
       }
+
+      // Distinguir si el token está expirado
+      if (error instanceof Error && error.message.includes('jwt expired')) {
+        throw new UnauthorizedException(
+          SessionMessages.REFRESH_TOKEN_EXPIRED,
+        );
+      }
+
+      if (error instanceof Error && error.message.includes('jwt malformed')) {
+        throw new UnauthorizedException(
+          SessionMessages.INVALID_TOKEN,
+        );
+      }
+
       const errorMessage =
         error instanceof Error ? error.message : SessionMessages.REFRESH_TOKEN_FAILED;
       throw new BadRequestException(errorMessage);
