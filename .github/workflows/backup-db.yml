@@ -46,8 +46,11 @@ jobs:
 
         - name: List recent backups
           run: |
-            echo "📋 Últimos 10 backups en GCS:"
-            gsutil ls -h gs://agave-db-backups/ | tail -10
+            echo "📋 Respaldos actuales en GCS:"
+            gsutil ls -h gs://agave-db-backups/ | sort -r | head -10
+            TOTAL=$(gsutil ls gs://agave-db-backups/ | wc -l)
+            echo ""
+            echo "📊 Total de respaldos mantenidos: $TOTAL (máximo: 15)"
 
         - name: Notify on failure
           if: failure()
