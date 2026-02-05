@@ -52,6 +52,10 @@ export class AppConfigService {
     return this.nodeEnv === 'production';
   }
 
+  get isStaging(): boolean {
+    return this.nodeEnv === 'staging';
+  }
+
   get googleApplicationCredentials(): string {
     const credentials = this.configService.get<string>(
       'GOOGLE_APPLICATION_CREDENTIALS',

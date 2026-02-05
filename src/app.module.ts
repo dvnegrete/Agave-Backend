@@ -15,6 +15,7 @@ import { OpenAIModule } from './shared/libs/openai/openai.module';
 import { VertexAIModule } from './shared/libs/vertex-ai/vertex-ai.module';
 import { HealthModule } from './shared/health/health.module';
 import { UserManagementModule } from './features/user-management/user-management.module';
+import { BootstrapModule } from './shared/bootstrap/bootstrap.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { UserManagementModule } from './features/user-management/user-management
     OpenAIModule,
     DatabaseModule,
     HealthModule,
+    BootstrapModule,
     AuthModule,
     VouchersModule,
     TransactionsBankModule,
