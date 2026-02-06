@@ -53,6 +53,7 @@ Getting the database running:
 |----------|---------|----------|
 | [setup.md](./setup.md) | Complete database setup and migration guide | New developers, DevOps |
 | [CONNECTION-POOL-IMPLEMENTATION.md](./CONNECTION-POOL-IMPLEMENTATION.md) | Production pool configuration | DevOps, Backend developers |
+| [restore-production-to-staging.md](./restore-production-to-staging.md) | Restore production backup to staging environment | DevOps, QA |
 
 ### Feature-Specific Documentation
 Domain-specific database implementations:
@@ -87,6 +88,9 @@ Domain-specific database implementations:
 
 **...work with payment periods**
 → Study [payment-management.md](./payment-management.md) - Period-based payment system
+
+**...restore production data to staging**
+→ Follow [restore-production-to-staging.md](./restore-production-to-staging.md) - Safe restoration with automatic backup
 
 **...trace schema evolution**
 → See "Version History" section in [schema.md](./schema.md) - Complete changelog from v1.0 to v3.1
