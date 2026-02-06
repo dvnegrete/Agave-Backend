@@ -164,6 +164,11 @@ export class ReconcileUseCase {
           unclaimedDeposits.push(matchResult.surplus);
         }
       } else if (matchResult.type === 'manual') {
+        // Marcar vouchers candidatos como "en proceso" para evitar reutilización
+        matchResult.case.possibleMatches.forEach((match) => {
+          processedVoucherIds.add(match.voucherId);
+        });
+
         // ✅ NUEVO: Persistir casos manuales en BD
         try {
           await this.persistenceService.persistManualValidationCase(

@@ -163,6 +163,31 @@ export class MatchingService {
 
     // Si hay al menos una coincidencia dentro de tolerancia
     if (matchesWithDateDiff.length >= 1) {
+      // Discriminación por ratio de tiempo: si hay un claro ganador por cercanía temporal
+      if (matchesWithDateDiff.length > 1) {
+        const closest = matchesWithDateDiff[0]; // Ya ordenado por dateDiff ASC
+        const secondClosest = matchesWithDateDiff[1];
+
+        // Si el más cercano tiene dateDiff=0 y el segundo tiene dateDiff>0 → auto-match
+        if (closest.dateDiff === 0 && secondClosest.dateDiff > 0) {
+          this.logger.log(
+            `Discriminación por tiempo: Voucher ${closest.voucher.id} tiene dateDiff=0, segundo tiene dateDiff=${secondClosest.dateDiff.toFixed(4)}h → auto-match`,
+          );
+          return this.createSingleMatch(transaction, closest.voucher);
+        }
+
+        // Si el ratio (segundo / primero) >= 2 → claro ganador por tiempo
+        if (closest.dateDiff > 0) {
+          const timeRatio = secondClosest.dateDiff / closest.dateDiff;
+          if (timeRatio >= 2) {
+            this.logger.log(
+              `Discriminación por tiempo: Voucher ${closest.voucher.id} (diff=${closest.dateDiff.toFixed(4)}h) vs Voucher ${secondClosest.voucher.id} (diff=${secondClosest.dateDiff.toFixed(4)}h), ratio=${timeRatio.toFixed(1)}x → auto-match`,
+            );
+            return this.createSingleMatch(transaction, closest.voucher);
+          }
+        }
+      }
+
       // Agregar similarity score a cada candidato
       const candidatesWithScores = matchesWithDateDiff.map((m) => ({
         ...m,

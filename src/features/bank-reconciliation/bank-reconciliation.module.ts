@@ -16,6 +16,7 @@ import { ReconciliationPersistenceService } from './infrastructure/persistence/r
 import { ReconciliationDataService } from './infrastructure/persistence/reconciliation-data.service';
 import { ManualValidationService } from './infrastructure/persistence/manual-validation.service';
 import { UnclaimedDepositsService } from './infrastructure/persistence/unclaimed-deposits.service';
+import { UnfundedVouchersService } from './infrastructure/persistence/unfunded-vouchers.service';
 
 // Entities
 import { TransactionBank } from '@/shared/database/entities/transaction-bank.entity';
@@ -68,6 +69,7 @@ import { PaymentManagementModule } from '@/features/payment-management/payment-m
     ReconciliationDataService,
     ManualValidationService,
     UnclaimedDepositsService,
+    UnfundedVouchersService,
 
     // Repositories
     TransactionBankRepository,

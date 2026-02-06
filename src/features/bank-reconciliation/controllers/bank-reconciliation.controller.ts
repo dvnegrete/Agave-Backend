@@ -31,10 +31,15 @@ import {
   UnclaimedDepositsPageDto,
   AssignHouseDto,
   AssignHouseResponseDto,
+  GetUnfundedVouchersFilterDto,
+  UnfundedVouchersPageDto,
+  MatchVoucherToDepositDto,
+  MatchVoucherResponseDto,
 } from '../dto';
 import { ApiReconcileTransactions } from '../decorators/swagger.decorators';
 import { ManualValidationService } from '../infrastructure/persistence/manual-validation.service';
 import { UnclaimedDepositsService } from '../infrastructure/persistence/unclaimed-deposits.service';
+import { UnfundedVouchersService } from '../infrastructure/persistence/unfunded-vouchers.service';
 
 @ApiTags('bank-reconciliation')
 @Controller('bank-reconciliation')
@@ -45,6 +50,7 @@ export class BankReconciliationController {
     private readonly reconcileUseCase: ReconcileUseCase,
     private readonly manualValidationService: ManualValidationService,
     private readonly unclaimedDepositsService: UnclaimedDepositsService,
+    private readonly unfundedVouchersService: UnfundedVouchersService,
   ) {}
 
   @Post('reconcile')
@@ -248,6 +254,72 @@ export class BankReconciliationController {
 
     return this.unclaimedDepositsService.assignHouseToDeposit(
       transactionId,
+      dto.houseNumber,
+      userId,
+      dto.adminNotes,
+    );
+  }
+
+  // ==================== UNFUNDED VOUCHERS ENDPOINTS ====================
+
+  @Get('unfunded-vouchers')
+  @UseGuards(AuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Obtener vouchers sin fondos',
+    description:
+      'Lista vouchers con confirmation_status=false que no tienen un TransactionStatus confirmado. ' +
+      'Estos son vouchers que fueron subidos pero no se encontró un depósito bancario correspondiente.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista paginada de vouchers sin fondos',
+    type: UnfundedVouchersPageDto,
+  })
+  async getUnfundedVouchers(
+    @Query() filters: GetUnfundedVouchersFilterDto,
+  ): Promise<UnfundedVouchersPageDto> {
+    this.logger.log(
+      `Obteniendo vouchers sin fondos. Filtros: ${JSON.stringify(filters)}`,
+    );
+
+    return this.unfundedVouchersService.getUnfundedVouchers(
+      filters.startDate ? new Date(filters.startDate) : undefined,
+      filters.endDate ? new Date(filters.endDate) : undefined,
+      filters.page,
+      filters.limit,
+      filters.sortBy,
+    );
+  }
+
+  @Post('unfunded-vouchers/:voucherId/match-deposit')
+  @UseGuards(AuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Conciliar manualmente un voucher sin fondos con un depósito',
+    description:
+      'Vincula un voucher sin fondos con un depósito bancario existente. ' +
+      'Crea la conciliación completa: TransactionStatus, Record, HouseRecord y asignación de pagos.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Voucher conciliado exitosamente',
+    type: MatchVoucherResponseDto,
+  })
+  async matchVoucherToDeposit(
+    @Param('voucherId') voucherId: string,
+    @Body() dto: MatchVoucherToDepositDto,
+    @Req() req: any,
+  ): Promise<MatchVoucherResponseDto> {
+    const userId = req.user.id;
+
+    this.logger.log(
+      `Conciliando voucher ${voucherId} con depósito ${dto.transactionBankId} → Casa ${dto.houseNumber} por usuario ${userId}`,
+    );
+
+    return this.unfundedVouchersService.matchVoucherToDeposit(
+      Number(voucherId),
+      dto.transactionBankId,
       dto.houseNumber,
       userId,
       dto.adminNotes,
