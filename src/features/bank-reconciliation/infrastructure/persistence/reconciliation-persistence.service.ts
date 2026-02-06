@@ -411,6 +411,9 @@ export class ReconciliationPersistenceService implements OnModuleInit {
         queryRunner,
       );
 
+      // Marcar transaccion como procesada para evitar reprocesamiento
+      await this.updateTransactionBankStatus(transactionBankId, queryRunner);
+
       await queryRunner.commitTransaction();
       this.logger.log(
         `Sobrante persistido: Transaction ${transactionBankId}, Status: ${status}, Razón: ${surplus.reason}`,
@@ -461,6 +464,9 @@ export class ReconciliationPersistenceService implements OnModuleInit {
         },
         queryRunner,
       );
+
+      // Marcar transaccion como procesada para evitar reprocesamiento
+      await this.updateTransactionBankStatus(transactionBankId, queryRunner);
 
       await queryRunner.commitTransaction();
       this.logger.log(

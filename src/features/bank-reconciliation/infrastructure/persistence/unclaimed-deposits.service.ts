@@ -75,6 +75,7 @@ export class UnclaimedDepositsService {
       .createQueryBuilder('tb')
       .leftJoin(TransactionStatus, 'ts', 'ts.transactions_bank_id = tb.id')
       .where('tb.is_deposit = :isDeposit', { isDeposit: true })
+      .distinctOn(['tb.id'])
       .select([
         'tb.id',
         'tb.amount',
@@ -122,11 +123,13 @@ export class UnclaimedDepositsService {
     // Contar total ANTES de paginación
     const totalCount = await query.getCount();
 
-    // Ordenar
+    // Ordenar (tb.id primero para DISTINCT ON)
     if (sortBy === 'date') {
-      query = query.orderBy('tb.date', 'DESC');
+      query = query.orderBy('tb.id').addOrderBy('tb.date', 'DESC');
     } else if (sortBy === 'amount') {
-      query = query.orderBy('tb.amount', 'DESC');
+      query = query.orderBy('tb.id').addOrderBy('tb.amount', 'DESC');
+    } else {
+      query = query.orderBy('tb.id');
     }
 
     // Paginación
@@ -173,6 +176,22 @@ export class UnclaimedDepositsService {
     await queryRunner.startTransaction();
 
     try {
+      // 0. Guarda de idempotencia: verificar que la transacción no haya sido ya asignada
+      const existingTransaction =
+        await this.transactionBankRepository.findById(transactionId);
+
+      if (!existingTransaction) {
+        throw new NotFoundException(
+          `Transacción bancaria no encontrada: ${transactionId}`,
+        );
+      }
+
+      if (existingTransaction.confirmation_status === true) {
+        throw new BadRequestException(
+          `El depósito ${transactionId} ya fue asignado previamente`,
+        );
+      }
+
       // 1. Obtener transacción y su estado usando repositorio
       const transactionStatuses =
         await this.transactionStatusRepository.findByTransactionBankId(
@@ -191,15 +210,8 @@ export class UnclaimedDepositsService {
         );
       }
 
-      // 2. Obtener transacción bancaria usando repositorio
-      const transaction =
-        await this.transactionBankRepository.findById(transactionId);
-
-      if (!transaction) {
-        throw new NotFoundException(
-          `Transacción bancaria no encontrada: ${transactionId}`,
-        );
-      }
+      // 2. Usar transacción bancaria ya obtenida
+      const transaction = existingTransaction;
 
       // 3. Validar o crear casa usando repositorio (within transaction)
       let house = await this.houseRepository.findByNumberHouse(
