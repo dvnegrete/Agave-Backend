@@ -4,9 +4,12 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, SelectQueryBuilder } from 'typeorm';
 import { Voucher } from '@/shared/database/entities/voucher.entity';
 import { TransactionStatus } from '@/shared/database/entities/transaction-status.entity';
+import { Record } from '@/shared/database/entities/record.entity';
+import { HouseRecord } from '@/shared/database/entities/house-record.entity';
+import { House } from '@/shared/database/entities/house.entity';
 import { TransactionBankRepository } from '@/shared/database/repositories/transaction-bank.repository';
 import { VoucherRepository } from '@/shared/database/repositories/voucher.repository';
 import { ValidationStatus } from '@/shared/database/entities/enums';
@@ -54,61 +57,36 @@ export class UnfundedVouchersService {
 
     const offset = (page - 1) * limit;
 
-    // Vouchers con confirmation_status=false que NO tienen un TransactionStatus CONFIRMED
-    let query = this.dataSource
-      .getRepository(Voucher)
-      .createQueryBuilder('v')
-      .leftJoin(TransactionStatus, 'ts', 'ts.vouchers_id = v.id AND ts.validation_status = :confirmedStatus', {
-        confirmedStatus: ValidationStatus.CONFIRMED,
-      })
-      .where('v.confirmation_status = :status', { status: false })
-      .andWhere('ts.id IS NULL')
-      .select([
-        'v.id AS v_id',
-        'v.amount AS v_amount',
-        'v.date AS v_date',
-        'v.url AS v_url',
-      ]);
+    // Base query reutilizable: vouchers sin confirmar y sin TransactionStatus CONFIRMED
+    const baseQuery = this.buildUnfundedVouchersBaseQuery(startDate, endDate);
 
-    // Filtros de fecha
-    if (startDate) {
-      query = query.andWhere('v.date >= :startDate', { startDate });
-    }
-
-    if (endDate) {
-      const endOfDay = new Date(endDate);
-      endOfDay.setHours(23, 59, 59, 999);
-      query = query.andWhere('v.date <= :endDate', { endDate: endOfDay });
-    }
-
-    // Conteo
-    const countResult = await this.dataSource
-      .getRepository(Voucher)
-      .createQueryBuilder('v')
-      .leftJoin(TransactionStatus, 'ts', 'ts.vouchers_id = v.id AND ts.validation_status = :confirmedStatus', {
-        confirmedStatus: ValidationStatus.CONFIRMED,
-      })
-      .where('v.confirmation_status = :status', { status: false })
-      .andWhere('ts.id IS NULL')
-      .andWhere(startDate ? 'v.date >= :startDate' : '1=1', startDate ? { startDate } : {})
-      .andWhere(endDate ? 'v.date <= :endDate' : '1=1', endDate ? { endDate: (() => { const d = new Date(endDate); d.setHours(23, 59, 59, 999); return d; })() } : {})
+    // Conteo (reutiliza la misma base)
+    const countQuery = this.buildUnfundedVouchersBaseQuery(startDate, endDate);
+    const countResult = await countQuery
       .select('COUNT(v.id)', 'cnt')
       .getRawOne();
-
     const totalCount = countResult?.cnt ? Number(countResult.cnt) : 0;
 
+    // Seleccionar campos
+    let query = baseQuery.select([
+      'v.id AS v_id',
+      'v.amount AS v_amount',
+      'v.date AS v_date',
+      'v.url AS v_url',
+    ]);
+
     // Ordenar
-    if (sortBy === 'date') {
-      query = query.orderBy('v.date', 'DESC');
-    } else if (sortBy === 'amount') {
+    if (sortBy === 'amount') {
       query = query.orderBy('v.amount', 'DESC');
+    } else {
+      query = query.orderBy('v.date', 'DESC');
     }
 
     // Paginación
     const items = await query.offset(offset).limit(limit).getRawMany();
 
     // Obtener house numbers de los vouchers (via records -> house_records -> house)
-    const voucherIds = items.map((item) => item.v_id);
+    const voucherIds: number[] = items.map((item) => item.v_id);
     const houseNumbers = await this.getHouseNumbersForVouchers(voucherIds);
 
     // Mapear a DTOs
@@ -208,8 +186,41 @@ export class UnfundedVouchersService {
   }
 
   /**
+   * Construye la query base para vouchers sin fondos (reutilizable para conteo y datos)
+   * @private
+   */
+  private buildUnfundedVouchersBaseQuery(
+    startDate?: Date,
+    endDate?: Date,
+  ): SelectQueryBuilder<Voucher> {
+    let query = this.dataSource
+      .getRepository(Voucher)
+      .createQueryBuilder('v')
+      .leftJoin(
+        TransactionStatus,
+        'ts',
+        'ts.vouchers_id = v.id AND ts.validation_status = :confirmedStatus',
+        { confirmedStatus: ValidationStatus.CONFIRMED },
+      )
+      .where('v.confirmation_status = :status', { status: false })
+      .andWhere('ts.id IS NULL');
+
+    if (startDate) {
+      query = query.andWhere('v.date >= :startDate', { startDate });
+    }
+
+    if (endDate) {
+      const endOfDay = new Date(endDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      query = query.andWhere('v.date <= :endDate', { endDate: endOfDay });
+    }
+
+    return query;
+  }
+
+  /**
    * Obtiene los números de casa asociados a una lista de voucher IDs
-   * Usa la cadena: voucher -> records -> house_records -> house
+   * Usa relaciones TypeORM: Voucher -> Record -> HouseRecord -> House
    * @private
    */
   private async getHouseNumbersForVouchers(
@@ -219,18 +230,18 @@ export class UnfundedVouchersService {
 
     if (voucherIds.length === 0) return result;
 
-    const rows = await this.dataSource.query(
-      `SELECT DISTINCT ON (v.id)
-         v.id AS voucher_id,
-         h.number_house
-       FROM vouchers v
-       INNER JOIN records r ON r.vouchers_id = v.id
-       INNER JOIN house_records hr ON hr.record_id = r.id
-       INNER JOIN houses h ON h.id = hr.house_id
-       WHERE v.id = ANY($1)
-       ORDER BY v.id, r.id DESC`,
-      [voucherIds],
-    );
+    const rows = await this.dataSource
+      .getRepository(Voucher)
+      .createQueryBuilder('v')
+      .innerJoin(Record, 'r', 'r.vouchers_id = v.id')
+      .innerJoin(HouseRecord, 'hr', 'hr.record_id = r.id')
+      .innerJoin(House, 'h', 'h.id = hr.house_id')
+      .where('v.id IN (:...voucherIds)', { voucherIds })
+      .select(['v.id AS voucher_id', 'h.number_house AS number_house'])
+      .distinctOn(['v.id'])
+      .orderBy('v.id')
+      .addOrderBy('r.id', 'DESC')
+      .getRawMany();
 
     for (const row of rows) {
       result.set(row.voucher_id, row.number_house);

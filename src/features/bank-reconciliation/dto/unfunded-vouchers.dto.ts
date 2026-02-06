@@ -169,6 +169,35 @@ export class MatchVoucherToDepositDto {
 }
 
 /**
+ * Detalle de conciliación de voucher
+ */
+export class VoucherReconciliationDetailDto {
+  @ApiProperty({
+    description: 'ID del voucher conciliado',
+    example: 101,
+  })
+  voucherId: number;
+
+  @ApiProperty({
+    description: 'ID de la transacción bancaria vinculada',
+    example: '12345',
+  })
+  transactionBankId: string;
+
+  @ApiProperty({
+    description: 'Número de casa asignada',
+    example: 15,
+  })
+  houseNumber: number;
+
+  @ApiProperty({
+    description: 'Estado de la conciliación',
+    example: 'confirmed',
+  })
+  status: string;
+}
+
+/**
  * DTO de respuesta para conciliación manual de voucher
  */
 export class MatchVoucherResponseDto {
@@ -180,21 +209,9 @@ export class MatchVoucherResponseDto {
 
   @ApiProperty({
     description: 'Detalles de la conciliación',
+    type: VoucherReconciliationDetailDto,
   })
-  reconciliation: {
-    voucherId: number;
-    transactionBankId: string;
-    houseNumber: number;
-    status: string;
-    paymentAllocation?: {
-      total_distributed: number;
-      allocations: Array<{
-        conceptType: string;
-        allocatedAmount: number;
-        paymentStatus: string;
-      }>;
-    } | null;
-  };
+  reconciliation: VoucherReconciliationDetailDto;
 
   @ApiProperty({
     description: 'Timestamp de la conciliación',
