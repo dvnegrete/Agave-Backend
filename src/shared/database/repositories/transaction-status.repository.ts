@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Repository, QueryRunner } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { TransactionStatus } from '../entities/transaction-status.entity';
@@ -42,6 +42,8 @@ export interface UpdateTransactionStatusDto {
 
 @Injectable()
 export class TransactionStatusRepository {
+  private readonly logger = new Logger(TransactionStatusRepository.name);
+
   constructor(
     @InjectRepository(TransactionStatus)
     private transactionStatusRepository: Repository<TransactionStatus>,
@@ -94,11 +96,20 @@ export class TransactionStatusRepository {
   async findByTransactionBankId(
     transactionBankId: string,
   ): Promise<TransactionStatus[]> {
-    return this.transactionStatusRepository.find({
+    const results = await this.transactionStatusRepository.find({
       where: { transactions_bank_id: Number(transactionBankId) },
       relations: ['voucher', 'records'],
       order: { created_at: 'DESC' },
     });
+
+    if (results.length > 1) {
+      this.logger.warn(
+        `TransactionStatus duplicados detectados para TransactionBank ${transactionBankId}. ` +
+          `Encontrados: ${results.length}, IDs: [${results.map((r) => r.id).join(', ')}]`,
+      );
+    }
+
+    return results;
   }
 
   /**
