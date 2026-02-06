@@ -120,8 +120,47 @@ export class UnclaimedDepositsService {
       );
     }
 
-    // Contar total ANTES de paginación
-    const totalCount = await query.getCount();
+    // Contar total ANTES de paginación (sin DISTINCT ON para evitar error SQL)
+    // NOTA: Crear query separado para conteo porque DISTINCT ON no funciona con getCount()
+    const countQuery = this.dataSource
+      .getRepository(TransactionBank)
+      .createQueryBuilder('tb')
+      .leftJoin(TransactionStatus, 'ts', 'ts.transactions_bank_id = tb.id')
+      .where('tb.is_deposit = :isDeposit', { isDeposit: true });
+
+    // Aplicar los mismos filtros al query de conteo
+    if (validationStatus && validationStatus !== 'all') {
+      countQuery.andWhere('ts.validation_status = :status', {
+        status: validationStatus,
+      });
+    } else {
+      countQuery.andWhere('ts.validation_status IN (:...statuses)', {
+        statuses: [ValidationStatus.CONFLICT, ValidationStatus.NOT_FOUND],
+      });
+    }
+
+    if (startDate) {
+      countQuery.andWhere('tb.date >= :startDate', { startDate });
+    }
+
+    if (endDate) {
+      const endOfDay = new Date(endDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      countQuery.andWhere('tb.date <= :endDate', { endDate: endOfDay });
+    }
+
+    if (houseNumber !== undefined) {
+      countQuery.andWhere(
+        'CAST(FLOOR((tb.amount % 1) * 100) AS INT) = :houseNumber',
+        { houseNumber },
+      );
+    }
+
+    // Contar usando DISTINCT ON directamente en la query
+    const countResult = await countQuery
+      .select('COUNT(DISTINCT tb.id)', 'cnt')
+      .getRawOne();
+    const totalCount = countResult?.cnt ? Number(countResult.cnt) : 0;
 
     // Ordenar (tb.id primero para DISTINCT ON)
     if (sortBy === 'date') {
