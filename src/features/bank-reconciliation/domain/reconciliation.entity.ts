@@ -164,6 +164,7 @@ export class ReconciliationSummary {
     public readonly unfundedVouchers: number,
     public readonly unclaimedDeposits: number,
     public readonly requiresManualValidation: number,
+    public readonly crossMatched: number = 0,
   ) {}
 
   static create(params: {
@@ -172,6 +173,7 @@ export class ReconciliationSummary {
     unfundedVouchers: number;
     unclaimedDeposits: number;
     requiresManualValidation: number;
+    crossMatched?: number;
   }): ReconciliationSummary {
     return new ReconciliationSummary(
       params.totalProcessed,
@@ -179,6 +181,7 @@ export class ReconciliationSummary {
       params.unfundedVouchers,
       params.unclaimedDeposits,
       params.requiresManualValidation,
+      params.crossMatched || 0,
     );
   }
 

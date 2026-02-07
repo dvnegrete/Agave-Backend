@@ -54,7 +54,7 @@ export class ManualValidationService {
     let query = this.dataSource
       .getRepository(TransactionBank)
       .createQueryBuilder('tb')
-      .leftJoin('transaction_status', 'ts', 'ts.transactions_bank_id = tb.id')
+      .leftJoin('transactions_status', 'ts', 'ts.transactions_bank_id = tb.id')
       .where('ts.validation_status = :status', {
         status: ValidationStatus.REQUIRES_MANUAL,
       })
@@ -146,7 +146,7 @@ export class ManualValidationService {
     try {
       // Obtener caso pendiente (raw query)
       const result = await queryRunner.query(
-        `SELECT * FROM transaction_status
+        `SELECT * FROM transactions_status
          WHERE transactions_bank_id = $1
          AND validation_status = $2`,
         [transactionId, ValidationStatus.REQUIRES_MANUAL],
@@ -281,7 +281,7 @@ export class ManualValidationService {
     try {
       // Obtener caso pendiente (raw query)
       const result = await queryRunner.query(
-        `SELECT * FROM transaction_status
+        `SELECT * FROM transactions_status
          WHERE transactions_bank_id = $1
          AND validation_status = $2`,
         [transactionId, ValidationStatus.REQUIRES_MANUAL],
@@ -357,7 +357,7 @@ export class ManualValidationService {
     const totalPending = await this.dataSource
       .getRepository(TransactionBank)
       .createQueryBuilder('tb')
-      .leftJoin('transaction_status', 'ts', 'ts.transactions_bank_id = tb.id')
+      .leftJoin('transactions_status', 'ts', 'ts.transactions_bank_id = tb.id')
       .where('ts.validation_status = :status', {
         status: ValidationStatus.REQUIRES_MANUAL,
       })
@@ -367,7 +367,7 @@ export class ManualValidationService {
     const totalApproved = await this.dataSource
       .getRepository(TransactionBank)
       .createQueryBuilder('tb')
-      .leftJoin('transaction_status', 'ts', 'ts.transactions_bank_id = tb.id')
+      .leftJoin('transactions_status', 'ts', 'ts.transactions_bank_id = tb.id')
       .where('ts.validation_status = :status', {
         status: ValidationStatus.CONFIRMED,
       })
@@ -378,7 +378,7 @@ export class ManualValidationService {
     const totalRejected = await this.dataSource
       .getRepository(TransactionBank)
       .createQueryBuilder('tb')
-      .leftJoin('transaction_status', 'ts', 'ts.transactions_bank_id = tb.id')
+      .leftJoin('transactions_status', 'ts', 'ts.transactions_bank_id = tb.id')
       .where('ts.validation_status = :status', {
         status: ValidationStatus.NOT_FOUND,
       })
@@ -390,7 +390,7 @@ export class ManualValidationService {
     const pendingLast24Hours = await this.dataSource
       .getRepository(TransactionBank)
       .createQueryBuilder('tb')
-      .leftJoin('transaction_status', 'ts', 'ts.transactions_bank_id = tb.id')
+      .leftJoin('transactions_status', 'ts', 'ts.transactions_bank_id = tb.id')
       .where('ts.validation_status = :status', {
         status: ValidationStatus.REQUIRES_MANUAL,
       })
@@ -406,7 +406,7 @@ export class ManualValidationService {
     // Tiempo promedio de aprobación (solo los que fueron resueltos)
     const avgResult = await this.dataSource.query(`
       SELECT AVG(EXTRACT(EPOCH FROM (processed_at - created_at)) / 60) as avg_minutes
-      FROM transaction_status
+      FROM transactions_status
       WHERE (validation_status = $1 OR validation_status = $2)
       AND processed_at IS NOT NULL
     `, [ValidationStatus.CONFIRMED, ValidationStatus.NOT_FOUND]);
@@ -425,7 +425,7 @@ export class ManualValidationService {
           ELSE 'unknown'
         END as house_range,
         COUNT(*) as count
-      FROM transaction_status ts
+      FROM transactions_status ts
       LEFT JOIN transactions_bank tb ON ts.transactions_bank_id = tb.id
       WHERE ts.validation_status = $1
       GROUP BY house_range

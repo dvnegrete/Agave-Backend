@@ -78,4 +78,10 @@ export class ReconciliationResponseDto {
     ],
   })
   manualValidationRequired: ManualValidationCase[];
+
+  @ApiProperty({
+    description: 'Cantidad de conciliaciones automáticas por cross-matching (depósitos no reclamados + vouchers sin fondos)',
+    example: 2,
+  })
+  crossMatched: number;
 }

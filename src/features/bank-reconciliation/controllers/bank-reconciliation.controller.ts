@@ -31,10 +31,21 @@ import {
   UnclaimedDepositsPageDto,
   AssignHouseDto,
   AssignHouseResponseDto,
+  GetUnfundedVouchersFilterDto,
+  UnfundedVouchersPageDto,
+  MatchVoucherToDepositDto,
+  MatchVoucherResponseDto,
+  MatchSuggestionsResponseDto,
+  ApplyMatchSuggestionDto,
+  ApplyMatchSuggestionResponseDto,
+  ApplyBatchMatchSuggestionsDto,
+  ApplyBatchResponseDto,
 } from '../dto';
 import { ApiReconcileTransactions } from '../decorators/swagger.decorators';
 import { ManualValidationService } from '../infrastructure/persistence/manual-validation.service';
 import { UnclaimedDepositsService } from '../infrastructure/persistence/unclaimed-deposits.service';
+import { UnfundedVouchersService } from '../infrastructure/persistence/unfunded-vouchers.service';
+import { MatchSuggestionsService } from '../infrastructure/persistence/match-suggestions.service';
 
 @ApiTags('bank-reconciliation')
 @Controller('bank-reconciliation')
@@ -45,6 +56,8 @@ export class BankReconciliationController {
     private readonly reconcileUseCase: ReconcileUseCase,
     private readonly manualValidationService: ManualValidationService,
     private readonly unclaimedDepositsService: UnclaimedDepositsService,
+    private readonly unfundedVouchersService: UnfundedVouchersService,
+    private readonly matchSuggestionsService: MatchSuggestionsService,
   ) {}
 
   @Post('reconcile')
@@ -252,5 +265,191 @@ export class BankReconciliationController {
       userId,
       dto.adminNotes,
     );
+  }
+
+  // ==================== UNFUNDED VOUCHERS ENDPOINTS ====================
+
+  @Get('unfunded-vouchers')
+  @UseGuards(AuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Obtener vouchers sin fondos',
+    description:
+      'Lista vouchers con confirmation_status=false que no tienen un TransactionStatus confirmado. ' +
+      'Estos son vouchers que fueron subidos pero no se encontró un depósito bancario correspondiente.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista paginada de vouchers sin fondos',
+    type: UnfundedVouchersPageDto,
+  })
+  async getUnfundedVouchers(
+    @Query() filters: GetUnfundedVouchersFilterDto,
+  ): Promise<UnfundedVouchersPageDto> {
+    this.logger.log(
+      `Obteniendo vouchers sin fondos. Filtros: ${JSON.stringify(filters)}`,
+    );
+
+    return this.unfundedVouchersService.getUnfundedVouchers(
+      filters.startDate ? new Date(filters.startDate) : undefined,
+      filters.endDate ? new Date(filters.endDate) : undefined,
+      filters.page,
+      filters.limit,
+      filters.sortBy,
+    );
+  }
+
+  @Post('unfunded-vouchers/:voucherId/match-deposit')
+  @UseGuards(AuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Conciliar manualmente un voucher sin fondos con un depósito',
+    description:
+      'Vincula un voucher sin fondos con un depósito bancario existente. ' +
+      'Crea la conciliación completa: TransactionStatus, Record, HouseRecord y asignación de pagos.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Voucher conciliado exitosamente',
+    type: MatchVoucherResponseDto,
+  })
+  async matchVoucherToDeposit(
+    @Param('voucherId') voucherId: string,
+    @Body() dto: MatchVoucherToDepositDto,
+    @Req() req: any,
+  ): Promise<MatchVoucherResponseDto> {
+    const userId = req.user.id;
+
+    this.logger.log(
+      `Conciliando voucher ${voucherId} con depósito ${dto.transactionBankId} → Casa ${dto.houseNumber} por usuario ${userId}`,
+    );
+
+    return this.unfundedVouchersService.matchVoucherToDeposit(
+      Number(voucherId),
+      dto.transactionBankId,
+      dto.houseNumber,
+      userId,
+      dto.adminNotes,
+    );
+  }
+
+  // ==================== MATCH SUGGESTIONS (CROSS-MATCHING) ENDPOINTS ====================
+
+  @Get('match-suggestions')
+  @UseGuards(AuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Obtener sugerencias de cross-matching',
+    description:
+      'Analiza depósitos no reclamados y vouchers sin fondos para encontrar posibles coincidencias ' +
+      'basándose en monto y fecha. Retorna sugerencias con nivel de confianza.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de sugerencias de cross-matching',
+    type: MatchSuggestionsResponseDto,
+  })
+  async getMatchSuggestions(): Promise<MatchSuggestionsResponseDto> {
+    this.logger.log('Obteniendo sugerencias de cross-matching');
+
+    return this.matchSuggestionsService.findMatchSuggestions();
+  }
+
+  @Post('match-suggestions/apply')
+  @UseGuards(AuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Aplicar una sugerencia de cross-matching',
+    description:
+      'Concilia un depósito no reclamado con un voucher sin fondos. ' +
+      'Actualiza TransactionStatus, crea Record/HouseRecord, y asigna pagos.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Sugerencia aplicada exitosamente',
+    type: ApplyMatchSuggestionResponseDto,
+  })
+  async applyMatchSuggestion(
+    @Body() dto: ApplyMatchSuggestionDto,
+    @Req() req: any,
+  ): Promise<ApplyMatchSuggestionResponseDto> {
+    const userId = req.user.id;
+
+    this.logger.log(
+      `Aplicando cross-match: Depósito ${dto.transactionBankId} → Voucher ${dto.voucherId} → Casa ${dto.houseNumber} por usuario ${userId}`,
+    );
+
+    return this.matchSuggestionsService.applyMatchSuggestion(
+      dto.transactionBankId,
+      dto.voucherId,
+      dto.houseNumber,
+      userId,
+      dto.adminNotes,
+    );
+  }
+
+  @Post('match-suggestions/apply-batch')
+  @UseGuards(AuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Aplicar múltiples sugerencias de cross-matching',
+    description:
+      'Aplica un lote de sugerencias de cross-matching. Cada sugerencia se procesa individualmente ' +
+      'para evitar que un error afecte a las demás.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Resultado del procesamiento batch',
+    type: ApplyBatchResponseDto,
+  })
+  async applyBatchMatchSuggestions(
+    @Body() dto: ApplyBatchMatchSuggestionsDto,
+    @Req() req: any,
+  ): Promise<ApplyBatchResponseDto> {
+    const userId = req.user.id;
+
+    this.logger.log(
+      `Aplicando batch de ${dto.suggestions.length} cross-matches por usuario ${userId}`,
+    );
+
+    const results: { transactionBankId: string; voucherId: number; success: boolean; error?: string }[] = [];
+    let totalApplied = 0;
+    let totalFailed = 0;
+
+    for (const suggestion of dto.suggestions) {
+      try {
+        await this.matchSuggestionsService.applyMatchSuggestion(
+          suggestion.transactionBankId,
+          suggestion.voucherId,
+          suggestion.houseNumber,
+          userId,
+          suggestion.adminNotes,
+        );
+        results.push({
+          transactionBankId: suggestion.transactionBankId,
+          voucherId: suggestion.voucherId,
+          success: true,
+        });
+        totalApplied++;
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        this.logger.warn(
+          `Batch cross-match falló para depósito ${suggestion.transactionBankId}: ${errorMessage}`,
+        );
+        results.push({
+          transactionBankId: suggestion.transactionBankId,
+          voucherId: suggestion.voucherId,
+          success: false,
+          error: errorMessage,
+        });
+        totalFailed++;
+      }
+    }
+
+    this.logger.log(
+      `Batch cross-match completado: ${totalApplied} aplicados, ${totalFailed} fallidos`,
+    );
+
+    return { totalApplied, totalFailed, results };
   }
 }

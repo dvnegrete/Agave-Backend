@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { MatchingService } from '../infrastructure/matching/matching.service';
 import { ReconciliationPersistenceService } from '../infrastructure/persistence/reconciliation-persistence.service';
 import { ReconciliationDataService } from '../infrastructure/persistence/reconciliation-data.service';
+import { MatchSuggestionsService } from '../infrastructure/persistence/match-suggestions.service';
 import {
   ReconciliationMatch,
   UnfundedVoucher,
@@ -24,6 +25,7 @@ export interface ReconcileOutput {
   unfundedVouchers: UnfundedVoucher[];
   unclaimedDeposits: UnclaimedDeposit[];
   manualValidationRequired: ManualValidationCase[];
+  crossMatched: number;
 }
 
 /**
@@ -44,6 +46,7 @@ export class ReconcileUseCase {
     private readonly dataService: ReconciliationDataService,
     private readonly matchingService: MatchingService,
     private readonly persistenceService: ReconciliationPersistenceService,
+    private readonly matchSuggestionsService: MatchSuggestionsService,
   ) {}
 
   async execute(input: ReconcileInput): Promise<ReconcileOutput> {
@@ -164,6 +167,11 @@ export class ReconcileUseCase {
           unclaimedDeposits.push(matchResult.surplus);
         }
       } else if (matchResult.type === 'manual') {
+        // Marcar vouchers candidatos como "en proceso" para evitar reutilización
+        matchResult.case.possibleMatches.forEach((match) => {
+          processedVoucherIds.add(match.voucherId);
+        });
+
         // ✅ NUEVO: Persistir casos manuales en BD
         try {
           await this.persistenceService.persistManualValidationCase(
@@ -193,18 +201,60 @@ export class ReconcileUseCase {
         ),
       );
 
+    // 3.5 SEGUNDO PASO: Cross-matching unfunded vouchers con unclaimed deposits existentes
+    let crossMatchedCount = 0;
+    const crossMatchedVoucherIds = new Set<number>();
+
+    try {
+      const crossMatchResults =
+        await this.matchSuggestionsService.findMatchSuggestions();
+
+      for (const suggestion of crossMatchResults.suggestions) {
+        if (suggestion.confidence === 'high' && suggestion.houseNumber) {
+          try {
+            await this.matchSuggestionsService.applyMatchSuggestion(
+              suggestion.transactionBankId,
+              suggestion.voucherId,
+              suggestion.houseNumber,
+              'SYSTEM',
+              'Auto-conciliado por cross-matching (alta confianza)',
+            );
+            crossMatchedCount++;
+            crossMatchedVoucherIds.add(suggestion.voucherId);
+            this.logger.log(
+              `Cross-match auto-conciliado: Depósito ${suggestion.transactionBankId} → Voucher ${suggestion.voucherId} → Casa ${suggestion.houseNumber}`,
+            );
+          } catch (error) {
+            this.logger.warn(
+              `Cross-match falló para depósito ${suggestion.transactionBankId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            );
+          }
+        }
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Error en cross-matching: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+    }
+
+    // Filtrar unfundedVouchers que fueron auto-conciliados por cross-matching
+    const finalUnfundedVouchers = unfundedVouchersList.filter(
+      (v) => !crossMatchedVoucherIds.has(v.voucherId),
+    );
+
     // 4. Generar resumen
     const summary = ReconciliationSummary.create({
       totalProcessed: pendingTransactions.length,
-      conciliados: conciliados.length,
-      unfundedVouchers: unfundedVouchersList.length,
+      conciliados: conciliados.length + crossMatchedCount,
+      unfundedVouchers: finalUnfundedVouchers.length,
       unclaimedDeposits: unclaimedDeposits.length,
       requiresManualValidation: manualValidationRequired.length,
     });
 
     this.logger.log(`Conciliación completada. Resumen:`);
     this.logger.log(`  - Conciliados: ${conciliados.length}`);
-    this.logger.log(`  - Vouchers sin fondos: ${unfundedVouchersList.length}`);
+    this.logger.log(`  - Cross-matched (auto): ${crossMatchedCount}`);
+    this.logger.log(`  - Vouchers sin fondos: ${finalUnfundedVouchers.length}`);
     this.logger.log(`  - Depósitos no reclamados: ${unclaimedDeposits.length}`);
     this.logger.log(
       `  - Requieren validación manual: ${manualValidationRequired.length}`,
@@ -213,9 +263,10 @@ export class ReconcileUseCase {
     return {
       summary,
       conciliados,
-      unfundedVouchers: unfundedVouchersList,
+      unfundedVouchers: finalUnfundedVouchers,
       unclaimedDeposits,
       manualValidationRequired,
+      crossMatched: crossMatchedCount,
     };
   }
 }
