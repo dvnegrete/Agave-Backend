@@ -7,9 +7,11 @@ import {
   JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 import { Period } from './period.entity';
 import { Record } from './record.entity';
+import { House } from './house.entity';
 
 @Entity('cta_penalties')
 export class CtaPenalties {
@@ -21,6 +23,9 @@ export class CtaPenalties {
 
   @Column({ type: 'int', nullable: true })
   period_id: number;
+
+  @Column({ type: 'int', nullable: true })
+  house_id: number;
 
   @Column({ type: 'text', nullable: true })
   description: string;
@@ -38,6 +43,14 @@ export class CtaPenalties {
   })
   @JoinColumn({ name: 'period_id' })
   period: Period;
+
+  @ManyToOne(() => House, {
+    nullable: true,
+    onUpdate: 'CASCADE',
+    onDelete: 'CASCADE',
+  })
+  @JoinColumn({ name: 'house_id' })
+  house: House;
 
   @OneToMany(() => Record, (record) => record.ctaPenalties)
   records: Record[];

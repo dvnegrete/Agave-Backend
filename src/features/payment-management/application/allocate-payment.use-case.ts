@@ -22,6 +22,7 @@ import {
   IPeriodRepository,
 } from '../interfaces';
 import { PeriodConfigRepository } from '../infrastructure/repositories/period-config.repository';
+import { ApplyCreditToPeriodsUseCase } from './apply-credit-to-periods.use-case';
 
 /**
  * Use case para asignar pagos a conceptos
@@ -39,6 +40,7 @@ export class AllocatePaymentUseCase {
     @Inject('IPeriodRepository')
     private readonly periodRepository: IPeriodRepository,
     private readonly periodConfigRepository: PeriodConfigRepository,
+    private readonly applyCreditToPeriodsUseCase: ApplyCreditToPeriodsUseCase,
   ) {}
 
   /**
@@ -280,22 +282,43 @@ export class AllocatePaymentUseCase {
       remaining -= debtPayment;
     }
 
-    // 2. Aplicar a centavos
-    if (remaining > 0 && remaining < 1) {
-      currentBalance.accumulated_cents += remaining;
-      remaining = 0;
-    }
-
-    // 3. Aplicar crédito
+    // 2. Separar parte entera y centavos del restante
     if (remaining > 0) {
-      currentBalance.credit_balance += remaining;
+      const cents = remaining - Math.floor(remaining);
+      const wholePart = Math.floor(remaining);
+
+      if (cents > 0) {
+        currentBalance.accumulated_cents += cents;
+        // Si centavos acumulados >= 1, mover parte entera a crédito
+        if (currentBalance.accumulated_cents >= 1) {
+          const extraPesos = Math.floor(currentBalance.accumulated_cents);
+          currentBalance.accumulated_cents -= extraPesos;
+          currentBalance.credit_balance += extraPesos;
+        }
+      }
+
+      // 3. Parte entera va a crédito
+      if (wholePart > 0) {
+        currentBalance.credit_balance += wholePart;
+      }
     }
 
-    return this.houseBalanceRepository.update(houseId, {
-      accumulated_cents: currentBalance.accumulated_cents,
-      credit_balance: currentBalance.credit_balance,
-      debit_balance: currentBalance.debit_balance,
+    const updatedBalance = await this.houseBalanceRepository.update(houseId, {
+      accumulated_cents: Math.round(currentBalance.accumulated_cents * 100) / 100,
+      credit_balance: Math.round(currentBalance.credit_balance * 100) / 100,
+      debit_balance: Math.round(currentBalance.debit_balance * 100) / 100,
     });
+
+    // 4. Si hay crédito, intentar aplicar a periodos impagos
+    if (updatedBalance.credit_balance > 0) {
+      try {
+        await this.applyCreditToPeriodsUseCase.execute(houseId);
+      } catch (error) {
+        // Log pero no fallar la operación principal
+      }
+    }
+
+    return updatedBalance;
   }
 
   /**

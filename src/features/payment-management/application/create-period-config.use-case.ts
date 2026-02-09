@@ -15,6 +15,20 @@ export class CreatePeriodConfigUseCase {
   ) {}
 
   async execute(dto: CreatePeriodConfigDto): Promise<PeriodConfigDomain> {
+    // Auto-cerrar config anterior: si hay una activa sin effective_until, cerrarla
+    const effectiveFromDate = new Date(dto.effective_from);
+    const allConfigs = await this.periodConfigRepository.findAll();
+    const activeWithoutEnd = allConfigs.find(
+      (c) => c.is_active && !c.effective_until,
+    );
+    if (activeWithoutEnd) {
+      const closeDate = new Date(effectiveFromDate);
+      closeDate.setDate(closeDate.getDate() - 1);
+      await this.periodConfigRepository.update(activeWithoutEnd.id, {
+        effective_until: closeDate,
+      });
+    }
+
     const config = await this.periodConfigRepository.create({
       default_maintenance_amount: dto.default_maintenance_amount,
       default_water_amount: dto.default_water_amount,

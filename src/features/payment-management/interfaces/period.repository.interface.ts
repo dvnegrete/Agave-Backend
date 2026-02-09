@@ -39,4 +39,9 @@ export interface IPeriodRepository {
    * Elimina un período si no tiene registros asociados
    */
   delete(id: number): Promise<boolean>;
+
+  /**
+   * Busca todos los períodos desde un año/mes dado hasta el actual, ordenados ASC
+   */
+  findFromDate(year: number, month: number): Promise<Period[]>;
 }

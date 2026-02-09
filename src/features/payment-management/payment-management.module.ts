@@ -11,12 +11,21 @@ import {
   EnsurePeriodExistsUseCase,
   GetPeriodsUseCase,
   CreatePeriodConfigUseCase,
+  UpdatePeriodConfigUseCase,
   AllocatePaymentUseCase,
   GetPaymentHistoryUseCase,
   GetHouseBalanceUseCase,
   GetHouseTransactionsUseCase,
   GetHouseUnreconciledVouchersUseCase,
+  CalculateHouseBalanceStatusUseCase,
+  UpdatePeriodConceptsUseCase,
+  GeneratePenaltyUseCase,
+  ApplyCreditToPeriodsUseCase,
+  DistributePaymentWithAIUseCase,
 } from './application';
+
+// Infrastructure - Services
+import { PaymentDistributionAnalyzerService } from './infrastructure/matching/payment-distribution-analyzer.service';
 
 // Infrastructure Layer - Repositories
 import { PeriodRepository } from './infrastructure/repositories/period.repository';
@@ -40,6 +49,7 @@ import {
   House,
   TransactionBank,
   Voucher,
+  CtaPenalties,
 } from '@/shared/database/entities';
 
 @Module({
@@ -54,6 +64,7 @@ import {
       House,
       TransactionBank,
       Voucher,
+      CtaPenalties,
     ]),
   ],
   controllers: [PaymentManagementController],
@@ -63,6 +74,13 @@ import {
     EnsurePeriodExistsUseCase,
     GetPeriodsUseCase,
     CreatePeriodConfigUseCase,
+    UpdatePeriodConfigUseCase,
+    CalculateHouseBalanceStatusUseCase,
+    UpdatePeriodConceptsUseCase,
+    GeneratePenaltyUseCase,
+    ApplyCreditToPeriodsUseCase,
+    DistributePaymentWithAIUseCase,
+    PaymentDistributionAnalyzerService,
     AllocatePaymentUseCase,
     GetPaymentHistoryUseCase,
     GetHouseBalanceUseCase,

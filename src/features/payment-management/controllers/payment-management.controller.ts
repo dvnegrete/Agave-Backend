@@ -2,8 +2,11 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   Param,
+  Query,
+  Inject,
   ParseIntPipe,
   NotFoundException,
   UseGuards,
@@ -25,21 +28,32 @@ import {
   EnsurePeriodExistsUseCase,
   GetPeriodsUseCase,
   CreatePeriodConfigUseCase,
+  UpdatePeriodConfigUseCase,
   AllocatePaymentUseCase,
   GetPaymentHistoryUseCase,
   GetHouseBalanceUseCase,
   GetHouseTransactionsUseCase,
   GetHouseUnreconciledVouchersUseCase,
+  CalculateHouseBalanceStatusUseCase,
+  UpdatePeriodConceptsUseCase,
+  DistributePaymentWithAIUseCase,
 } from '../application';
 import {
   CreatePeriodDto,
   CreatePeriodConfigDto,
+  UpdatePeriodConfigDto,
   PeriodResponseDto,
   PeriodConfigResponseDto,
   HouseBalanceDTO,
   HouseTransactionsResponseDto,
+  EnrichedHouseBalanceDto,
+  HousesSummaryDto,
+  UpdatePeriodConceptsDto,
+  DistributePaymentRequestDto,
+  ConfirmDistributionRequestDto,
 } from '../dto';
 import { HouseRepository } from '@/shared/database/repositories/house.repository';
+import { IPeriodConfigRepository } from '../interfaces';
 
 @ApiTags('Payment Management')
 @Controller('payment-management')
@@ -49,12 +63,18 @@ export class PaymentManagementController {
     private readonly ensurePeriodExistsUseCase: EnsurePeriodExistsUseCase,
     private readonly getPeriodsUseCase: GetPeriodsUseCase,
     private readonly createPeriodConfigUseCase: CreatePeriodConfigUseCase,
+    private readonly updatePeriodConfigUseCase: UpdatePeriodConfigUseCase,
     private readonly allocatePaymentUseCase: AllocatePaymentUseCase,
     private readonly getPaymentHistoryUseCase: GetPaymentHistoryUseCase,
     private readonly getHouseBalanceUseCase: GetHouseBalanceUseCase,
     private readonly getHouseTransactionsUseCase: GetHouseTransactionsUseCase,
     private readonly getHouseUnreconciledVouchersUseCase: GetHouseUnreconciledVouchersUseCase,
     private readonly houseRepository: HouseRepository,
+    @Inject('IPeriodConfigRepository')
+    private readonly periodConfigRepository: IPeriodConfigRepository,
+    private readonly calculateHouseBalanceStatusUseCase: CalculateHouseBalanceStatusUseCase,
+    private readonly updatePeriodConceptsUseCase: UpdatePeriodConceptsUseCase,
+    private readonly distributePaymentWithAIUseCase: DistributePaymentWithAIUseCase,
   ) {}
 
   /**
@@ -201,15 +221,124 @@ export class PaymentManagementController {
     };
   }
 
-  // TODO: Implementar endpoint para actualizar montos de un período específico
-  // PATCH /payment-management/periods/:id/amounts
-  // Body: UpdatePeriodAmountsDto
+  /**
+   * GET /payment-management/config
+   * Obtiene todas las configuraciones de período
+   */
+  @Get('config')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Listar configuraciones de período',
+    description: 'Retorna todas las configuraciones de período ordenadas por fecha',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de configuraciones obtenida',
+    type: [PeriodConfigResponseDto],
+  })
+  async getConfigs(): Promise<PeriodConfigResponseDto[]> {
+    const configs = await this.periodConfigRepository.findAll();
+    return configs.map((config) => ({
+      id: config.id,
+      default_maintenance_amount: config.default_maintenance_amount,
+      default_water_amount: config.default_water_amount ?? undefined,
+      default_extraordinary_fee_amount:
+        config.default_extraordinary_fee_amount ?? undefined,
+      payment_due_day: config.payment_due_day,
+      late_payment_penalty_amount: config.late_payment_penalty_amount,
+      effective_from: config.effective_from,
+      effective_until: config.effective_until ?? undefined,
+      is_active: config.is_active,
+      created_at: config.created_at,
+      updated_at: config.updated_at,
+    }));
+  }
 
-  // TODO: Implementar endpoint para obtener configuración activa
-  // GET /payment-management/config/active?date=YYYY-MM-DD
+  /**
+   * GET /payment-management/config/active
+   * Obtiene la configuración activa para una fecha dada
+   */
+  @Get('config/active')
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: 'Obtener configuración activa',
+    description:
+      'Retorna la configuración de período activa para la fecha especificada (o hoy si no se indica)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Configuración activa obtenida',
+    type: PeriodConfigResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'No hay configuración activa' })
+  async getActiveConfig(
+    @Query('date') dateStr?: string,
+  ): Promise<PeriodConfigResponseDto> {
+    const date = dateStr ? new Date(dateStr) : new Date();
+    const config = await this.periodConfigRepository.findActiveForDate(date);
 
-  // TODO: Implementar endpoint para actualizar configuración
-  // PATCH /payment-management/config/:id
+    if (!config) {
+      throw new NotFoundException(
+        `No hay configuración activa para la fecha ${date.toISOString().split('T')[0]}`,
+      );
+    }
+
+    return {
+      id: config.id,
+      default_maintenance_amount: config.default_maintenance_amount,
+      default_water_amount: config.default_water_amount ?? undefined,
+      default_extraordinary_fee_amount:
+        config.default_extraordinary_fee_amount ?? undefined,
+      payment_due_day: config.payment_due_day,
+      late_payment_penalty_amount: config.late_payment_penalty_amount,
+      effective_from: config.effective_from,
+      effective_until: config.effective_until ?? undefined,
+      is_active: config.is_active,
+      created_at: config.created_at,
+      updated_at: config.updated_at,
+    };
+  }
+
+  /**
+   * PATCH /payment-management/config/:id
+   * Actualiza una configuración de período
+   */
+  @Patch('config/:id')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Actualizar configuración de período',
+    description: 'Actualiza campos de una configuración existente',
+  })
+  @ApiParam({ name: 'id', description: 'ID de la configuración' })
+  @ApiBody({ type: UpdatePeriodConfigDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Configuración actualizada',
+    type: PeriodConfigResponseDto,
+  })
+  async updateConfig(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdatePeriodConfigDto,
+  ): Promise<PeriodConfigResponseDto> {
+    const config = await this.updatePeriodConfigUseCase.execute(id, dto);
+
+    return {
+      id: config.id,
+      default_maintenance_amount: config.defaultMaintenanceAmount,
+      default_water_amount: config.defaultWaterAmount ?? undefined,
+      default_extraordinary_fee_amount:
+        config.defaultExtraordinaryFeeAmount ?? undefined,
+      payment_due_day: config.paymentDueDay,
+      late_payment_penalty_amount: config.latePaymentPenaltyAmount,
+      effective_from: config.effectiveFrom,
+      effective_until: config.effectiveUntil ?? undefined,
+      is_active: config.isActive,
+      created_at: new Date(),
+      updated_at: new Date(),
+    };
+  }
 
   /**
    * GET /payment-management/houses/:houseId/payments
@@ -294,6 +423,210 @@ export class PaymentManagementController {
     }
 
     return this.getHouseBalanceUseCase.execute(house.id, house);
+  }
+
+  /**
+   * PATCH /payment-management/periods/:id/concepts
+   * Activar/desactivar conceptos opcionales de un período
+   */
+  @Patch('periods/:id/concepts')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Activar/desactivar conceptos de un período',
+    description:
+      'Permite activar o desactivar agua y cuota extraordinaria para un período específico',
+  })
+  @ApiParam({ name: 'id', description: 'ID del período' })
+  @ApiBody({ type: UpdatePeriodConceptsDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Conceptos actualizados',
+    type: PeriodResponseDto,
+  })
+  async updatePeriodConcepts(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdatePeriodConceptsDto,
+  ): Promise<PeriodResponseDto> {
+    const period = await this.updatePeriodConceptsUseCase.execute(id, dto);
+
+    return {
+      id: period.id,
+      year: period.year,
+      month: period.month,
+      start_date: this.formatDateToISO(period.start_date),
+      end_date: this.formatDateToISO(period.end_date),
+      period_config_id: period.period_config_id,
+      display_name: `${['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'][period.month - 1]} ${period.year}`,
+      created_at: period.created_at,
+      updated_at: period.updated_at,
+    };
+  }
+
+  /**
+   * GET /payment-management/houses/:houseId/status
+   * Obtiene el estado enriquecido de una casa (balance + periodos + morosidad)
+   */
+  @Get('houses/:houseId/status')
+  @UseGuards(AuthGuard, RoleGuard, HouseOwnershipGuard)
+  @Roles(Role.ADMIN, Role.OWNER, Role.TENANT)
+  @ApiOperation({
+    summary: 'Obtener estado enriquecido de casa',
+    description:
+      'Retorna estado completo: clasificación (morosa/al_dia/saldo_a_favor), desglose por periodo, deuda total',
+  })
+  @ApiParam({
+    name: 'houseId',
+    description: 'Número de casa (number_house)',
+    example: 42,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Estado enriquecido obtenido',
+    type: EnrichedHouseBalanceDto,
+  })
+  @ApiResponse({ status: 404, description: 'Casa no encontrada' })
+  async getHouseStatus(
+    @Param('houseId', ParseIntPipe) houseId: number,
+  ): Promise<EnrichedHouseBalanceDto> {
+    const house = await this.houseRepository.findByNumberHouse(houseId);
+
+    if (!house) {
+      throw new NotFoundException(`Casa con número ${houseId} no encontrada`);
+    }
+
+    return this.calculateHouseBalanceStatusUseCase.execute(
+      house.id,
+      house,
+    ) as Promise<EnrichedHouseBalanceDto>;
+  }
+
+  /**
+   * GET /payment-management/summary
+   * Resumen de todas las casas (ADMIN only)
+   */
+  @Get('summary')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Resumen de estado de todas las casas',
+    description:
+      'Retorna resumen general: casas morosas, al día, con saldo a favor, deuda/crédito total',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Resumen obtenido',
+    type: HousesSummaryDto,
+  })
+  async getSummary(): Promise<HousesSummaryDto> {
+    const houses = await this.houseRepository.findAll();
+    const results: EnrichedHouseBalanceDto[] = [];
+
+    for (const house of houses) {
+      const status = await this.calculateHouseBalanceStatusUseCase.execute(
+        house.id,
+        house,
+      );
+      results.push(status as EnrichedHouseBalanceDto);
+    }
+
+    const morosas = results.filter((r) => r.status === 'morosa').length;
+    const alDia = results.filter((r) => r.status === 'al_dia').length;
+    const saldoAFavor = results.filter(
+      (r) => r.status === 'saldo_a_favor',
+    ).length;
+
+    return {
+      total_houses: results.length,
+      morosas,
+      al_dia: alDia,
+      saldo_a_favor: saldoAFavor,
+      total_debt: results.reduce((sum, r) => sum + r.total_debt, 0),
+      total_credit: results.reduce((sum, r) => sum + r.credit_balance, 0),
+      houses: results,
+    };
+  }
+
+  /**
+   * POST /payment-management/houses/:houseId/distribute-payment
+   * Analiza y sugiere distribución de un pago (determinístico o AI)
+   */
+  @Post('houses/:houseId/distribute-payment')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Distribuir pago con AI',
+    description:
+      'Analiza un pago y sugiere cómo distribuirlo entre periodos impagos. Usa lógica determinística primero, luego AI.',
+  })
+  @ApiParam({
+    name: 'houseId',
+    description: 'Número de casa (number_house)',
+    example: 42,
+  })
+  @ApiBody({ type: DistributePaymentRequestDto })
+  async distributePayment(
+    @Param('houseId', ParseIntPipe) houseId: number,
+    @Body() dto: DistributePaymentRequestDto,
+  ) {
+    const house = await this.houseRepository.findByNumberHouse(houseId);
+    if (!house) {
+      throw new NotFoundException(`Casa con número ${houseId} no encontrada`);
+    }
+
+    return this.distributePaymentWithAIUseCase.execute(
+      house.id,
+      house,
+      dto.amount,
+      dto.record_id,
+    );
+  }
+
+  /**
+   * POST /payment-management/houses/:houseId/confirm-distribution
+   * Confirma y aplica una distribución sugerida
+   */
+  @Post('houses/:houseId/confirm-distribution')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Confirmar distribución de pago',
+    description:
+      'Aplica una distribución de pago previamente sugerida por el sistema AI',
+  })
+  @ApiParam({
+    name: 'houseId',
+    description: 'Número de casa (number_house)',
+    example: 42,
+  })
+  @ApiBody({ type: ConfirmDistributionRequestDto })
+  async confirmDistribution(
+    @Param('houseId', ParseIntPipe) houseId: number,
+    @Body() dto: ConfirmDistributionRequestDto,
+  ) {
+    const house = await this.houseRepository.findByNumberHouse(houseId);
+    if (!house) {
+      throw new NotFoundException(`Casa con número ${houseId} no encontrada`);
+    }
+
+    // Aplicar cada allocation confirmada
+    const results: any[] = [];
+    for (const allocation of dto.allocations) {
+      const result = await this.allocatePaymentUseCase.execute({
+        record_id: dto.record_id ?? 0,
+        house_id: house.id,
+        amount_to_distribute: allocation.amount,
+        period_id: allocation.period_id,
+      });
+      results.push(result);
+    }
+
+    return {
+      house_id: house.id,
+      house_number: house.number_house,
+      allocations_applied: results.length,
+      results,
+    };
   }
 
   /**
