@@ -40,6 +40,7 @@ export class PaymentDistributionAnalyzerService {
         request.credit_balance,
         request.total_debt,
         unpaidPeriodsText,
+        PaymentManagementConfig.DEFAULT_MAINTENANCE_AMOUNT,
       );
 
       let aiResponse: PaymentDistributionAIResponse | null = null;

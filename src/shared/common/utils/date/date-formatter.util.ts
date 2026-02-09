@@ -28,29 +28,3 @@ export function generateConfirmationCode(): string {
   return `${year}${month}-${random}`;
 }
 
-/**
- * Nombres de meses en español
- */
-export const MONTH_NAMES = [
-  'Enero',
-  'Febrero',
-  'Marzo',
-  'Abril',
-  'Mayo',
-  'Junio',
-  'Julio',
-  'Agosto',
-  'Septiembre',
-  'Octubre',
-  'Noviembre',
-  'Diciembre',
-];
-
-/**
- * Obtiene el nombre del mes en español
- * @param monthIndex - Índice del mes (0-11)
- * @returns Nombre del mes
- */
-export function getMonthName(monthIndex: number): string {
-  return MONTH_NAMES[monthIndex];
-}

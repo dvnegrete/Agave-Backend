@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CtaPenalties } from '@/shared/database/entities';
 import { IPeriodConfigRepository } from '../interfaces';
+import { PENALTY_MESSAGES } from '@/shared/common/constants/messages';
+import { PaymentManagementConfig } from '../config/payment-management.config';
 
 @Injectable()
 export class GeneratePenaltyUseCase {
@@ -37,14 +39,16 @@ export class GeneratePenaltyUseCase {
     const config =
       await this.periodConfigRepository.findActiveForDate(periodStartDate);
 
-    const penaltyAmount = config?.late_payment_penalty_amount ?? 100;
+    const penaltyAmount =
+      config?.late_payment_penalty_amount ??
+      PaymentManagementConfig.DEFAULT_LATE_PENALTY_AMOUNT;
 
     try {
       const penalty = this.penaltiesRepository.create({
         house_id: houseId,
         period_id: periodId,
         amount: penaltyAmount,
-        description: `Penalidad por pago tardio - Periodo ${periodId}`,
+        description: PENALTY_MESSAGES.DESCRIPTION_TEMPLATE(periodId),
       });
 
       const saved = await this.penaltiesRepository.save(penalty);

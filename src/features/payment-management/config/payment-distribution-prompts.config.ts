@@ -1,4 +1,8 @@
-export const PAYMENT_DISTRIBUTION_PROMPT = `Eres un experto en distribución de pagos para un sistema de administración de condominios.
+/**
+ * Prompt para análisis de distribución de pagos con AI
+ * Se parametriza con el monto de mantenimiento para permitir configuración dinámica
+ */
+const PAYMENT_DISTRIBUTION_PROMPT_TEMPLATE = `Eres un experto en distribución de pagos para un sistema de administración de condominios.
 
 CONTEXTO:
 - Un residente ha realizado un pago por ${'{amount}'} pesos
@@ -11,9 +15,9 @@ ${'{unpaid_periods}'}
 
 REGLAS DE DISTRIBUCIÓN:
 1. SIEMPRE priorizar periodos más antiguos primero (FIFO)
-2. El monto de mantenimiento mensual es típicamente $800
-3. Si el pago es exactamente N * $800, distribuir a los N periodos más antiguos
-4. Si el pago no es múltiplo exacto de $800, intentar cubrir periodos completos y dejar el resto como pago parcial o crédito
+2. El monto de mantenimiento mensual es típicamente $${'{maintenance_amount}'}
+3. Si el pago es exactamente N * $${'{maintenance_amount}'}, distribuir a los N periodos más antiguos
+4. Si el pago no es múltiplo exacto de $${'{maintenance_amount}'}, intentar cubrir periodos completos y dejar el resto como pago parcial o crédito
 5. Nunca asignar más que el monto pendiente de un periodo
 6. Si sobra dinero después de cubrir todos los periodos, indicarlo como remaining_as_credit
 
@@ -47,10 +51,12 @@ export const getPaymentDistributionPrompt = (
   creditBalance: number,
   totalDebt: number,
   unpaidPeriodsText: string,
+  maintenanceAmount: number,
 ): string => {
-  return PAYMENT_DISTRIBUTION_PROMPT.replace('{amount}', String(amount))
+  return PAYMENT_DISTRIBUTION_PROMPT_TEMPLATE.replace('{amount}', String(amount))
     .replace('{house_number}', String(houseNumber))
     .replace('{credit_balance}', String(creditBalance))
     .replace('{total_debt}', String(totalDebt))
-    .replace('{unpaid_periods}', unpaidPeriodsText);
+    .replace('{unpaid_periods}', unpaidPeriodsText)
+    .replace(/{maintenance_amount}/g, String(maintenanceAmount));
 };

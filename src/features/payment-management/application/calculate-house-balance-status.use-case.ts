@@ -16,6 +16,8 @@ import {
   PeriodPaymentStatus,
   ConceptBreakdown,
 } from '../domain/house-balance-status.types';
+import { formatMonthName } from '@/shared/common/utils/date';
+import { HOUSE_STATUS_MESSAGES } from '@/shared/common/constants/messages';
 
 @Injectable()
 export class CalculateHouseBalanceStatusUseCase {
@@ -263,17 +265,11 @@ export class CalculateHouseBalanceStatusUseCase {
       status = PeriodPaymentStatus.UNPAID;
     }
 
-    // Display name
-    const monthNames = [
-      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
-    ];
-
     return {
       period_id: period.id,
       year: period.year,
       month: period.month,
-      display_name: `${monthNames[period.month - 1]} ${period.year}`,
+      display_name: formatMonthName(period.month, period.year),
       expected_total: Math.round(expectedTotal * 100) / 100,
       paid_total: Math.round(paidTotal * 100) / 100,
       pending_total: Math.round(pendingTotal * 100) / 100,
@@ -330,13 +326,13 @@ export class CalculateHouseBalanceStatusUseCase {
     nextDueDate: string,
   ): string | null {
     if (status === HouseStatus.MOROSA) {
-      return `Casa morosa con ${unpaidCount} periodo(s) sin pagar. Siguiente fecha limite: ${nextDueDate}`;
+      return HOUSE_STATUS_MESSAGES.MOROSA(unpaidCount, nextDueDate);
     }
     if (status === HouseStatus.AL_DIA) {
-      return `Al corriente. Siguiente fecha limite de pago: ${nextDueDate}`;
+      return HOUSE_STATUS_MESSAGES.AL_DIA(nextDueDate);
     }
     if (status === HouseStatus.SALDO_A_FAVOR) {
-      return `Saldo a favor disponible. Siguiente fecha limite de pago: ${nextDueDate}`;
+      return HOUSE_STATUS_MESSAGES.SALDO_A_FAVOR(nextDueDate);
     }
     return null;
   }

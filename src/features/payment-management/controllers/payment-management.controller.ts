@@ -23,6 +23,7 @@ import { RoleGuard } from '@/shared/auth/guards/roles.guard';
 import { HouseOwnershipGuard } from '@/shared/auth/guards/house-ownership.guard';
 import { Roles } from '@/shared/auth/decorators/roles.decorator';
 import { Role } from '@/shared/database/entities/enums';
+import { formatMonthName } from '@/shared/common/utils/date';
 import {
   CreatePeriodUseCase,
   EnsurePeriodExistsUseCase,
@@ -457,7 +458,7 @@ export class PaymentManagementController {
       start_date: this.formatDateToISO(period.start_date),
       end_date: this.formatDateToISO(period.end_date),
       period_config_id: period.period_config_id,
-      display_name: `${['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'][period.month - 1]} ${period.year}`,
+      display_name: formatMonthName(period.month, period.year),
       created_at: period.created_at,
       updated_at: period.updated_at,
     };
@@ -578,7 +579,6 @@ export class PaymentManagementController {
       house.id,
       house,
       dto.amount,
-      dto.record_id,
     );
   }
 

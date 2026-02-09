@@ -1,4 +1,5 @@
-import { formatDateToDDMMYYYY, MONTH_NAMES } from '@/shared/common/utils';
+import { formatDateToDDMMYYYY } from '@/shared/common/utils';
+import { MONTH_NAMES } from '@/shared/common/constants/messages';
 
 /**
  * Opciones de fecha para listas de WhatsApp
