@@ -7,7 +7,6 @@ import {
   JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
-  Index,
 } from 'typeorm';
 import { Period } from './period.entity';
 import { Record } from './record.entity';
