@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '@/shared/auth/auth.module';
+import { OpenAIModule } from '@/shared/libs/openai/openai.module';
+import { VertexAIModule } from '@/shared/libs/vertex-ai/vertex-ai.module';
 
 // Controllers
 import { PaymentManagementController } from './controllers/payment-management.controller';
@@ -55,6 +57,8 @@ import {
 @Module({
   imports: [
     AuthModule,
+    OpenAIModule,
+    VertexAIModule,
     TypeOrmModule.forFeature([
       Period,
       PeriodConfig,
