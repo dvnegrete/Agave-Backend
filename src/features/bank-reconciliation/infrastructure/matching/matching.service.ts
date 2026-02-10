@@ -260,9 +260,13 @@ export class MatchingService {
    * 2. Concepto claro sin centavos → conciliar
    * 3. Sin información → depósito no reclamado con revisión manual
    */
-  private async handleNoVoucherMatch(transaction: TransactionBank): Promise<MatchResult> {
+  private async handleNoVoucherMatch(
+    transaction: TransactionBank,
+  ): Promise<MatchResult> {
     const centsHouse = extractHouseNumberFromCents(transaction.amount);
-    const conceptResult = await this.extractHouseFromConcept(transaction.concept);
+    const conceptResult = await this.extractHouseFromConcept(
+      transaction.concept,
+    );
 
     // Estrategia 1: Centavos válidos
     if (this.isValidHouseNumber(centsHouse)) {
@@ -289,7 +293,11 @@ export class MatchingService {
   ): MatchResult {
     // Caso: Conflicto entre centavos y concepto
     if (conceptResult.hasHouse() && conceptResult.house !== centsHouse) {
-      return this.createConflictUnclaimedDeposit(transaction, centsHouse, conceptResult.house!);
+      return this.createConflictUnclaimedDeposit(
+        transaction,
+        centsHouse,
+        conceptResult.house!,
+      );
     }
 
     // Caso: Centavos solos o centavos + concepto coinciden
@@ -323,7 +331,9 @@ export class MatchingService {
     houseNumber: number,
     reason: string,
   ): MatchResult {
-    this.logger.log(`Casa ${houseNumber} conciliada automáticamente: ${reason}`);
+    this.logger.log(
+      `Casa ${houseNumber} conciliada automáticamente: ${reason}`,
+    );
 
     const unclaimedDeposit = UnclaimedDeposit.fromTransaction(
       transaction,
@@ -360,8 +370,12 @@ export class MatchingService {
   /**
    * Crea depósito no reclamado sin información suficiente
    */
-  private createUnclaimedDepositWithoutInfo(transaction: TransactionBank): MatchResult {
-    this.logger.debug('Sin información suficiente para conciliar automáticamente');
+  private createUnclaimedDepositWithoutInfo(
+    transaction: TransactionBank,
+  ): MatchResult {
+    this.logger.debug(
+      'Sin información suficiente para conciliar automáticamente',
+    );
 
     const unclaimedDeposit = UnclaimedDeposit.fromTransaction(
       transaction,
@@ -377,14 +391,17 @@ export class MatchingService {
    * Extrae número de casa del concepto con análisis completo
    * Usa regex primero, fallback a IA si está habilitado
    */
-  private async extractHouseFromConcept(concept: string | null): Promise<ConceptResult> {
+  private async extractHouseFromConcept(
+    concept: string | null,
+  ): Promise<ConceptResult> {
     if (!concept || !ReconciliationConfig.ENABLE_CONCEPT_MATCHING) {
       return ConceptResult.none();
     }
 
     try {
       // 1. Intentar con regex (rápido)
-      const regexResult = this.conceptExtractorService.extractHouseNumber(concept);
+      const regexResult =
+        this.conceptExtractorService.extractHouseNumber(concept);
 
       if (regexResult.confidence === 'high') {
         return ConceptResult.from(regexResult);

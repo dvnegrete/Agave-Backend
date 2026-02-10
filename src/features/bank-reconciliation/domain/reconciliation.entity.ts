@@ -74,7 +74,12 @@ export class UnfundedVoucher {
   ) {}
 
   static fromVoucher(voucher: Voucher, reason: string): UnfundedVoucher {
-    return new UnfundedVoucher(voucher.id, voucher.amount, voucher.date, reason);
+    return new UnfundedVoucher(
+      voucher.id,
+      voucher.amount,
+      voucher.date,
+      reason,
+    );
   }
 }
 

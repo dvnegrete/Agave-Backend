@@ -31,7 +31,6 @@ export class CreateSystemUser1731600000000 implements MigrationInterface {
   public async down(queryRunner: QueryRunner): Promise<void> {
     // NO eliminamos el usuario Sistema en rollback por seguridad
     // Si hay casas asignadas a este usuario, eliminarlas causaría pérdida de datos
-
     // Descomentar solo si estás SEGURO de que no hay casas asignadas:
     // await queryRunner.query(`
     //   DELETE FROM users WHERE id = '00000000-0000-0000-0000-000000000000';

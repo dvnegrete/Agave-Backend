@@ -1,6 +1,9 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import { House, Period, PeriodConfig } from '@/shared/database/entities';
-import { AllocationConceptType, ConceptType } from '@/shared/database/entities/enums';
+import {
+  AllocationConceptType,
+  ConceptType,
+} from '@/shared/database/entities/enums';
 import {
   IRecordAllocationRepository,
   IPeriodRepository,
@@ -98,7 +101,8 @@ export class CalculateHouseBalanceStatusUseCase {
     );
 
     // Calcular siguiente fecha de vencimiento
-    const activeConfig = await this.periodConfigRepository.findActiveForDate(now);
+    const activeConfig =
+      await this.periodConfigRepository.findActiveForDate(now);
     const dueDay = activeConfig?.payment_due_day ?? 15;
     const nextDueDate = this.calculateNextDueDate(dueDay);
     const deadlineMessage = this.buildDeadlineMessage(
@@ -135,12 +139,12 @@ export class CalculateHouseBalanceStatusUseCase {
     generatePenalties = true,
   ): Promise<PeriodPaymentDetail> {
     // Obtener config activa para la fecha del período
-    const periodStartDate = period.start_date instanceof Date
-      ? period.start_date
-      : new Date(period.start_date);
-    const config = await this.periodConfigRepository.findActiveForDate(
-      periodStartDate,
-    );
+    const periodStartDate =
+      period.start_date instanceof Date
+        ? period.start_date
+        : new Date(period.start_date);
+    const config =
+      await this.periodConfigRepository.findActiveForDate(periodStartDate);
 
     if (!config) {
       this.logger.warn(
@@ -247,7 +251,8 @@ export class CalculateHouseBalanceStatusUseCase {
         period.id,
         periodStartDate,
       );
-      penaltyAmount = penalty?.amount ?? config?.late_payment_penalty_amount ?? 0;
+      penaltyAmount =
+        penalty?.amount ?? config?.late_payment_penalty_amount ?? 0;
       // Si ya existía una penalidad, obtener su monto
       if (!penalty) {
         // Penalty ya existe, check its amount (from the penalty_amount of config)

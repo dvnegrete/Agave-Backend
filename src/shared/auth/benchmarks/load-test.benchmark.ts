@@ -74,7 +74,8 @@ class LoadTester {
     // Calculate metrics
     const totalRequests = successCount + failureCount;
     const successRate = (successCount / totalRequests) * 100;
-    const avgResponseTime = responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length;
+    const avgResponseTime =
+      responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length;
     const minResponseTime = Math.min(...responseTimes);
     const maxResponseTime = Math.max(...responseTimes);
     const requestsPerSecond = totalRequests / totalTime;
@@ -88,7 +89,9 @@ class LoadTester {
 
     // Determine status
     const status =
-      successRate >= LOAD_TEST_CONFIG.SUCCESS_RATE_TARGET * 100 ? 'PASS' : 'FAIL';
+      successRate >= LOAD_TEST_CONFIG.SUCCESS_RATE_TARGET * 100
+        ? 'PASS'
+        : 'FAIL';
 
     const result: LoadTestResult = {
       testName,
@@ -113,8 +116,12 @@ class LoadTester {
     console.log(`   Total Requests: ${totalRequests}`);
     console.log(`   Success Rate: ${successRate.toFixed(2)}%`);
     console.log(`   Avg Response: ${avgResponseTime.toFixed(2)}ms`);
-    console.log(`   Min/Max: ${minResponseTime.toFixed(2)}ms / ${maxResponseTime.toFixed(2)}ms`);
-    console.log(`   P95/P99: ${p95ResponseTime.toFixed(2)}ms / ${p99ResponseTime.toFixed(2)}ms`);
+    console.log(
+      `   Min/Max: ${minResponseTime.toFixed(2)}ms / ${maxResponseTime.toFixed(2)}ms`,
+    );
+    console.log(
+      `   P95/P99: ${p95ResponseTime.toFixed(2)}ms / ${p99ResponseTime.toFixed(2)}ms`,
+    );
     console.log(`   RPS: ${requestsPerSecond.toFixed(0)}`);
     console.log(`   Status: ${status}`);
 
@@ -249,9 +256,15 @@ class MockLoadOperations {
  * Run load tests
  */
 async function runLoadTests(): Promise<void> {
-  console.log('\n╔════════════════════════════════════════════════════════════════════╗');
-  console.log('║                      LOAD TESTING BENCHMARKS                       ║');
-  console.log('╚════════════════════════════════════════════════════════════════════╝\n');
+  console.log(
+    '\n╔════════════════════════════════════════════════════════════════════╗',
+  );
+  console.log(
+    '║                      LOAD TESTING BENCHMARKS                       ║',
+  );
+  console.log(
+    '╚════════════════════════════════════════════════════════════════════╝\n',
+  );
 
   const tester = new LoadTester();
   const operations = new MockLoadOperations();

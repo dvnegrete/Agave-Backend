@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { HouseRepository } from '@/shared/database/repositories/house.repository';
 import { UserRepository } from '@/shared/database/repositories/user.repository';
 import { AssignHouseToUserDto } from '../dto';
@@ -19,7 +23,9 @@ export class AssignHouseUseCase {
     }
 
     // Validate house exists
-    const house = await this.houseRepository.findByNumberHouse(dto.house_number);
+    const house = await this.houseRepository.findByNumberHouse(
+      dto.house_number,
+    );
     if (!house) {
       throw new NotFoundException(
         `Casa con número ${dto.house_number} no encontrada`,

@@ -28,7 +28,8 @@ describe('FirebaseAuthConfig', () => {
               const config: Record<string, string> = {
                 PROJECT_ID_GCP: 'test-project',
                 CLIENT_EMAIL_GCP: 'test@project.iam.gserviceaccount.com',
-                PRIVATE_KEY_GCP: '-----BEGIN PRIVATE KEY-----\ntest-key\n-----END PRIVATE KEY-----\n',
+                PRIVATE_KEY_GCP:
+                  '-----BEGIN PRIVATE KEY-----\ntest-key\n-----END PRIVATE KEY-----\n',
               };
               return config[key];
             }),
@@ -38,7 +39,7 @@ describe('FirebaseAuthConfig', () => {
     }).compile();
 
     config = module.get<FirebaseAuthConfig>(FirebaseAuthConfig);
-    configService = module.get(ConfigService) as jest.Mocked<ConfigService>;
+    configService = module.get(ConfigService);
   });
 
   it('should be defined', () => {
@@ -77,7 +78,9 @@ describe('FirebaseAuthConfig', () => {
         writable: true,
       });
 
-      expect(() => incompleteConfig.getAuth()).toThrow('Firebase not initialized');
+      expect(() => incompleteConfig.getAuth()).toThrow(
+        'Firebase not initialized',
+      );
     });
   });
 
@@ -95,7 +98,8 @@ describe('FirebaseAuthConfig', () => {
         ],
       }).compile();
 
-      const incompleteConfig = module.get<FirebaseAuthConfig>(FirebaseAuthConfig);
+      const incompleteConfig =
+        module.get<FirebaseAuthConfig>(FirebaseAuthConfig);
       expect(incompleteConfig.isEnabled()).toBe(false);
     });
   });

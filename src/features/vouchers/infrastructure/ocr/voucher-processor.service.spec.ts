@@ -1,5 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { VoucherProcessorService, StructuredData } from './voucher-processor.service';
+import {
+  VoucherProcessorService,
+  StructuredData,
+} from './voucher-processor.service';
 import { OcrService } from './ocr.service';
 import { BadRequestException } from '@nestjs/common';
 
@@ -463,7 +466,9 @@ describe('VoucherProcessorService', () => {
         hora_transaccion: '', // Hora vacía
       };
 
-      (ocrService.validateImageFormat as jest.Mock).mockResolvedValue(undefined);
+      (ocrService.validateImageFormat as jest.Mock).mockResolvedValue(
+        undefined,
+      );
       (ocrService.extractTextFromImage as jest.Mock).mockResolvedValue({
         structuredData: mockStructuredData,
         originalFilename: 'test.jpg',
@@ -491,7 +496,9 @@ describe('VoucherProcessorService', () => {
         hora_transaccion: null as any, // Hora null
       };
 
-      (ocrService.validateImageFormat as jest.Mock).mockResolvedValue(undefined);
+      (ocrService.validateImageFormat as jest.Mock).mockResolvedValue(
+        undefined,
+      );
       (ocrService.extractTextFromImage as jest.Mock).mockResolvedValue({
         structuredData: mockStructuredData,
         originalFilename: 'test2.jpg',
@@ -519,7 +526,9 @@ describe('VoucherProcessorService', () => {
         hora_transaccion: '14:30:00', // Hora extraída por OCR
       };
 
-      (ocrService.validateImageFormat as jest.Mock).mockResolvedValue(undefined);
+      (ocrService.validateImageFormat as jest.Mock).mockResolvedValue(
+        undefined,
+      );
       (ocrService.extractTextFromImage as jest.Mock).mockResolvedValue({
         structuredData: mockStructuredData,
         originalFilename: 'test3.jpg',
@@ -536,7 +545,9 @@ describe('VoucherProcessorService', () => {
       expect(result.success).toBe(true);
       expect(result.structuredData.casa).toBe(25);
       expect(result.structuredData.hora_transaccion).toBe('14:30:00'); // Mantiene hora original
-      expect(result.structuredData.hora_asignada_automaticamente).toBeUndefined();
+      expect(
+        result.structuredData.hora_asignada_automaticamente,
+      ).toBeUndefined();
     });
 
     it('NO debe asignar hora automática cuando centavos NO son válidos (centavos = 0)', async () => {
@@ -547,7 +558,9 @@ describe('VoucherProcessorService', () => {
         hora_transaccion: '', // Hora vacía
       };
 
-      (ocrService.validateImageFormat as jest.Mock).mockResolvedValue(undefined);
+      (ocrService.validateImageFormat as jest.Mock).mockResolvedValue(
+        undefined,
+      );
       (ocrService.extractTextFromImage as jest.Mock).mockResolvedValue({
         structuredData: mockStructuredData,
         originalFilename: 'test4.jpg',
@@ -564,7 +577,9 @@ describe('VoucherProcessorService', () => {
       expect(result.success).toBe(true);
       expect(result.structuredData.casa).toBeNull(); // No se pudo extraer casa
       expect(result.structuredData.hora_transaccion).toBe(''); // Hora sigue vacía
-      expect(result.structuredData.hora_asignada_automaticamente).toBeUndefined();
+      expect(
+        result.structuredData.hora_asignada_automaticamente,
+      ).toBeUndefined();
     });
 
     it('NO debe asignar hora automática cuando centavos exceden máximo (casa > 66)', async () => {
@@ -575,7 +590,9 @@ describe('VoucherProcessorService', () => {
         hora_transaccion: '', // Hora vacía
       };
 
-      (ocrService.validateImageFormat as jest.Mock).mockResolvedValue(undefined);
+      (ocrService.validateImageFormat as jest.Mock).mockResolvedValue(
+        undefined,
+      );
       (ocrService.extractTextFromImage as jest.Mock).mockResolvedValue({
         structuredData: mockStructuredData,
         originalFilename: 'test5.jpg',
@@ -592,7 +609,9 @@ describe('VoucherProcessorService', () => {
       expect(result.success).toBe(true);
       expect(result.structuredData.casa).toBeNull(); // Centavos inválidos
       expect(result.structuredData.hora_transaccion).toBe(''); // Hora sigue vacía
-      expect(result.structuredData.hora_asignada_automaticamente).toBeUndefined();
+      expect(
+        result.structuredData.hora_asignada_automaticamente,
+      ).toBeUndefined();
     });
 
     it('debe incluir nota en mensaje cuando hora fue asignada automáticamente', async () => {
@@ -603,7 +622,9 @@ describe('VoucherProcessorService', () => {
         hora_transaccion: '', // Hora vacía → se asignará 12:00:00
       };
 
-      (ocrService.validateImageFormat as jest.Mock).mockResolvedValue(undefined);
+      (ocrService.validateImageFormat as jest.Mock).mockResolvedValue(
+        undefined,
+      );
       (ocrService.extractTextFromImage as jest.Mock).mockResolvedValue({
         structuredData: mockStructuredData,
         originalFilename: 'test.jpg',
@@ -620,9 +641,15 @@ describe('VoucherProcessorService', () => {
       expect(result.whatsappMessage).toContain('⏰ Hora: *12:00:00* ⚠️');
       expect(result.whatsappMessage).toContain('⚠️ *Nota:*');
       expect(result.whatsappMessage).toContain('No se pudo extraer la hora');
-      expect(result.whatsappMessage).toContain('Se asignó 12:00 hrs por defecto');
-      expect(result.whatsappMessage).toContain('Tu pago se conciliará usando los centavos (casa 25)');
-      expect(result.whatsappMessage).toContain('selecciona "❌ No. Editar datos ✏️"');
+      expect(result.whatsappMessage).toContain(
+        'Se asignó 12:00 hrs por defecto',
+      );
+      expect(result.whatsappMessage).toContain(
+        'Tu pago se conciliará usando los centavos (casa 25)',
+      );
+      expect(result.whatsappMessage).toContain(
+        'selecciona "❌ No. Editar datos ✏️"',
+      );
     });
 
     it('NO debe incluir nota cuando hora fue extraída por OCR', async () => {
@@ -633,7 +660,9 @@ describe('VoucherProcessorService', () => {
         hora_transaccion: '14:30:00', // Hora extraída correctamente
       };
 
-      (ocrService.validateImageFormat as jest.Mock).mockResolvedValue(undefined);
+      (ocrService.validateImageFormat as jest.Mock).mockResolvedValue(
+        undefined,
+      );
       (ocrService.extractTextFromImage as jest.Mock).mockResolvedValue({
         structuredData: mockStructuredData,
         originalFilename: 'test.jpg',
@@ -650,7 +679,9 @@ describe('VoucherProcessorService', () => {
       expect(result.whatsappMessage).toContain('⏰ Hora: *14:30:00*');
       expect(result.whatsappMessage).not.toContain('⏰ Hora: *14:30:00* ⚠️'); // Sin icono de advertencia
       expect(result.whatsappMessage).not.toContain('⚠️ *Nota:*');
-      expect(result.whatsappMessage).not.toContain('No se pudo extraer la hora');
+      expect(result.whatsappMessage).not.toContain(
+        'No se pudo extraer la hora',
+      );
     });
 
     it('NO debe pedir hora manualmente cuando se asigna automáticamente', async () => {
@@ -661,7 +692,9 @@ describe('VoucherProcessorService', () => {
         hora_transaccion: '', // Hora vacía → se asignará 12:00:00
       };
 
-      (ocrService.validateImageFormat as jest.Mock).mockResolvedValue(undefined);
+      (ocrService.validateImageFormat as jest.Mock).mockResolvedValue(
+        undefined,
+      );
       (ocrService.extractTextFromImage as jest.Mock).mockResolvedValue({
         structuredData: mockStructuredData,
         originalFilename: 'test.jpg',

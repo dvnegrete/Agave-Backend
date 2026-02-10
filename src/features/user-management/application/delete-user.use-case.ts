@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import { UserRepository } from '@/shared/database/repositories/user.repository';
 import { HouseRepository } from '@/shared/database/repositories/house.repository';
 import { FirebaseAuthConfig } from '@/shared/auth/services/firebase-auth.config';
@@ -48,7 +53,8 @@ export class DeleteUserUseCase {
       await this.firebaseConfig.getAuth().deleteUser(userId);
       this.logger.log(`Usuario eliminado de Firebase: ${userId}`);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Error desconocido';
       this.logger.warn(
         `No se pudo eliminar usuario de Firebase ${userId}: ${errorMessage}. Continuando con eliminación de BD.`,
       );
@@ -60,8 +66,11 @@ export class DeleteUserUseCase {
       await this.userRepository.delete(userId);
       this.logger.log(`Usuario eliminado de la base de datos: ${userId}`);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      this.logger.error(`Error eliminando usuario de BD ${userId}: ${errorMessage}`);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Error desconocido';
+      this.logger.error(
+        `Error eliminando usuario de BD ${userId}: ${errorMessage}`,
+      );
       throw new BadRequestException(
         `No se pudo eliminar el usuario. Detalles: ${errorMessage}`,
       );

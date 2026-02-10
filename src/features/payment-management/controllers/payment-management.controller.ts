@@ -231,7 +231,8 @@ export class PaymentManagementController {
   @Roles(Role.ADMIN)
   @ApiOperation({
     summary: 'Listar configuraciones de período',
-    description: 'Retorna todas las configuraciones de período ordenadas por fecha',
+    description:
+      'Retorna todas las configuraciones de período ordenadas por fecha',
   })
   @ApiResponse({
     status: 200,

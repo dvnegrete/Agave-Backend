@@ -55,9 +55,7 @@ export class GcsCleanupService {
     } = options;
 
     try {
-      this.logger.log(
-        `Eliminando archivo ${fileType} de GCS por: ${reason}`,
-      );
+      this.logger.log(`Eliminando archivo ${fileType} de GCS por: ${reason}`);
       this.logger.debug(`Archivo: ${filename}`);
 
       await this.cloudStorageService.deleteFile(filename);

@@ -15,7 +15,9 @@ export class FirebaseAuthConfig {
     // Usar variables GCP existentes, mapeadas a nombres Firebase
     const projectId = this.configService.get<string>('PROJECT_ID_GCP');
     const clientEmail = this.configService.get<string>('CLIENT_EMAIL_GCP');
-    const privateKey = this.configService.get<string>('PRIVATE_KEY_GCP')?.replace(/\\n/g, '\n');
+    const privateKey = this.configService
+      .get<string>('PRIVATE_KEY_GCP')
+      ?.replace(/\\n/g, '\n');
 
     if (!projectId || !clientEmail || !privateKey) {
       this.logger.warn(
@@ -32,7 +34,9 @@ export class FirebaseAuthConfig {
           privateKey,
         }),
       });
-      this.logger.log('Firebase Auth inicializado correctamente (usando credenciales GCP)');
+      this.logger.log(
+        'Firebase Auth inicializado correctamente (usando credenciales GCP)',
+      );
     } catch (error) {
       this.logger.error('Error al inicializar Firebase:', error);
     }

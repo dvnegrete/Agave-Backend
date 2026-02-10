@@ -38,7 +38,9 @@ export class UploadHistoricalRecordsUseCase {
     validateOnly: boolean = false,
     bankName: string,
   ): Promise<ProcessingResult> {
-    this.logger.log(`Starting historical records processing. Validate only: ${validateOnly}, Bank: ${bankName}`);
+    this.logger.log(
+      `Starting historical records processing. Validate only: ${validateOnly}, Bank: ${bankName}`,
+    );
 
     // Step 1: Parse Excel file
     const rows = await this.excelParser.parseFile(buffer);
@@ -65,7 +67,9 @@ export class UploadHistoricalRecordsUseCase {
 
     // If validate-only mode, return results without processing
     if (validateOnly) {
-      this.logger.log('Validate-only mode: returning results without DB operations');
+      this.logger.log(
+        'Validate-only mode: returning results without DB operations',
+      );
       return new ProcessingResult(
         rows.length,
         validRows.length,
@@ -135,8 +139,13 @@ export class UploadHistoricalRecordsUseCase {
       return results;
     }
 
-    const processingMode = concurrencyLimit === 1 ? 'sequential (1 row at a time)' : `${concurrencyLimit} rows in parallel`;
-    this.logger.log(`Starting processing of ${rows.length} rows - Mode: ${processingMode}`);
+    const processingMode =
+      concurrencyLimit === 1
+        ? 'sequential (1 row at a time)'
+        : `${concurrencyLimit} rows in parallel`;
+    this.logger.log(
+      `Starting processing of ${rows.length} rows - Mode: ${processingMode}`,
+    );
 
     // Simple sequential processing with for loop
     for (let i = 0; i < rows.length; i++) {
@@ -152,7 +161,9 @@ export class UploadHistoricalRecordsUseCase {
         if (result.success) {
           this.logger.log(`Row ${row.rowNumber} completed ${progressStr}`);
         } else {
-          this.logger.warn(`Row ${row.rowNumber} failed: ${result.error?.message} ${progressStr}`);
+          this.logger.warn(
+            `Row ${row.rowNumber} failed: ${result.error?.message} ${progressStr}`,
+          );
         }
       } catch (error) {
         this.logger.error(
@@ -170,7 +181,9 @@ export class UploadHistoricalRecordsUseCase {
       }
     }
 
-    this.logger.log(`Processing complete: ${rows.length}/${rows.length} rows processed`);
+    this.logger.log(
+      `Processing complete: ${rows.length}/${rows.length} rows processed`,
+    );
     return results;
   }
 }

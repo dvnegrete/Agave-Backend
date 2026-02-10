@@ -97,9 +97,8 @@ export class VouchersController {
 
     if (confirmationStatus !== undefined) {
       const isConfirmed = confirmationStatus === 'true';
-      vouchers = await this.vouchersService.getTransactionsByStatus(
-        isConfirmed,
-      );
+      vouchers =
+        await this.vouchersService.getTransactionsByStatus(isConfirmed);
     } else if (startDate && endDate) {
       const start = new Date(startDate);
       const end = new Date(endDate);
@@ -252,7 +251,8 @@ export class VouchersController {
       // 1. Verificar que el servicio está configurado
       if (!this.telegramApi.isConfigured()) {
         return {
-          error: 'TELEGRAM_BOT_TOKEN no está configurado en las variables de entorno',
+          error:
+            'TELEGRAM_BOT_TOKEN no está configurado en las variables de entorno',
           configured: false,
         };
       }
@@ -331,10 +331,14 @@ export class VouchersController {
       const chatIds = data.result
         .map((update: any) => ({
           chat_id:
-            update.message?.chat?.id || update.callback_query?.message?.chat?.id,
-          username: update.message?.from?.username || update.callback_query?.from?.username,
-          first_name: 
-            update.message?.from?.first_name || update.callback_query?.from?.first_name,
+            update.message?.chat?.id ||
+            update.callback_query?.message?.chat?.id,
+          username:
+            update.message?.from?.username ||
+            update.callback_query?.from?.username,
+          first_name:
+            update.message?.from?.first_name ||
+            update.callback_query?.from?.first_name,
           message_text: update.message?.text,
           date: update.message?.date,
         }))

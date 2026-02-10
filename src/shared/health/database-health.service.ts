@@ -36,10 +36,15 @@ export class DatabaseHealthService {
    * @param delayMs - Delay inicial en milisegundos (se duplica en cada intento)
    * @throws Error si la BD no se conecta después de maxAttempts intentos
    */
-  async waitForDatabase(maxAttempts: number = 5, delayMs: number = 2000): Promise<void> {
+  async waitForDatabase(
+    maxAttempts: number = 5,
+    delayMs: number = 2000,
+  ): Promise<void> {
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        this.logger.log(`Verificando BD (intento ${attempt}/${maxAttempts})...`);
+        this.logger.log(
+          `Verificando BD (intento ${attempt}/${maxAttempts})...`,
+        );
         if (await this.isHealthy()) {
           this.logger.log('Base de datos disponible');
           return;
@@ -51,13 +56,13 @@ export class DatabaseHealthService {
       if (attempt < maxAttempts) {
         const waitTime = delayMs * attempt; // Backoff exponencial simple
         this.logger.log(`Esperando ${waitTime}ms antes de reintentar...`);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
+        await new Promise((resolve) => setTimeout(resolve, waitTime));
       }
     }
 
     throw new Error(
       `Base de datos no disponible después de ${maxAttempts} intentos. ` +
-      `Verifica que: 1) La BD está corriendo, 2) Las credenciales son correctas, 3) No está en modo sleep.`,
+        `Verifica que: 1) La BD está corriendo, 2) Las credenciales son correctas, 3) No está en modo sleep.`,
     );
   }
 }

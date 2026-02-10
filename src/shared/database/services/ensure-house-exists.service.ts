@@ -118,9 +118,7 @@ export class EnsureHouseExistsService {
 
     // Casa no existe
     if (!createIfMissing) {
-      throw new Error(
-        `Casa ${houseNumber} no existe en el sistema.`,
-      );
+      throw new Error(`Casa ${houseNumber} no existe en el sistema.`);
     }
 
     // Crear casa

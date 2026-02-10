@@ -61,7 +61,8 @@ export function validateAndUpdateVoucherField(
       if (!value || value.trim() === '') {
         validationResult = {
           isValid: false,
-          error: 'El monto es obligatorio. Por favor proporciona el monto en formato numérico (ejemplo: 1500 o 1500.50)',
+          error:
+            'El monto es obligatorio. Por favor proporciona el monto en formato numérico (ejemplo: 1500 o 1500.50)',
         };
       } else {
         validationResult = validateAmount(value);
@@ -77,7 +78,8 @@ export function validateAndUpdateVoucherField(
       if (!value || value.trim() === '') {
         validationResult = {
           isValid: false,
-          error: 'La fecha de pago es obligatoria. Por favor proporciona la fecha en formato DD/MM/YYYY (ejemplo: 15/01/2025)',
+          error:
+            'La fecha de pago es obligatoria. Por favor proporciona la fecha en formato DD/MM/YYYY (ejemplo: 15/01/2025)',
         };
       } else {
         validationResult = validateDate(value);
@@ -108,7 +110,8 @@ export function validateAndUpdateVoucherField(
       if (!value || value.trim() === '') {
         validationResult = {
           isValid: false,
-          error: 'La hora de transacción es obligatoria. Por favor proporciona la hora en formato HH:MM (ejemplo: 14:30)',
+          error:
+            'La hora de transacción es obligatoria. Por favor proporciona la hora en formato HH:MM (ejemplo: 14:30)',
         };
       } else {
         validationResult = validateTime(value);

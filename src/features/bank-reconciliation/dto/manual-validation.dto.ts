@@ -65,7 +65,8 @@ export class GetManualValidationCasesFilterDto {
   limit?: number = 20;
 
   @ApiPropertyOptional({
-    description: 'Ordenar por: date (más nuevo primero), similarity (menor primero), candidates (más candidatos)',
+    description:
+      'Ordenar por: date (más nuevo primero), similarity (menor primero), candidates (más candidatos)',
     enum: ['date', 'similarity', 'candidates'],
     default: 'date',
   })
@@ -100,7 +101,8 @@ export class ApproveManualCaseDto {
 export class RejectManualCaseDto {
   @ApiProperty({
     description: 'Razón del rechazo',
-    example: 'Ninguno de los vouchers coincide correctamente. El pago puede ser de otra transacción.',
+    example:
+      'Ninguno de los vouchers coincide correctamente. El pago puede ser de otra transacción.',
   })
   @IsString()
   rejectionReason: string;
@@ -184,14 +186,16 @@ export class ManualValidationCaseResponseDto {
   transactionConcept: string | null;
 
   @ApiProperty({
-    description: 'Lista de posibles matches ordenados por similitud (mejor primero)',
+    description:
+      'Lista de posibles matches ordenados por similitud (mejor primero)',
     type: [PossibleMatchDetailDto],
   })
   possibleMatches: PossibleMatchDetailDto[];
 
   @ApiProperty({
     description: 'Explicación de por qué requiere validación manual',
-    example: '2 vouchers con monto exacto y similitud muy cercana. Diferencia máxima entre candidatos: 0.02.',
+    example:
+      '2 vouchers con monto exacto y similitud muy cercana. Diferencia máxima entre candidatos: 0.02.',
   })
   reason: string;
 

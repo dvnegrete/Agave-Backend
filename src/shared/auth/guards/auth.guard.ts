@@ -77,7 +77,9 @@ export class AuthGuard implements CanActivate {
    * Extrae el token del header Authorization: Bearer TOKEN
    * Usado cuando cookies no están disponibles (dominios diferentes)
    */
-  private extractTokenFromAuthorizationHeader(request: any): string | undefined {
+  private extractTokenFromAuthorizationHeader(
+    request: any,
+  ): string | undefined {
     const authHeader = request.headers?.authorization;
     if (!authHeader) {
       return undefined;

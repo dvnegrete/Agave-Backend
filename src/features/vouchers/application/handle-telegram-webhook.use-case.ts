@@ -81,7 +81,9 @@ export class HandleTelegramWebhookUseCase {
           return { success: false, message: 'Unsupported message type' };
       }
     } catch (error) {
-      this.logger.error(`Error en HandleTelegramWebhookUseCase: ${error.message}`);
+      this.logger.error(
+        `Error en HandleTelegramWebhookUseCase: ${error.message}`,
+      );
       return { success: false, message: error.message };
     }
   }
@@ -165,10 +167,18 @@ export class HandleTelegramWebhookUseCase {
     // Manejar respuestas según el estado de conversación
     switch (context.state) {
       case ConversationState.WAITING_HOUSE_NUMBER:
-        return await this.handleHouseNumberResponse(message.chatId, text, context);
+        return await this.handleHouseNumberResponse(
+          message.chatId,
+          text,
+          context,
+        );
 
       case ConversationState.WAITING_MISSING_DATA:
-        return await this.handleMissingDataResponse(message.chatId, text, context);
+        return await this.handleMissingDataResponse(
+          message.chatId,
+          text,
+          context,
+        );
 
       default:
         await this.telegramMessaging.sendTextMessage(
@@ -407,11 +417,15 @@ export class HandleTelegramWebhookUseCase {
 
     // CASO 2: Falta número de casa
     if (!voucherData.faltan_datos && voucherData.casa === null) {
-      this.conversationState.setContext(chatIdStr, ConversationState.WAITING_HOUSE_NUMBER, {
-        voucherData,
-        gcsFilename: result.gcsFilename,
-        originalFilename: result.originalFilename,
-      });
+      this.conversationState.setContext(
+        chatIdStr,
+        ConversationState.WAITING_HOUSE_NUMBER,
+        {
+          voucherData,
+          gcsFilename: result.gcsFilename,
+          originalFilename: result.originalFilename,
+        },
+      );
 
       await this.telegramMessaging.sendHouseNumberRequest(chatId);
       return { success: true };
@@ -421,14 +435,21 @@ export class HandleTelegramWebhookUseCase {
     if (voucherData.faltan_datos) {
       const missingFields = VoucherValidator.identifyMissingFields(voucherData);
 
-      this.conversationState.setContext(chatIdStr, ConversationState.WAITING_MISSING_DATA, {
-        voucherData,
-        gcsFilename: result.gcsFilename,
-        originalFilename: result.originalFilename,
-        missingFields,
-      });
+      this.conversationState.setContext(
+        chatIdStr,
+        ConversationState.WAITING_MISSING_DATA,
+        {
+          voucherData,
+          gcsFilename: result.gcsFilename,
+          originalFilename: result.originalFilename,
+          missingFields,
+        },
+      );
 
-      await this.telegramMessaging.sendMissingDataRequest(chatId, missingFields);
+      await this.telegramMessaging.sendMissingDataRequest(
+        chatId,
+        missingFields,
+      );
       return { success: true };
     }
 

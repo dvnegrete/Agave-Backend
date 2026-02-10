@@ -45,7 +45,9 @@ describe('GetHouseBalanceUseCase', () => {
 
   describe('execute', () => {
     it('should get existing house balance', async () => {
-      jest.spyOn(houseBalanceRepository, 'findByHouseId').mockResolvedValue(mockBalance);
+      jest
+        .spyOn(houseBalanceRepository, 'findByHouseId')
+        .mockResolvedValue(mockBalance);
 
       const result = await useCase.execute(42, mockHouse);
 
@@ -68,8 +70,12 @@ describe('GetHouseBalanceUseCase', () => {
         house: null,
       } as any;
 
-      jest.spyOn(houseBalanceRepository, 'findByHouseId').mockResolvedValue(null);
-      jest.spyOn(houseBalanceRepository, 'create').mockResolvedValue(newBalance);
+      jest
+        .spyOn(houseBalanceRepository, 'findByHouseId')
+        .mockResolvedValue(null);
+      jest
+        .spyOn(houseBalanceRepository, 'create')
+        .mockResolvedValue(newBalance);
 
       const result = await useCase.execute(99, { ...mockHouse, id: 99 });
 
@@ -85,9 +91,11 @@ describe('GetHouseBalanceUseCase', () => {
         ...mockBalance,
         credit_balance: 20000,
         debit_balance: 5000,
-      } as any;
+      };
 
-      jest.spyOn(houseBalanceRepository, 'findByHouseId').mockResolvedValue(balanceWithCredit);
+      jest
+        .spyOn(houseBalanceRepository, 'findByHouseId')
+        .mockResolvedValue(balanceWithCredit);
 
       const result = await useCase.execute(42, mockHouse);
 
@@ -99,9 +107,11 @@ describe('GetHouseBalanceUseCase', () => {
         ...mockBalance,
         credit_balance: 5000,
         debit_balance: 20000,
-      } as any;
+      };
 
-      jest.spyOn(houseBalanceRepository, 'findByHouseId').mockResolvedValue(balanceInDebt);
+      jest
+        .spyOn(houseBalanceRepository, 'findByHouseId')
+        .mockResolvedValue(balanceInDebt);
 
       const result = await useCase.execute(42, mockHouse);
 
@@ -115,9 +125,11 @@ describe('GetHouseBalanceUseCase', () => {
         ...mockBalance,
         debit_balance: 10000,
         credit_balance: 0,
-      } as any;
+      };
 
-      jest.spyOn(houseBalanceRepository, 'findByHouseId').mockResolvedValue(debtBalance);
+      jest
+        .spyOn(houseBalanceRepository, 'findByHouseId')
+        .mockResolvedValue(debtBalance);
 
       const result = await useCase.execute(42, mockHouse);
 
@@ -129,9 +141,11 @@ describe('GetHouseBalanceUseCase', () => {
         ...mockBalance,
         debit_balance: 0,
         credit_balance: 10000,
-      } as any;
+      };
 
-      jest.spyOn(houseBalanceRepository, 'findByHouseId').mockResolvedValue(creditBalance);
+      jest
+        .spyOn(houseBalanceRepository, 'findByHouseId')
+        .mockResolvedValue(creditBalance);
 
       const result = await useCase.execute(42, mockHouse);
 
@@ -143,9 +157,11 @@ describe('GetHouseBalanceUseCase', () => {
         ...mockBalance,
         debit_balance: 0,
         credit_balance: 0,
-      } as any;
+      };
 
-      jest.spyOn(houseBalanceRepository, 'findByHouseId').mockResolvedValue(balancedBalance);
+      jest
+        .spyOn(houseBalanceRepository, 'findByHouseId')
+        .mockResolvedValue(balancedBalance);
 
       const result = await useCase.execute(42, mockHouse);
 
@@ -157,9 +173,11 @@ describe('GetHouseBalanceUseCase', () => {
         ...mockBalance,
         debit_balance: 10000,
         credit_balance: 5000,
-      } as any;
+      };
 
-      jest.spyOn(houseBalanceRepository, 'findByHouseId').mockResolvedValue(mixedBalance);
+      jest
+        .spyOn(houseBalanceRepository, 'findByHouseId')
+        .mockResolvedValue(mixedBalance);
 
       const result = await useCase.execute(42, mockHouse);
 
@@ -169,7 +187,9 @@ describe('GetHouseBalanceUseCase', () => {
 
   describe('response fields', () => {
     it('should include all required fields in response', async () => {
-      jest.spyOn(houseBalanceRepository, 'findByHouseId').mockResolvedValue(mockBalance);
+      jest
+        .spyOn(houseBalanceRepository, 'findByHouseId')
+        .mockResolvedValue(mockBalance);
 
       const result = await useCase.execute(42, mockHouse);
 
@@ -185,7 +205,9 @@ describe('GetHouseBalanceUseCase', () => {
 
     it('should include correct house number', async () => {
       const houseWithDifferentNumber = { ...mockHouse, number_house: 123 };
-      jest.spyOn(houseBalanceRepository, 'findByHouseId').mockResolvedValue(mockBalance);
+      jest
+        .spyOn(houseBalanceRepository, 'findByHouseId')
+        .mockResolvedValue(mockBalance);
 
       const result = await useCase.execute(42, houseWithDifferentNumber);
 
@@ -197,7 +219,7 @@ describe('GetHouseBalanceUseCase', () => {
       const balanceWithTimestamp = {
         ...mockBalance,
         updated_at: now,
-      } as any;
+      };
 
       jest
         .spyOn(houseBalanceRepository, 'findByHouseId')
@@ -214,9 +236,11 @@ describe('GetHouseBalanceUseCase', () => {
       const balanceWithCents = {
         ...mockBalance,
         accumulated_cents: 0.95,
-      } as any;
+      };
 
-      jest.spyOn(houseBalanceRepository, 'findByHouseId').mockResolvedValue(balanceWithCents);
+      jest
+        .spyOn(houseBalanceRepository, 'findByHouseId')
+        .mockResolvedValue(balanceWithCents);
 
       const result = await useCase.execute(42, mockHouse);
 
@@ -227,9 +251,11 @@ describe('GetHouseBalanceUseCase', () => {
       const zeroAccumulated = {
         ...mockBalance,
         accumulated_cents: 0,
-      } as any;
+      };
 
-      jest.spyOn(houseBalanceRepository, 'findByHouseId').mockResolvedValue(zeroAccumulated);
+      jest
+        .spyOn(houseBalanceRepository, 'findByHouseId')
+        .mockResolvedValue(zeroAccumulated);
 
       const result = await useCase.execute(42, mockHouse);
 

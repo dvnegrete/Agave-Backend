@@ -150,12 +150,13 @@ export class AllocatePaymentUseCase {
     }> = [];
 
     // Mantenimiento
-    const maintenanceAmount = await this.housePeriodOverrideRepository.getApplicableAmount(
-      houseId,
-      periodId,
-      ConceptType.MAINTENANCE,
-      periodConfig.default_maintenance_amount,
-    );
+    const maintenanceAmount =
+      await this.housePeriodOverrideRepository.getApplicableAmount(
+        houseId,
+        periodId,
+        ConceptType.MAINTENANCE,
+        periodConfig.default_maintenance_amount,
+      );
     concepts.push({
       type: AllocationConceptType.MAINTENANCE,
       conceptId: 1, // Será actualizado según registro real
@@ -164,12 +165,13 @@ export class AllocatePaymentUseCase {
 
     // Agua
     if (periodConfig.default_water_amount) {
-      const waterAmount = await this.housePeriodOverrideRepository.getApplicableAmount(
-        houseId,
-        periodId,
-        ConceptType.WATER,
-        periodConfig.default_water_amount,
-      );
+      const waterAmount =
+        await this.housePeriodOverrideRepository.getApplicableAmount(
+          houseId,
+          periodId,
+          ConceptType.WATER,
+          periodConfig.default_water_amount,
+        );
       concepts.push({
         type: AllocationConceptType.WATER,
         conceptId: 2,
@@ -179,12 +181,13 @@ export class AllocatePaymentUseCase {
 
     // Cuota extraordinaria
     if (periodConfig.default_extraordinary_fee_amount) {
-      const extraordinaryFeeAmount = await this.housePeriodOverrideRepository.getApplicableAmount(
-        houseId,
-        periodId,
-        ConceptType.EXTRAORDINARY_FEE,
-        periodConfig.default_extraordinary_fee_amount,
-      );
+      const extraordinaryFeeAmount =
+        await this.housePeriodOverrideRepository.getApplicableAmount(
+          houseId,
+          periodId,
+          ConceptType.EXTRAORDINARY_FEE,
+          periodConfig.default_extraordinary_fee_amount,
+        );
       concepts.push({
         type: AllocationConceptType.EXTRAORDINARY_FEE,
         conceptId: 3,
@@ -304,7 +307,8 @@ export class AllocatePaymentUseCase {
     }
 
     const updatedBalance = await this.houseBalanceRepository.update(houseId, {
-      accumulated_cents: Math.round(currentBalance.accumulated_cents * 100) / 100,
+      accumulated_cents:
+        Math.round(currentBalance.accumulated_cents * 100) / 100,
       credit_balance: Math.round(currentBalance.credit_balance * 100) / 100,
       debit_balance: Math.round(currentBalance.debit_balance * 100) / 100,
     });

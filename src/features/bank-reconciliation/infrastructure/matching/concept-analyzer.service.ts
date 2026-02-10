@@ -54,7 +54,9 @@ export class ConceptAnalyzerService {
 
       // 1. Intentar con OpenAI
       try {
-        this.logger.debug(`Analizando concepto con OpenAI: "${request.concept}"`);
+        this.logger.debug(
+          `Analizando concepto con OpenAI: "${request.concept}"`,
+        );
         aiResponse = await this.analyzeWithOpenAI(prompt);
       } catch (openaiError) {
         this.logger.warn(
@@ -63,7 +65,9 @@ export class ConceptAnalyzerService {
 
         // 2. Fallback a Vertex AI
         try {
-          this.logger.debug(`Intentando análisis con Vertex AI: "${request.concept}"`);
+          this.logger.debug(
+            `Intentando análisis con Vertex AI: "${request.concept}"`,
+          );
           aiResponse = await this.analyzeWithVertexAI(prompt);
         } catch (vertexError) {
           this.logger.error(
@@ -94,7 +98,9 @@ export class ConceptAnalyzerService {
    * @param prompt - Prompt formateado
    * @returns Respuesta parseada de IA
    */
-  private async analyzeWithOpenAI(prompt: string): Promise<ConceptAnalysisAIResponse> {
+  private async analyzeWithOpenAI(
+    prompt: string,
+  ): Promise<ConceptAnalysisAIResponse> {
     const response = await this.openAIService.processTextWithPrompt(prompt);
 
     if (!response) {
@@ -109,7 +115,9 @@ export class ConceptAnalyzerService {
    * @param prompt - Prompt formateado
    * @returns Respuesta parseada de IA
    */
-  private async analyzeWithVertexAI(prompt: string): Promise<ConceptAnalysisAIResponse> {
+  private async analyzeWithVertexAI(
+    prompt: string,
+  ): Promise<ConceptAnalysisAIResponse> {
     const response = await this.vertexAIService.processTextWithPrompt(prompt);
 
     if (!response) {

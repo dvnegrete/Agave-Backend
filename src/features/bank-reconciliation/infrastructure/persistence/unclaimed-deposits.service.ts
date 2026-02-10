@@ -409,7 +409,7 @@ export class UnclaimedDepositsService {
     const suggestedHouseNumber = Math.floor((item.tb_amount % 1) * 100) || null;
 
     // Extraer casa sugerida de concepto (si existe en metadata)
-    const metadata = (item.ts_metadata as any) || {};
+    const metadata = item.ts_metadata || {};
     const conceptHouseNumber = metadata.conceptHouseNumber || null;
 
     return {

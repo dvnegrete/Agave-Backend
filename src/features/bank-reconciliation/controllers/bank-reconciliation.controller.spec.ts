@@ -45,12 +45,8 @@ describe('BankReconciliationController - Manual Validation Endpoints', () => {
     controller = module.get<BankReconciliationController>(
       BankReconciliationController,
     );
-    manualValidationService = module.get(
-      ManualValidationService,
-    ) as jest.Mocked<ManualValidationService>;
-    reconcileUseCase = module.get(ReconcileUseCase) as jest.Mocked<
-      ReconcileUseCase
-    >;
+    manualValidationService = module.get(ManualValidationService);
+    reconcileUseCase = module.get(ReconcileUseCase);
   });
 
   describe('GET /manual-validation/pending', () => {
@@ -93,14 +89,9 @@ describe('BankReconciliationController - Manual Validation Endpoints', () => {
       });
 
       expect(result).toEqual(mockResponse);
-      expect(manualValidationService.getPendingManualCases).toHaveBeenCalledWith(
-        undefined,
-        undefined,
-        undefined,
-        1,
-        20,
-        undefined,
-      );
+      expect(
+        manualValidationService.getPendingManualCases,
+      ).toHaveBeenCalledWith(undefined, undefined, undefined, 1, 20, undefined);
     });
 
     it('debe aplicar filtros correctamente', async () => {
@@ -128,7 +119,9 @@ describe('BankReconciliationController - Manual Validation Endpoints', () => {
         sortBy: 'similarity',
       });
 
-      expect(manualValidationService.getPendingManualCases).toHaveBeenCalledWith(
+      expect(
+        manualValidationService.getPendingManualCases,
+      ).toHaveBeenCalledWith(
         expect.any(Date),
         expect.any(Date),
         15,
@@ -153,7 +146,9 @@ describe('BankReconciliationController - Manual Validation Endpoints', () => {
 
       await controller.getPendingManualCases({});
 
-      expect(manualValidationService.getPendingManualCases).toHaveBeenCalledWith(
+      expect(
+        manualValidationService.getPendingManualCases,
+      ).toHaveBeenCalledWith(
         undefined,
         undefined,
         undefined,
@@ -215,7 +210,11 @@ describe('BankReconciliationController - Manual Validation Endpoints', () => {
         approvedAt: new Date(),
       });
 
-      await controller.approveManualCase(transactionId, dto, mockRequest as any);
+      await controller.approveManualCase(
+        transactionId,
+        dto,
+        mockRequest as any,
+      );
 
       expect(manualValidationService.approveManualCase).toHaveBeenCalledWith(
         transactionId,
@@ -337,7 +336,9 @@ describe('BankReconciliationController - Manual Validation Endpoints', () => {
       expect(result).toEqual(mockStats);
       expect(result.totalPending).toBe(15);
       expect(result.approvalRate).toBe(0.94);
-      expect(manualValidationService.getManualValidationStats).toHaveBeenCalled();
+      expect(
+        manualValidationService.getManualValidationStats,
+      ).toHaveBeenCalled();
     });
 
     it('debe manejar valores iniciales (sin casos)', async () => {

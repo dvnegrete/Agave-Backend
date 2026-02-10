@@ -42,7 +42,7 @@ function getSystemInfo() {
     platform: process.platform,
     architecture: process.arch,
     cpus: os.cpus().length,
-    memoryGb: Math.round(os.totalmem() / (1024 ** 3)),
+    memoryGb: Math.round(os.totalmem() / 1024 ** 3),
   };
 }
 
@@ -50,15 +50,25 @@ function getSystemInfo() {
  * Ejecutar todos los benchmarks
  */
 async function runAllBenchmarksSequentially(): Promise<void> {
-  console.log('\n╔════════════════════════════════════════════════════════════════════╗');
-  console.log('║                    COMPLETE PERFORMANCE REPORT                     ║');
-  console.log('║              Firebase Auth - Performance & Load Testing              ║');
-  console.log('╚════════════════════════════════════════════════════════════════════╝');
+  console.log(
+    '\n╔════════════════════════════════════════════════════════════════════╗',
+  );
+  console.log(
+    '║                    COMPLETE PERFORMANCE REPORT                     ║',
+  );
+  console.log(
+    '║              Firebase Auth - Performance & Load Testing              ║',
+  );
+  console.log(
+    '╚════════════════════════════════════════════════════════════════════╝',
+  );
 
   console.log('\n📊 System Information:');
   const systemInfo = getSystemInfo();
   console.log(`   Node.js: ${systemInfo.nodeVersion}`);
-  console.log(`   Platform: ${systemInfo.platform} (${systemInfo.architecture})`);
+  console.log(
+    `   Platform: ${systemInfo.platform} (${systemInfo.architecture})`,
+  );
   console.log(`   CPUs: ${systemInfo.cpus}`);
   console.log(`   Memory: ${systemInfo.memoryGb}GB`);
 
@@ -73,7 +83,9 @@ async function runAllBenchmarksSequentially(): Promise<void> {
   const performanceStart = Date.now();
   await runAllBenchmarks();
   const performanceDuration = (Date.now() - performanceStart) / 1000;
-  console.log(`✅ Performance benchmarks completed in ${performanceDuration.toFixed(1)}s`);
+  console.log(
+    `✅ Performance benchmarks completed in ${performanceDuration.toFixed(1)}s`,
+  );
 
   // Step 2: Load tests
   console.log('\n\n🔥 PHASE 2: Load Tests');

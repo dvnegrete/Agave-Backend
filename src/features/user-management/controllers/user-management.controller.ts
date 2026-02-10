@@ -358,7 +358,8 @@ export class UserManagementController {
   })
   @ApiResponse({
     status: 400,
-    description: 'No se puede eliminar el usuario del sistema, usuario con casas asignadas, o usuario con aprobaciones manuales',
+    description:
+      'No se puede eliminar el usuario del sistema, usuario con casas asignadas, o usuario con aprobaciones manuales',
   })
   @ApiResponse({
     status: 404,

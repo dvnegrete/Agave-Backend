@@ -40,8 +40,10 @@ export const AuthValidationMessages = {
 
 export const SignUpMessages = {
   SUCCESS: 'Cuenta creada exitosamente',
-  ACCOUNT_CREATION_FAILED: 'No fue posible crear la cuenta. Por favor intenta nuevamente.',
-  EMAIL_ALREADY_REGISTERED: 'Este correo electrónico ya está registrado. Por favor usa otro.',
+  ACCOUNT_CREATION_FAILED:
+    'No fue posible crear la cuenta. Por favor intenta nuevamente.',
+  EMAIL_ALREADY_REGISTERED:
+    'Este correo electrónico ya está registrado. Por favor usa otro.',
 };
 
 // ============================================================================
@@ -50,8 +52,10 @@ export const SignUpMessages = {
 
 export const SignInMessages = {
   INVALID_CREDENTIALS: 'Correo o contraseña inválidos',
-  AUTH_FAILED: 'No se pudo completar la autenticación. Por favor intenta nuevamente.',
-  USER_NOT_FOUND: 'El usuario no existe en el sistema. Por favor regístrate primero.',
+  AUTH_FAILED:
+    'No se pudo completar la autenticación. Por favor intenta nuevamente.',
+  USER_NOT_FOUND:
+    'El usuario no existe en el sistema. Por favor regístrate primero.',
 };
 
 // ============================================================================
@@ -59,7 +63,8 @@ export const SignInMessages = {
 // ============================================================================
 
 export const OAuthMessages = {
-  INVALID_TOKEN: 'El token de acceso del proveedor no es válido. Por favor intenta de nuevo.',
+  INVALID_TOKEN:
+    'El token de acceso del proveedor no es válido. Por favor intenta de nuevo.',
   CALLBACK_FAILED: 'Ocurrió un error durante la autenticación con el proveedor',
   SIGNIN_FAILED: 'No se pudo iniciar el proceso de autenticación',
 };
@@ -70,8 +75,10 @@ export const OAuthMessages = {
 
 export const SessionMessages = {
   TOKEN_EXPIRED: 'Tu sesión ha expirado. Por favor inicia sesión nuevamente.',
-  REFRESH_TOKEN_EXPIRED: 'Tu sesión ha expirado. Por favor inicia sesión nuevamente.',
-  REFRESH_FAILED: 'No se pudo refrescar la sesión. Por favor inicia sesión nuevamente.',
+  REFRESH_TOKEN_EXPIRED:
+    'Tu sesión ha expirado. Por favor inicia sesión nuevamente.',
+  REFRESH_FAILED:
+    'No se pudo refrescar la sesión. Por favor inicia sesión nuevamente.',
   INVALID_TOKEN: 'Tu token no es válido. Por favor inicia sesión nuevamente.',
   SIGNOUT_FAILED: 'No se pudo cerrar la sesión',
   CURRENT_USER_FETCH_FAILED: 'No se pudo obtener la información del usuario',
@@ -87,7 +94,8 @@ export const SupabaseErrorMap: Record<string, string> = {
   // User/Email errors
   'User already registered': SignUpMessages.EMAIL_ALREADY_REGISTERED,
   'Invalid login credentials': SignInMessages.INVALID_CREDENTIALS,
-  'Email not confirmed': 'Tu correo no ha sido confirmado. Revisa tu bandeja de entrada.',
+  'Email not confirmed':
+    'Tu correo no ha sido confirmado. Revisa tu bandeja de entrada.',
   'Invalid email': AuthValidationMessages.EMAIL_INVALID,
 
   // Password errors
@@ -111,7 +119,7 @@ export const SupabaseErrorMap: Record<string, string> = {
   // General errors
   'User not found': SignInMessages.USER_NOT_FOUND,
   'Access denied': 'Acceso denegado. Por favor intenta de nuevo.',
-  'Unauthorized': 'No autorizado. Por favor inicia sesión nuevamente.',
+  Unauthorized: 'No autorizado. Por favor inicia sesión nuevamente.',
 };
 
 /**
@@ -134,7 +142,8 @@ export function mapSupabaseErrorToSpanish(errorMessage: string): string {
 
   // Default fallback
   return (
-    errorMessage || 'Ocurrió un error durante la autenticación. Por favor intenta nuevamente.'
+    errorMessage ||
+    'Ocurrió un error durante la autenticación. Por favor intenta nuevamente.'
   );
 }
 
@@ -146,5 +155,6 @@ export const GenericErrorMessages = {
   AUTH_SERVICE_UNAVAILABLE:
     'El servicio de autenticación no está disponible. Por favor intenta más tarde.',
   INTERNAL_ERROR: 'Error interno del servidor',
-  OPERATION_FAILED: 'No se pudo completar la operación. Por favor intenta nuevamente.',
+  OPERATION_FAILED:
+    'No se pudo completar la operación. Por favor intenta nuevamente.',
 };

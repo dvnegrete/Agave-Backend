@@ -38,8 +38,12 @@ export class VoucherValidator {
       missingFields.push('fecha_pago');
     }
     // NO marcar hora como faltante si fue asignada automáticamente
-    const horaAsignadaAutomaticamente = (voucherData as any).hora_asignada_automaticamente;
-    if (!this.toSafeString(voucherData.hora_transaccion) && !horaAsignadaAutomaticamente) {
+    const horaAsignadaAutomaticamente = (voucherData as any)
+      .hora_asignada_automaticamente;
+    if (
+      !this.toSafeString(voucherData.hora_transaccion) &&
+      !horaAsignadaAutomaticamente
+    ) {
       missingFields.push('hora_transaccion');
     }
     if (!voucherData.casa) {

@@ -22,7 +22,8 @@ export class ReconciliationResponseDto {
   summary: ReconciliationSummary;
 
   @ApiProperty({
-    description: 'Lista de transacciones que coincidieron automáticamente con vouchers',
+    description:
+      'Lista de transacciones que coincidieron automáticamente con vouchers',
     type: 'array',
     example: [
       {
@@ -35,7 +36,8 @@ export class ReconciliationResponseDto {
   conciliados: ReconciliationMatch[];
 
   @ApiProperty({
-    description: 'Vouchers sin fondos: comprobantes que existen pero la transacción bancaria no',
+    description:
+      'Vouchers sin fondos: comprobantes que existen pero la transacción bancaria no',
     type: 'array',
     example: [
       {
@@ -49,7 +51,8 @@ export class ReconciliationResponseDto {
   unfundedVouchers: UnfundedVoucher[];
 
   @ApiProperty({
-    description: 'Depósitos no reclamados: transacciones bancarias que existen pero el voucher no',
+    description:
+      'Depósitos no reclamados: transacciones bancarias que existen pero el voucher no',
     type: 'array',
     example: [
       {
@@ -71,7 +74,7 @@ export class ReconciliationResponseDto {
         voucher: { id: 3, monto: 1000.0 },
         possibleMatches: [
           { transaction: { id: 102 }, matchScore: 0.85 },
-          { transaction: { id: 103 }, matchScore: 0.80 },
+          { transaction: { id: 103 }, matchScore: 0.8 },
         ],
         reason: 'Múltiples transacciones candidatas',
       },
@@ -80,7 +83,8 @@ export class ReconciliationResponseDto {
   manualValidationRequired: ManualValidationCase[];
 
   @ApiProperty({
-    description: 'Cantidad de conciliaciones automáticas por cross-matching (depósitos no reclamados + vouchers sin fondos)',
+    description:
+      'Cantidad de conciliaciones automáticas por cross-matching (depósitos no reclamados + vouchers sin fondos)',
     example: 2,
   })
   crossMatched: number;

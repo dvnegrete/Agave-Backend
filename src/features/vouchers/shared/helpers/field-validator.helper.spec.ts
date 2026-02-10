@@ -54,7 +54,11 @@ describe('FieldValidatorHelper', () => {
       const mockResult = { isValid: true, value: '500.15' };
       mockValidateAmount.mockReturnValue(mockResult);
 
-      const result = validateAndUpdateVoucherField(voucherData, 'monto', '500.15');
+      const result = validateAndUpdateVoucherField(
+        voucherData,
+        'monto',
+        '500.15',
+      );
 
       expect(mockValidateAmount).toHaveBeenCalledWith('500.15');
       expect(result).toEqual(mockResult);
@@ -223,7 +227,11 @@ describe('FieldValidatorHelper', () => {
       const mockResult = { isValid: false, error: 'Invalid house number' };
       mockValidateHouseNumber.mockReturnValue(mockResult);
 
-      const result = validateAndUpdateVoucherField(voucherData, 'casa', 'invalid');
+      const result = validateAndUpdateVoucherField(
+        voucherData,
+        'casa',
+        'invalid',
+      );
 
       expect(mockValidateHouseNumber).toHaveBeenCalledWith('invalid');
       expect(result).toEqual(mockResult);
@@ -321,7 +329,11 @@ describe('FieldValidatorHelper', () => {
     it('should handle whitespace values', () => {
       mockValidateDate.mockReturnValue({ isValid: false, error: 'Required' });
 
-      const result = validateAndUpdateVoucherField(voucherData, 'fecha_pago', '   ');
+      const result = validateAndUpdateVoucherField(
+        voucherData,
+        'fecha_pago',
+        '   ',
+      );
 
       expect(result.isValid).toBe(false);
     });

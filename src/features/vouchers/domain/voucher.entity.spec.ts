@@ -151,13 +151,7 @@ describe('VoucherEntity', () => {
     });
 
     it('should return false when fecha_pago is empty', () => {
-      const voucher = new VoucherEntity(
-        '500.15',
-        '',
-        'ABC123',
-        '10:30:00',
-        15,
-      );
+      const voucher = new VoucherEntity('500.15', '', 'ABC123', '10:30:00', 15);
 
       expect(voucher.isComplete()).toBe(false);
     });

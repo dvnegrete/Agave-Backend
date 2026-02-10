@@ -49,8 +49,8 @@ describe('ConceptAnalyzerService', () => {
     }).compile();
 
     service = module.get<ConceptAnalyzerService>(ConceptAnalyzerService);
-    openAIService = module.get(OpenAIService) as jest.Mocked<OpenAIService>;
-    vertexAIService = module.get(VertexAIService) as jest.Mocked<VertexAIService>;
+    openAIService = module.get(OpenAIService);
+    vertexAIService = module.get(VertexAIService);
   });
 
   it('should be defined', () => {
@@ -248,9 +248,9 @@ describe('ConceptAnalyzerService', () => {
           concept: 'Casa 5 enero',
         });
 
-        expect(Array.isArray(result.houseNumber ? [result.houseNumber] : [])).toBe(
-          true,
-        );
+        expect(
+          Array.isArray(result.houseNumber ? [result.houseNumber] : []),
+        ).toBe(true);
       });
     });
 

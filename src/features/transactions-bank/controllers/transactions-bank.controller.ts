@@ -149,7 +149,9 @@ export class TransactionsBankController {
   @ApiGetExpenses()
   async getExpenses(@Query('date') date?: string) {
     if (!date) {
-      throw new BadRequestException('La fecha es requerida (formato: YYYY-MM-DD)');
+      throw new BadRequestException(
+        'La fecha es requerida (formato: YYYY-MM-DD)',
+      );
     }
     return await this.transactionsBankService.getExpensesByMonth(date);
   }

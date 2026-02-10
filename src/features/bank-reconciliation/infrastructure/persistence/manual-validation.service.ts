@@ -1,4 +1,9 @@
-import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { TransactionBank } from '@/shared/database/entities/transaction-bank.entity';
 import { ManualValidationApproval } from '@/shared/database/entities/manual-validation-approval.entity';
@@ -94,10 +99,7 @@ export class ManualValidationService {
     if (sortBy === 'date') {
       query = query.orderBy('ts.created_at', 'DESC');
     } else if (sortBy === 'similarity') {
-      query = query.orderBy(
-        "CAST(ts.metadata->>'similarity' AS FLOAT)",
-        'ASC',
-      );
+      query = query.orderBy("CAST(ts.metadata->>'similarity' AS FLOAT)", 'ASC');
     } else if (sortBy === 'candidates') {
       query = query.orderBy(
         "jsonb_array_length(ts.metadata->'possibleMatches')",
@@ -109,8 +111,8 @@ export class ManualValidationService {
     const items = await query.skip(offset).take(limit).getRawMany();
 
     // Mapear a DTO
-    const casesResponse: ManualValidationCaseResponseDto[] = items.map(
-      (item) => this.mapToManualValidationCaseResponseDto(item),
+    const casesResponse: ManualValidationCaseResponseDto[] = items.map((item) =>
+      this.mapToManualValidationCaseResponseDto(item),
     );
 
     const totalPages = Math.ceil(totalCount / limit);
@@ -161,7 +163,7 @@ export class ManualValidationService {
       const transactionStatus = result[0];
 
       // Validar que el voucherId está en los posibles matches
-      const metadata = (transactionStatus.metadata as any) || {};
+      const metadata = transactionStatus.metadata || {};
       const possibleMatches = metadata.possibleMatches || [];
       const isValidVoucher = possibleMatches.some(
         (m: any) => m.voucherId === voucherId,
@@ -294,7 +296,7 @@ export class ManualValidationService {
       }
 
       const transactionStatus = result[0];
-      const metadata = (transactionStatus.metadata as any) || {};
+      const metadata = transactionStatus.metadata || {};
 
       // Marcar como not-found (sin info suficiente)
       // SIN datos de rechazo en transaction_status - ahora en manual_validation_approvals
@@ -404,12 +406,15 @@ export class ManualValidationService {
         : 0;
 
     // Tiempo promedio de aprobación (solo los que fueron resueltos)
-    const avgResult = await this.dataSource.query(`
+    const avgResult = await this.dataSource.query(
+      `
       SELECT AVG(EXTRACT(EPOCH FROM (processed_at - created_at)) / 60) as avg_minutes
       FROM transactions_status
       WHERE (validation_status = $1 OR validation_status = $2)
       AND processed_at IS NOT NULL
-    `, [ValidationStatus.CONFIRMED, ValidationStatus.NOT_FOUND]);
+    `,
+      [ValidationStatus.CONFIRMED, ValidationStatus.NOT_FOUND],
+    );
 
     const avgApprovalTimeMinutes = avgResult[0]?.avg_minutes || 0;
 
@@ -470,8 +475,7 @@ export class ManualValidationService {
         voucherId: m.voucherId,
         voucherAmount: item.tb_amount, // Mismo monto
         voucherDate: new Date(m.voucherDate || item.tb_date),
-        houseNumber:
-          Math.round((item.tb_amount % 1) * 100) || m.houseNumber,
+        houseNumber: Math.round((item.tb_amount % 1) * 100) || m.houseNumber,
         similarity: m.similarity || 0,
         dateDifferenceHours: m.dateDifferenceHours || 0,
       })),

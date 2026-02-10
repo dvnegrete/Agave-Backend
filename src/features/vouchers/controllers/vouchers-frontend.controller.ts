@@ -187,7 +187,7 @@ export class VouchersFrontendController {
     @Query('userId') queryUserId?: string,
   ): Promise<ConfirmVoucherResponseDto> {
     this.logger.debug(
-      `Confirm recibido para casa=${dto.casa}, monto=${dto.monto}`
+      `Confirm recibido para casa=${dto.casa}, monto=${dto.monto}`,
     );
 
     // Extraer userId

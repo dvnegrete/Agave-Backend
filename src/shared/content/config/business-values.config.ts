@@ -1,4 +1,7 @@
-import { MIN_HOUSE_NUMBER, MAX_HOUSE_NUMBER } from '@/shared/config/business-rules.config';
+import {
+  MIN_HOUSE_NUMBER,
+  MAX_HOUSE_NUMBER,
+} from '@/shared/config/business-rules.config';
 
 export const BusinessValues = {
   /**

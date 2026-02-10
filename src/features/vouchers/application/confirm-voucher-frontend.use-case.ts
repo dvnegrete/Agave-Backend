@@ -11,18 +11,27 @@ import { HouseRepository } from '@/shared/database/repositories/house.repository
 import { UserRepository } from '@/shared/database/repositories/user.repository';
 import { HouseRecordRepository } from '@/shared/database/repositories/house-record.repository';
 import { TransactionStatusRepository } from '@/shared/database/repositories/transaction-status.repository';
-import { EnsureHouseExistsService, SYSTEM_USER_ID } from '@/shared/database/services';
+import {
+  EnsureHouseExistsService,
+  SYSTEM_USER_ID,
+} from '@/shared/database/services';
 import { VoucherDuplicateDetectorService } from '../infrastructure/persistence/voucher-duplicate-detector.service';
 import { ConfirmVoucherFromFrontendDto } from '../dto/frontend-save-draft.dto';
 import { ConfirmVoucherResponseDto } from '../dto/frontend-voucher-response.dto';
 import { combineDateAndTime } from '@/shared/common/utils';
 import { generateUniqueConfirmationCode } from '../shared/helpers';
-import { Role, Status, ValidationStatus } from '@/shared/database/entities/enums';
+import {
+  Role,
+  Status,
+  ValidationStatus,
+} from '@/shared/database/entities/enums';
 import { VOUCHER_FRONTEND_MESSAGES } from '../shared/constants';
 
-export interface ConfirmVoucherFrontendInput extends ConfirmVoucherFromFrontendDto {}
+export interface ConfirmVoucherFrontendInput
+  extends ConfirmVoucherFromFrontendDto {}
 
-export interface ConfirmVoucherFrontendOutput extends ConfirmVoucherResponseDto {}
+export interface ConfirmVoucherFrontendOutput
+  extends ConfirmVoucherResponseDto {}
 
 /**
  * Use Case: Confirmar y registrar un voucher desde el Frontend (HTTP)
@@ -66,7 +75,6 @@ export class ConfirmVoucherFrontendUseCase {
       gcsFilename,
       userId,
     } = input;
-
 
     // 1. Validar y parsear datos (ANTES de cualquier conexión BD)
     const amount = parseFloat(monto);
@@ -373,7 +381,7 @@ export class ConfirmVoucherFrontendUseCase {
         createIfMissing: true,
         userId: effectiveUserId,
         queryRunner,
-      }
+      },
     );
 
     // Lógica específica: actualizar propietario si cambió (solo si userId está definido)

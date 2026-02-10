@@ -45,7 +45,10 @@ export class ConceptHouseExtractorService {
           const extractedNumber = parseInt(match[1], 10);
 
           // Validar que sea un número válido
-          if (extractedNumber > 0 && extractedNumber <= ReconciliationConfig.MAX_HOUSE_NUMBER) {
+          if (
+            extractedNumber > 0 &&
+            extractedNumber <= ReconciliationConfig.MAX_HOUSE_NUMBER
+          ) {
             const result: ConceptHouseExtractionResult = {
               houseNumber: extractedNumber,
               confidence: patternConfig.confidence,
@@ -119,7 +122,9 @@ export class ConceptHouseExtractorService {
     }
 
     // Buscar números de mes (01-12, 1-12)
-    const monthMatch = conceptLower.match(/(?:mes|m[eé]s|mes-|mes\s+)?([01]?\d)(?:\s|$|[^0-9])/);
+    const monthMatch = conceptLower.match(
+      /(?:mes|m[eé]s|mes-|mes\s+)?([01]?\d)(?:\s|$|[^0-9])/,
+    );
     if (monthMatch && monthMatch[1]) {
       const monthNum = parseInt(monthMatch[1], 10);
       if (monthNum >= 1 && monthNum <= 12) {
@@ -184,7 +189,9 @@ export class ConceptHouseExtractorService {
    * @returns true si es válido
    */
   isValidHouseNumber(houseNumber: number): boolean {
-    return houseNumber > 0 && houseNumber <= ReconciliationConfig.MAX_HOUSE_NUMBER;
+    return (
+      houseNumber > 0 && houseNumber <= ReconciliationConfig.MAX_HOUSE_NUMBER
+    );
   }
 
   /**

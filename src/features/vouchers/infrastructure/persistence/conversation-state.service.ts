@@ -171,7 +171,7 @@ export class ConversationStateService {
     }
 
     return {
-      voucherData: context.data?.voucherData!,
+      voucherData: context.data?.voucherData,
       gcsFilename: context.data?.gcsFilename,
       originalFilename: context.data?.originalFilename,
     };

@@ -456,11 +456,7 @@ export class MatchSuggestionsService {
       )
       .where('v.confirmation_status = :status', { status: false })
       .andWhere('ts.id IS NULL')
-      .select([
-        'v.id AS v_id',
-        'v.amount AS v_amount',
-        'v.date AS v_date',
-      ])
+      .select(['v.id AS v_id', 'v.amount AS v_amount', 'v.date AS v_date'])
       .orderBy('v.date', 'ASC')
       .getRawMany();
   }

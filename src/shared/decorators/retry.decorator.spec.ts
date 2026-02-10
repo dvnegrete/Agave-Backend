@@ -273,7 +273,9 @@ describe('Retry Decorator', () => {
         callback();
       });
 
-      jest.spyOn(global, 'setTimeout').mockImplementation(originalSetTimeout as any);
+      jest
+        .spyOn(global, 'setTimeout')
+        .mockImplementation(originalSetTimeout as any);
 
       const testClass: any = class {
         logger = mockLogger;

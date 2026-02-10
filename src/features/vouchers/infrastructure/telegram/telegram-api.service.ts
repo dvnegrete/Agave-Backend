@@ -229,7 +229,9 @@ export class TelegramApiService {
     }
 
     try {
-      const result = await this.bot!.answerCallbackQuery(callbackQueryId, { text });
+      const result = await this.bot!.answerCallbackQuery(callbackQueryId, {
+        text,
+      });
       return result;
     } catch (error) {
       this.logger.error(`Error answering callback query: ${error.message}`);

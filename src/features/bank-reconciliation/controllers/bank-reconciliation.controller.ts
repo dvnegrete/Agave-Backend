@@ -412,7 +412,12 @@ export class BankReconciliationController {
       `Aplicando batch de ${dto.suggestions.length} cross-matches por usuario ${userId}`,
     );
 
-    const results: { transactionBankId: string; voucherId: number; success: boolean; error?: string }[] = [];
+    const results: {
+      transactionBankId: string;
+      voucherId: number;
+      success: boolean;
+      error?: string;
+    }[] = [];
     let totalApplied = 0;
     let totalFailed = 0;
 
@@ -432,7 +437,8 @@ export class BankReconciliationController {
         });
         totalApplied++;
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const errorMessage =
+          error instanceof Error ? error.message : 'Unknown error';
         this.logger.warn(
           `Batch cross-match falló para depósito ${suggestion.transactionBankId}: ${errorMessage}`,
         );

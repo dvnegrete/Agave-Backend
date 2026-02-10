@@ -197,7 +197,10 @@ export class HandleMissingDataUseCase {
       'Ocurrió un error en el flujo. Por favor envía nuevamente el comprobante.',
     );
     this.conversationState.clearContext(phoneNumber);
-    return { success: false, message: 'No missing fields but unexpected state' };
+    return {
+      success: false,
+      message: 'No missing fields but unexpected state',
+    };
   }
 
   /**

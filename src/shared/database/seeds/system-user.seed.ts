@@ -1,6 +1,9 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { SYSTEM_USER_ID, SYSTEM_USER_EMAIL } from '../../config/business-rules.config';
+import {
+  SYSTEM_USER_ID,
+  SYSTEM_USER_EMAIL,
+} from '../../config/business-rules.config';
 
 /**
  * Seed para crear el usuario Sistema requerido por la conciliación bancaria

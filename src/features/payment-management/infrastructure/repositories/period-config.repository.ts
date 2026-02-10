@@ -1,6 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThanOrEqual, MoreThanOrEqual, IsNull, Or } from 'typeorm';
+import {
+  Repository,
+  LessThanOrEqual,
+  MoreThanOrEqual,
+  IsNull,
+  Or,
+} from 'typeorm';
 import { PeriodConfig } from '@/shared/database/entities';
 import { IPeriodConfigRepository } from '../../interfaces';
 
@@ -44,10 +50,7 @@ export class PeriodConfigRepository implements IPeriodConfigRepository {
     return this.repository.findOne({ where: { id } });
   }
 
-  async update(
-    id: number,
-    data: Partial<PeriodConfig>,
-  ): Promise<PeriodConfig> {
+  async update(id: number, data: Partial<PeriodConfig>): Promise<PeriodConfig> {
     await this.repository.update(id, data);
     const result = await this.repository.findOne({ where: { id } });
     if (!result) {

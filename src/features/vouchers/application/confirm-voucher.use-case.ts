@@ -18,7 +18,11 @@ import {
   parsePhoneNumberWithCountryCode,
 } from '@/shared/common/utils';
 import { generateUniqueConfirmationCode } from '../shared/helpers';
-import { Role, Status, ValidationStatus } from '@/shared/database/entities/enums';
+import {
+  Role,
+  Status,
+  ValidationStatus,
+} from '@/shared/database/entities/enums';
 
 export interface ConfirmVoucherInput {
   phoneNumber: string;
@@ -319,7 +323,7 @@ export class ConfirmVoucherUseCase {
         createIfMissing: true,
         userId,
         queryRunner,
-      }
+      },
     );
 
     // Lógica específica de vouchers: actualizar propietario si cambió

@@ -22,7 +22,7 @@ describe('AuthGuard', () => {
     }).compile();
 
     guard = module.get<AuthGuard>(AuthGuard);
-    jwtAuthService = module.get(JwtAuthService) as jest.Mocked<JwtAuthService>;
+    jwtAuthService = module.get(JwtAuthService);
   });
 
   afterEach(() => {
@@ -58,7 +58,9 @@ describe('AuthGuard', () => {
       const result = guard.canActivate(context);
 
       expect(result).toBe(true);
-      expect(jwtAuthService.verifyAccessToken).toHaveBeenCalledWith('valid-token');
+      expect(jwtAuthService.verifyAccessToken).toHaveBeenCalledWith(
+        'valid-token',
+      );
       expect((request as any).user).toEqual(mockPayload);
     });
 

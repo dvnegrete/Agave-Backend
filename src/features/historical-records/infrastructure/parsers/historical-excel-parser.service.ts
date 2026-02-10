@@ -51,7 +51,7 @@ export class HistoricalExcelParserService {
       }
 
       const headers = data[headerRowIndex] as string[];
-      const dataRows = data.slice(headerRowIndex + 1) as any[][];
+      const dataRows = data.slice(headerRowIndex + 1);
 
       // Parse each row
       const records: HistoricalRecordRow[] = [];
@@ -75,10 +75,14 @@ export class HistoricalExcelParserService {
       }
 
       if (records.length === 0) {
-        throw new BadRequestException('No se encontraron registros válidos en el archivo');
+        throw new BadRequestException(
+          'No se encontraron registros válidos en el archivo',
+        );
       }
 
-      this.logger.log(`Successfully parsed ${records.length} rows from Excel file`);
+      this.logger.log(
+        `Successfully parsed ${records.length} rows from Excel file`,
+      );
       return records;
     } catch (error: any) {
       if (error instanceof BadRequestException) {
@@ -103,8 +107,7 @@ export class HistoricalExcelParserService {
       const matchedColumns = this.EXPECTED_COLUMNS.filter((col) =>
         row.some(
           (cell) =>
-            cell &&
-            cell.toString().toLowerCase().includes(col.toLowerCase()),
+            cell && cell.toString().toLowerCase().includes(col.toLowerCase()),
         ),
       );
 
@@ -127,9 +130,7 @@ export class HistoricalExcelParserService {
     // Map columns by name (case-insensitive)
     const getValue = (columnName: string): any => {
       const index = headers.findIndex(
-        (h) =>
-          h &&
-          h.toLowerCase().includes(columnName.toLowerCase()),
+        (h) => h && h.toLowerCase().includes(columnName.toLowerCase()),
       );
       return index >= 0 ? row[index] : undefined;
     };
@@ -147,10 +148,16 @@ export class HistoricalExcelParserService {
     // Parse DEPOSITO (keep decimals for cent-based house identification)
     // IMPORTANT: Do NOT round. Decimals are used to identify house via cents.
     // Validation uses floor(DEPOSITO) for comparison, not rounded value.
-    const deposito = this.parseNumber(getValue('DEPOSITO'), 'DEPOSITO', rowNumber);
+    const deposito = this.parseNumber(
+      getValue('DEPOSITO'),
+      'DEPOSITO',
+      rowNumber,
+    );
 
     // Parse Casa (use round for house number)
-    const casa = Math.round(this.parseNumber(getValue('Casa'), 'Casa', rowNumber, true) || 0);
+    const casa = Math.round(
+      this.parseNumber(getValue('Casa'), 'Casa', rowNumber, true) || 0,
+    );
 
     // Parse cta_* amounts (allow 0 or missing, FLOOR to integers - NOT round)
     // cta_* amounts must always be integers per business rules
@@ -158,10 +165,28 @@ export class HistoricalExcelParserService {
     // Reason: decimals in Excel are carried from DEPOSITO cents for house identification
     // floor(DEPOSITO) must equal sum(cta_*) where cta_* are floored values
     // Example: DEPOSITO=850.51, agua=250.51 → floor(850.51)=850, floor(250.51)=250
-    const cuotaExtra = Math.floor(this.parseNumber(getValue('Cuota Extra'), 'Cuota Extra', rowNumber, true) || 0);
-    const mantto = Math.floor(this.parseNumber(getValue('Mantto'), 'Mantto', rowNumber, true) || 0);
-    const penalizacion = Math.floor(this.parseNumber(getValue('Penalizacion'), 'Penalizacion', rowNumber, true) || 0);
-    const agua = Math.floor(this.parseNumber(getValue('Agua'), 'Agua', rowNumber, true) || 0);
+    const cuotaExtra = Math.floor(
+      this.parseNumber(
+        getValue('Cuota Extra'),
+        'Cuota Extra',
+        rowNumber,
+        true,
+      ) || 0,
+    );
+    const mantto = Math.floor(
+      this.parseNumber(getValue('Mantto'), 'Mantto', rowNumber, true) || 0,
+    );
+    const penalizacion = Math.floor(
+      this.parseNumber(
+        getValue('Penalizacion'),
+        'Penalizacion',
+        rowNumber,
+        true,
+      ) || 0,
+    );
+    const agua = Math.floor(
+      this.parseNumber(getValue('Agua'), 'Agua', rowNumber, true) || 0,
+    );
 
     return HistoricalRecordRow.create({
       fecha,
@@ -200,8 +225,8 @@ export class HistoricalExcelParserService {
 
         // If it's a small serial number, it's likely corrupted data
         if (serialDate < 500) {
-          console.log("‼️🛑 str", str)
-          console.log("‼️🛑 serial", serialDate)
+          console.log('‼️🛑 str', str);
+          console.log('‼️🛑 serial', serialDate);
           throw new Error(
             `FECHA inválida: "${value}". Parece ser un número pequeño (probable dato corrupto en Excel)`,
           );
@@ -334,7 +359,10 @@ export class HistoricalExcelParserService {
 
     // Only one separator
     if (dotCount + commaCount === 1) {
-      const lastSeparatorIndex = Math.max(str.lastIndexOf('.'), str.lastIndexOf(','));
+      const lastSeparatorIndex = Math.max(
+        str.lastIndexOf('.'),
+        str.lastIndexOf(','),
+      );
       const digitsAfter = str.length - lastSeparatorIndex - 1;
 
       // If there are 1-3 digits after the separator, it's likely decimal

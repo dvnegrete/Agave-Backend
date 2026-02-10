@@ -76,7 +76,9 @@ const DEFAULT_OPTIONS: RetryOptions = {
         anyError?.driverError?.message ||
         anyError?.driverError?.code ||
         ''
-      ).toString().toLowerCase();
+      )
+        .toString()
+        .toLowerCase();
     }
 
     // Si no hay mensaje de error, no reintentar (error desconocido)
@@ -85,19 +87,23 @@ const DEFAULT_OPTIONS: RetryOptions = {
     }
 
     // Si contiene mensajes no recuperables, NO reintentar
-    if (nonRetryableMessages.some(msg => errorStr.includes(msg))) {
+    if (nonRetryableMessages.some((msg) => errorStr.includes(msg))) {
       return false;
     }
 
     // Si contiene mensajes recuperables, reintentar
-    return retryableMessages.some(msg => errorStr.includes(msg));
+    return retryableMessages.some((msg) => errorStr.includes(msg));
   },
 };
 
 export function Retry(options: RetryOptions = {}) {
   const config = { ...DEFAULT_OPTIONS, ...options };
 
-  return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+  return function (
+    target: any,
+    propertyKey: string,
+    descriptor: PropertyDescriptor,
+  ) {
     const originalMethod = descriptor.value;
 
     descriptor.value = async function (...args: any[]) {
@@ -117,7 +123,10 @@ export function Retry(options: RetryOptions = {}) {
           // Si no es error retryable, fallar inmediatamente
           if (!config.retryableErrors!(error)) {
             const errorMsg = (error as any)?.message || String(error);
-            const errorCode = (error as any)?.code || (error as any)?.originalError?.code || 'UNKNOWN';
+            const errorCode =
+              (error as any)?.code ||
+              (error as any)?.originalError?.code ||
+              'UNKNOWN';
             const errorDiagnostics = `${errorMsg} (code: ${errorCode})`;
             if (this.logger?.error) {
               this.logger.error(
@@ -151,16 +160,16 @@ export function Retry(options: RetryOptions = {}) {
           if (this.logger?.warn) {
             this.logger.warn(
               `[${requestId}] ${methodName} - Transient error on attempt ${attempt} ` +
-              `(${errorCode}), retrying in ${delay}ms...`,
+                `(${errorCode}), retrying in ${delay}ms...`,
             );
           } else {
             console.warn(
               `[${requestId}] ${methodName} - Transient error on attempt ${attempt} ` +
-              `(${errorCode}), retrying in ${delay}ms...`,
+                `(${errorCode}), retrying in ${delay}ms...`,
             );
           }
 
-          await new Promise(resolve => setTimeout(resolve, delay));
+          await new Promise((resolve) => setTimeout(resolve, delay));
           delay *= config.backoffMultiplier!;
         }
       }

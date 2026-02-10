@@ -108,8 +108,12 @@ describe('RecordAllocationRepository', () => {
         payment_status: PaymentStatus.COMPLETE,
       };
 
-      jest.spyOn(typeormRepository, 'create').mockReturnValue(mockRecordAllocation);
-      jest.spyOn(typeormRepository, 'save').mockResolvedValue(mockRecordAllocation);
+      jest
+        .spyOn(typeormRepository, 'create')
+        .mockReturnValue(mockRecordAllocation);
+      jest
+        .spyOn(typeormRepository, 'save')
+        .mockResolvedValue(mockRecordAllocation);
 
       const result = await repository.create(partialAllocation);
 
@@ -124,7 +128,9 @@ describe('RecordAllocationRepository', () => {
       const allocations = [mockRecordAllocation];
       jest.spyOn(typeormRepository, 'find').mockResolvedValue(allocations);
 
-      const result = await repository.findByPaymentStatus(PaymentStatus.COMPLETE);
+      const result = await repository.findByPaymentStatus(
+        PaymentStatus.COMPLETE,
+      );
 
       expect(result).toEqual(allocations);
       expect(typeormRepository.find).toHaveBeenCalledWith({

@@ -89,24 +89,72 @@ export const ReconciliationConfig = {
  */
 export const CONCEPT_HOUSE_PATTERNS = [
   // Patrones con palabra "casa" explícita
-  { pattern: /casa\s*[#-]?\s*(\d{1,2})/gi, name: 'casa_numero', confidence: 'high' as const },
-  { pattern: /casa\s+(\d{1,2})/gi, name: 'casa_numero_espacio', confidence: 'high' as const },
+  {
+    pattern: /casa\s*[#-]?\s*(\d{1,2})/gi,
+    name: 'casa_numero',
+    confidence: 'high' as const,
+  },
+  {
+    pattern: /casa\s+(\d{1,2})/gi,
+    name: 'casa_numero_espacio',
+    confidence: 'high' as const,
+  },
 
   // Abreviaturas: c5, c50, c64, c-1, cs02, etc.
-  { pattern: /\bc\s*-?(\d{1,2})(?:\b|[^0-9])/gi, name: 'c_abbreviation', confidence: 'high' as const },
-  { pattern: /\bc([0-9])/gi, name: 'c_single_digit', confidence: 'high' as const },
-  { pattern: /\bcs\s*-?(\d{1,2})/gi, name: 'cs_abbreviation', confidence: 'medium' as const },
+  {
+    pattern: /\bc\s*-?(\d{1,2})(?:\b|[^0-9])/gi,
+    name: 'c_abbreviation',
+    confidence: 'high' as const,
+  },
+  {
+    pattern: /\bc([0-9])/gi,
+    name: 'c_single_digit',
+    confidence: 'high' as const,
+  },
+  {
+    pattern: /\bcs\s*-?(\d{1,2})/gi,
+    name: 'cs_abbreviation',
+    confidence: 'medium' as const,
+  },
 
   // Apartamento
-  { pattern: /apto\s*[#.-]?\s*(\d{1,2})/gi, name: 'apto_numero', confidence: 'high' as const },
-  { pattern: /apt\s*[#.-]?\s*(\d{1,2})/gi, name: 'apt_numero', confidence: 'high' as const },
-  { pattern: /apart\s*[#.-]?\s*(\d{1,2})/gi, name: 'apart_numero', confidence: 'high' as const },
+  {
+    pattern: /apto\s*[#.-]?\s*(\d{1,2})/gi,
+    name: 'apto_numero',
+    confidence: 'high' as const,
+  },
+  {
+    pattern: /apt\s*[#.-]?\s*(\d{1,2})/gi,
+    name: 'apt_numero',
+    confidence: 'high' as const,
+  },
+  {
+    pattern: /apart\s*[#.-]?\s*(\d{1,2})/gi,
+    name: 'apart_numero',
+    confidence: 'high' as const,
+  },
 
   // Lote, Manzana, Propiedad
-  { pattern: /lote\s*[#.-]?\s*(\d{1,2})/gi, name: 'lote_numero', confidence: 'medium' as const },
-  { pattern: /manzana\s*[#.-]?\s*(\d{1,2})/gi, name: 'manzana_numero', confidence: 'medium' as const },
-  { pattern: /propiedad\s*[#.-]?\s*(\d{1,2})/gi, name: 'propiedad_numero', confidence: 'medium' as const },
+  {
+    pattern: /lote\s*[#.-]?\s*(\d{1,2})/gi,
+    name: 'lote_numero',
+    confidence: 'medium' as const,
+  },
+  {
+    pattern: /manzana\s*[#.-]?\s*(\d{1,2})/gi,
+    name: 'manzana_numero',
+    confidence: 'medium' as const,
+  },
+  {
+    pattern: /propiedad\s*[#.-]?\s*(\d{1,2})/gi,
+    name: 'propiedad_numero',
+    confidence: 'medium' as const,
+  },
 
   // Número aislado al inicio (menos confiable)
-  { pattern: /^(\d{1,2})(?:\s|$)/i, name: 'leading_number', confidence: 'low' as const },
+  {
+    pattern: /^(\d{1,2})(?:\s|$)/i,
+    name: 'leading_number',
+    confidence: 'low' as const,
+  },
 ];

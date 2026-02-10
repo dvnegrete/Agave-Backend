@@ -47,15 +47,9 @@ export class House {
   })
   houseBalance: HouseBalance;
 
-  @OneToMany(
-    () => HousePeriodOverride,
-    (override) => override.house,
-  )
+  @OneToMany(() => HousePeriodOverride, (override) => override.house)
   housePeriodOverrides: HousePeriodOverride[];
 
-  @OneToMany(
-    () => RecordAllocation,
-    (allocation) => allocation.house,
-  )
+  @OneToMany(() => RecordAllocation, (allocation) => allocation.house)
   recordAllocations: RecordAllocation[];
 }

@@ -1,9 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { VoucherGarbageCollectorService } from './voucher-garbage-collector.service';
 import {
-  VoucherGarbageCollectorService,
-  CleanupMetrics,
-} from './voucher-garbage-collector.service';
-import { CloudStorageService, CloudStorageFile } from '@/shared/libs/google-cloud/storage/cloud-storage.service';
+  CloudStorageService,
+  CloudStorageFile,
+} from '@/shared/libs/google-cloud/storage/cloud-storage.service';
 import { VoucherRepository } from '@/shared/database/repositories/voucher.repository';
 
 describe('VoucherGarbageCollectorService', () => {
@@ -105,9 +105,7 @@ describe('VoucherGarbageCollectorService', () => {
     });
 
     it('should return false for file exactly 2 hours old', () => {
-      const exactlyTwoHoursAgo = new Date(
-        Date.now() - 2 * 60 * 60 * 1000,
-      );
+      const exactlyTwoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
       const result = (service as any).isFileOldEnough(exactlyTwoHoursAgo);
 
       // Should be false because we use > not >=
@@ -144,8 +142,12 @@ describe('VoucherGarbageCollectorService', () => {
       (cloudStorageService.getAllFiles as jest.Mock).mockResolvedValue(
         mockFiles,
       );
-      (voucherRepository.isFileReferenced as jest.Mock).mockResolvedValue(false);
-      (cloudStorageService.deleteFile as jest.Mock).mockResolvedValue(undefined);
+      (voucherRepository.isFileReferenced as jest.Mock).mockResolvedValue(
+        false,
+      );
+      (cloudStorageService.deleteFile as jest.Mock).mockResolvedValue(
+        undefined,
+      );
 
       const metrics = await service.cleanup();
 
@@ -203,7 +205,9 @@ describe('VoucherGarbageCollectorService', () => {
       (cloudStorageService.getAllFiles as jest.Mock).mockResolvedValue(
         mockFiles,
       );
-      (voucherRepository.isFileReferenced as jest.Mock).mockResolvedValue(false);
+      (voucherRepository.isFileReferenced as jest.Mock).mockResolvedValue(
+        false,
+      );
 
       const metrics = await service.cleanup();
 
@@ -274,7 +278,9 @@ describe('VoucherGarbageCollectorService', () => {
         },
       );
 
-      (cloudStorageService.deleteFile as jest.Mock).mockResolvedValue(undefined);
+      (cloudStorageService.deleteFile as jest.Mock).mockResolvedValue(
+        undefined,
+      );
 
       const metrics = await service.cleanup();
 
@@ -293,7 +299,9 @@ describe('VoucherGarbageCollectorService', () => {
       (cloudStorageService.getAllFiles as jest.Mock).mockResolvedValue(
         mockFiles,
       );
-      (voucherRepository.isFileReferenced as jest.Mock).mockResolvedValue(false);
+      (voucherRepository.isFileReferenced as jest.Mock).mockResolvedValue(
+        false,
+      );
       (cloudStorageService.deleteFile as jest.Mock).mockRejectedValue(
         new Error('GCS error'),
       );

@@ -53,7 +53,10 @@ export const getPaymentDistributionPrompt = (
   unpaidPeriodsText: string,
   maintenanceAmount: number,
 ): string => {
-  return PAYMENT_DISTRIBUTION_PROMPT_TEMPLATE.replace('{amount}', String(amount))
+  return PAYMENT_DISTRIBUTION_PROMPT_TEMPLATE.replace(
+    '{amount}',
+    String(amount),
+  )
     .replace('{house_number}', String(houseNumber))
     .replace('{credit_balance}', String(creditBalance))
     .replace('{total_debt}', String(totalDebt))

@@ -4,7 +4,9 @@ import { FileValidator } from '@nestjs/common';
  * Validator for historical records Excel files
  * Ensures only .xlsx files with correct MIME type are accepted
  */
-export class HistoricalFileValidator extends FileValidator<Record<string, any>> {
+export class HistoricalFileValidator extends FileValidator<
+  Record<string, any>
+> {
   constructor() {
     super({});
   }

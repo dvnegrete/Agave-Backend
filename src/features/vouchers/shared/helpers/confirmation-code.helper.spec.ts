@@ -84,7 +84,9 @@ describe('ConfirmationCodeHelper', () => {
         confirmation_code: secondCode,
       });
 
-      mockGenerateCode.mockReturnValueOnce(firstCode).mockReturnValueOnce(secondCode);
+      mockGenerateCode
+        .mockReturnValueOnce(firstCode)
+        .mockReturnValueOnce(secondCode);
 
       // First attempt fails with duplicate key error
       mockVoucherRepository.create

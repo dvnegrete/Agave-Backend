@@ -12,9 +12,7 @@ import { VoucherRepository } from '@/shared/database/repositories/voucher.reposi
  */
 @Injectable()
 export class GetHouseUnreconciledVouchersUseCase {
-  constructor(
-    private readonly voucherRepository: VoucherRepository,
-  ) {}
+  constructor(private readonly voucherRepository: VoucherRepository) {}
 
   /**
    * Ejecuta la búsqueda de vouchers no conciliados de una casa

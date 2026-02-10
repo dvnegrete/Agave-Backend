@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { HouseRepository } from '@/shared/database/repositories/house.repository';
 import { UserRepository } from '@/shared/database/repositories/user.repository';
 import { SYSTEM_USER_ID } from '@/shared/config/business-rules.config';
@@ -20,7 +24,9 @@ export class RemoveHouseUseCase {
     // Find house by number
     const house = await this.houseRepository.findByNumberHouse(houseNumber);
     if (!house) {
-      throw new NotFoundException(`Casa con número ${houseNumber} no encontrada`);
+      throw new NotFoundException(
+        `Casa con número ${houseNumber} no encontrada`,
+      );
     }
 
     // Validate that the house belongs to the user

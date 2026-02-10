@@ -18,8 +18,6 @@ export class AddConceptActivationToPeriods1769810000000
     await queryRunner.query(
       `ALTER TABLE "periods" DROP COLUMN "extraordinary_fee_active"`,
     );
-    await queryRunner.query(
-      `ALTER TABLE "periods" DROP COLUMN "water_active"`,
-    );
+    await queryRunner.query(`ALTER TABLE "periods" DROP COLUMN "water_active"`);
   }
 }

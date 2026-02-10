@@ -155,9 +155,8 @@ export class ReconciliationPersistenceService implements OnModuleInit {
       // Esto se hace fuera de la transacción original porque AllocatePaymentUseCase
       // puede hacer múltiples operaciones de base de datos
       try {
-        const transactionBank = await this.transactionBankRepository.findById(
-          transactionBankId,
-        );
+        const transactionBank =
+          await this.transactionBankRepository.findById(transactionBankId);
 
         if (!transactionBank) {
           this.logger.warn(

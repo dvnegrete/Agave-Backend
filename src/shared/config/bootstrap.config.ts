@@ -65,7 +65,7 @@ export class BootstrapConfigService {
     if (!validNodeEnvs.includes(nodeEnv)) {
       this.logger.warn(
         `⚠️  Warning: NODE_ENV="${nodeEnv}" is not standard. ` +
-        `Expected: ${validNodeEnvs.join(', ')}`,
+          `Expected: ${validNodeEnvs.join(', ')}`,
       );
     }
   }
@@ -96,7 +96,10 @@ export class BootstrapConfigService {
     this.logger.log(`✅ FRONTEND_URL: ${frontendUrl}`);
 
     // ✅ Validar que FRONTEND_URL tenga protocolo correcto
-    if (!frontendUrl.startsWith('http://') && !frontendUrl.startsWith('https://')) {
+    if (
+      !frontendUrl.startsWith('http://') &&
+      !frontendUrl.startsWith('https://')
+    ) {
       const errorMsg =
         `\n❌ FATAL ERROR: FRONTEND_URL must start with http:// or https://\n\n` +
         `   Current: ${frontendUrl}\n` +
@@ -122,7 +125,7 @@ export class BootstrapConfigService {
     if (this.isDevelopment && isHttps) {
       this.logger.warn(
         `⚠️  Warning: NODE_ENV=development but FRONTEND_URL is HTTPS. ` +
-        `This is unusual but OK if using HTTPS in development.`,
+          `This is unusual but OK if using HTTPS in development.`,
       );
     }
 

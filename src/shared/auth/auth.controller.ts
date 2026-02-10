@@ -60,9 +60,7 @@ export class AuthController {
   @Post('signout')
   @UseGuards(AuthGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
-  async signOut(
-    @Res({ passthrough: true }) res: Response,
-  ): Promise<void> {
+  async signOut(@Res({ passthrough: true }) res: Response): Promise<void> {
     res.clearCookie('access_token');
     return Promise.resolve();
   }
@@ -86,7 +84,10 @@ export class AuthController {
     @Body() verifyEmailDto: { firebaseUid: string },
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthResponseDto> {
-    return this.authService.verifyEmailAndGenerateTokens(verifyEmailDto.firebaseUid, res);
+    return this.authService.verifyEmailAndGenerateTokens(
+      verifyEmailDto.firebaseUid,
+      res,
+    );
   }
 
   @Post('resend-verification-email')

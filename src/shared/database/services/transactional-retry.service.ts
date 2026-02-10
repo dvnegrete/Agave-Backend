@@ -92,15 +92,15 @@ export class TransactionalRetryService {
         'not null violation',
       ];
 
-      const errorStr = ((error as any)?.message || (error as any)?.code || '').toLowerCase();
+      const errorStr = (error?.message || error?.code || '').toLowerCase();
 
       // Si contiene mensajes no recuperables, NO reintentar
-      if (nonRetryableMessages.some(msg => errorStr.includes(msg))) {
+      if (nonRetryableMessages.some((msg) => errorStr.includes(msg))) {
         return false;
       }
 
       // Si contiene mensajes recuperables, reintentar
-      return retryableMessages.some(msg => errorStr.includes(msg));
+      return retryableMessages.some((msg) => errorStr.includes(msg));
     };
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -130,7 +130,7 @@ export class TransactionalRetryService {
           await queryRunner.rollbackTransaction();
         } catch (rollbackError) {
           this.logger.warn(
-            `[${requestId}] Rollback failed on attempt ${attempt}: ${(rollbackError as any).message}`,
+            `[${requestId}] Rollback failed on attempt ${attempt}: ${rollbackError.message}`,
           );
         }
 
@@ -158,10 +158,10 @@ export class TransactionalRetryService {
         const errorCode = error?.code || error?.message;
         this.logger.warn(
           `[${requestId}] Transient error on attempt ${attempt} ` +
-          `(${errorCode}), retrying transaction in ${delay}ms...`,
+            `(${errorCode}), retrying transaction in ${delay}ms...`,
         );
 
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await new Promise((resolve) => setTimeout(resolve, delay));
         delay *= 2; // Exponential backoff
       } finally {
         // CRÍTICO: Liberar conexión en cada intento
@@ -169,7 +169,7 @@ export class TransactionalRetryService {
           await queryRunner.release();
         } catch (releaseError) {
           this.logger.warn(
-            `[${requestId}] Failed to release queryRunner on attempt ${attempt}: ${(releaseError as any).message}`,
+            `[${requestId}] Failed to release queryRunner on attempt ${attempt}: ${releaseError.message}`,
           );
         }
       }

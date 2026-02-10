@@ -51,7 +51,11 @@ export function parseDateFlexible(
   };
 
   // Helper function para crear Date y validar
-  const createValidatedDate = (fullYear: number, month: number, day: number): Date => {
+  const createValidatedDate = (
+    fullYear: number,
+    month: number,
+    day: number,
+  ): Date => {
     validateYear(fullYear);
     const date = new Date(fullYear, month, day);
     if (isNaN(date.getTime())) {

@@ -18,7 +18,8 @@ export interface UploadVoucherFrontendInput {
   userId?: string | null;
 }
 
-export interface UploadVoucherFrontendOutput extends FrontendVoucherResponseDto {}
+export interface UploadVoucherFrontendOutput
+  extends FrontendVoucherResponseDto {}
 
 /**
  * Use Case: Procesar voucher desde Frontend (HTTP)

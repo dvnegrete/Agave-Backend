@@ -141,9 +141,7 @@ export class PaymentDistributionAnalyzerService {
     };
   }
 
-  private parseConfidence(
-    confidence: any,
-  ): 'high' | 'medium' | 'low' {
+  private parseConfidence(confidence: any): 'high' | 'medium' | 'low' {
     const valid = ['high', 'medium', 'low'];
     const level = String(confidence).toLowerCase();
     return valid.includes(level) ? (level as any) : 'low';

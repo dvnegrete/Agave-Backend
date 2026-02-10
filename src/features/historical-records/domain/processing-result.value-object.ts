@@ -25,7 +25,9 @@ export class ProcessingResult {
    * Calculate success rate percentage
    */
   get successRate(): number {
-    return this.totalRows > 0 ? (this.successfulRows / this.totalRows) * 100 : 0;
+    return this.totalRows > 0
+      ? (this.successfulRows / this.totalRows) * 100
+      : 0;
   }
 
   /**

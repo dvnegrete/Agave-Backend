@@ -105,7 +105,10 @@ describe('ConfirmVoucherUseCase - Amount Validation', () => {
         { provide: HouseRepository, useValue: mockHouseRepository },
         { provide: UserRepository, useValue: mockUserRepository },
         { provide: HouseRecordRepository, useValue: mockHouseRecordRepository },
-        { provide: TransactionStatusRepository, useValue: mockTransactionStatusRepository },
+        {
+          provide: TransactionStatusRepository,
+          useValue: mockTransactionStatusRepository,
+        },
         { provide: ConversationStateService, useValue: mockConversationState },
         {
           provide: WhatsAppMessagingService,
@@ -475,9 +478,7 @@ describe('ConfirmVoucherUseCase - Amount Validation', () => {
 
     it('should handle session expired gracefully', async () => {
       // Arrange
-      mockConversationState.getVoucherDataForConfirmation.mockReturnValue(
-        null,
-      );
+      mockConversationState.getVoucherDataForConfirmation.mockReturnValue(null);
 
       // Act
       const result = await useCase.execute({ phoneNumber });

@@ -64,7 +64,11 @@ describe('MatchingService - Nueva Lógica', () => {
         createVoucher(2, 600.25, new Date('2025-01-10T10:10:00')),
       ];
 
-      const result = await service.matchTransaction(transaction, vouchers, new Set());
+      const result = await service.matchTransaction(
+        transaction,
+        vouchers,
+        new Set(),
+      );
 
       expect(result.type).toBe('matched');
       if (result.type === 'matched') {
@@ -89,7 +93,11 @@ describe('MatchingService - Nueva Lógica', () => {
         createVoucher(3, 500.05, new Date('2025-01-10T08:00:00')), // 2 horas antes
       ];
 
-      const result = await service.matchTransaction(transaction, vouchers, new Set());
+      const result = await service.matchTransaction(
+        transaction,
+        vouchers,
+        new Set(),
+      );
 
       expect(result.type).toBe('matched');
       if (result.type === 'matched') {
@@ -151,7 +159,9 @@ describe('MatchingService - Nueva Lógica', () => {
       if (result.type === 'surplus') {
         expect(result.surplus.houseNumber).toBe(15);
         expect(result.surplus.requiresManualReview).toBe(false); // ✅ AUTO-CONCILIADO
-        expect(result.surplus.reason).toContain('Centavos + concepto coinciden');
+        expect(result.surplus.reason).toContain(
+          'Centavos + concepto coinciden',
+        );
       }
     });
 
@@ -216,7 +226,7 @@ describe('MatchingService - Nueva Lógica', () => {
 
       const transaction = createTransaction(
         'tx1',
-        500.00, // Sin centavos
+        500.0, // Sin centavos
         new Date('2025-01-10T10:00:00'),
         '10:00:00',
         'Casa 5 mantenimiento',
@@ -228,7 +238,9 @@ describe('MatchingService - Nueva Lógica', () => {
       if (result.type === 'surplus') {
         expect(result.surplus.houseNumber).toBe(5);
         expect(result.surplus.requiresManualReview).toBe(false); // ✅ AUTO-CONCILIADO
-        expect(result.surplus.reason).toContain('Concepto identifica claramente');
+        expect(result.surplus.reason).toContain(
+          'Concepto identifica claramente',
+        );
       }
     });
 
@@ -243,7 +255,7 @@ describe('MatchingService - Nueva Lógica', () => {
 
       const transaction = createTransaction(
         'tx1',
-        500.00, // Sin centavos
+        500.0, // Sin centavos
         new Date('2025-01-10T10:00:00'),
         '10:00:00',
         'Lote 10',
@@ -272,7 +284,7 @@ describe('MatchingService - Nueva Lógica', () => {
     it('debe marcar como sobrante cuando no hay centavos ni concepto', async () => {
       const transaction = createTransaction(
         'tx1',
-        500.00, // Sin centavos
+        500.0, // Sin centavos
         new Date('2025-01-10T10:00:00'),
         '10:00:00',
         'Transferencia bancaria', // Concepto genérico
@@ -298,11 +310,17 @@ describe('MatchingService - Nueva Lógica', () => {
         '10:00:00',
       );
 
-      const vouchers = [createVoucher(1, 500.15, new Date('2025-01-10T10:05:00'))];
+      const vouchers = [
+        createVoucher(1, 500.15, new Date('2025-01-10T10:05:00')),
+      ];
 
       const processedIds = new Set<number>([1]); // Ya procesado
 
-      const result = await service.matchTransaction(transaction, vouchers, processedIds);
+      const result = await service.matchTransaction(
+        transaction,
+        vouchers,
+        processedIds,
+      );
 
       // Como no hay vouchers disponibles, debe intentar por centavos
       expect(result.type).toBe('surplus');
@@ -343,10 +361,14 @@ describe('MatchingService - Nueva Lógica', () => {
       const vouchers = [
         createVoucher(101, 1500.15, new Date('2025-01-15T09:00:00')), // 1 hora antes (similitud: 0.97)
         createVoucher(102, 1500.15, new Date('2025-01-15T10:30:00')), // 30 min después (similitud: 0.99)
-        createVoucher(103, 1500.50, new Date('2025-01-15T14:00:00')), // Monto diferente, ignore
+        createVoucher(103, 1500.5, new Date('2025-01-15T14:00:00')), // Monto diferente, ignore
       ];
 
-      const result = await service.matchTransaction(transaction, vouchers, new Set());
+      const result = await service.matchTransaction(
+        transaction,
+        vouchers,
+        new Set(),
+      );
 
       expect(result.type).toBe('manual');
       if (result.type === 'manual') {
@@ -361,18 +383,22 @@ describe('MatchingService - Nueva Lógica', () => {
     it('debe auto-conciliar cuando hay diferencia clara entre candidatos (>5%)', async () => {
       const transaction = createTransaction(
         'tx-clear-1',
-        2000.20,
+        2000.2,
         new Date('2025-01-20T10:00:00'),
         '10:00:00',
       );
 
       // Dos vouchers con diferencia significativa en fecha
       const vouchers = [
-        createVoucher(201, 2000.20, new Date('2025-01-20T10:15:00')), // 15 min después (similitud: 0.99)
-        createVoucher(202, 2000.20, new Date('2025-01-21T22:00:00')), // 36 horas después (similitud: 0.0)
+        createVoucher(201, 2000.2, new Date('2025-01-20T10:15:00')), // 15 min después (similitud: 0.99)
+        createVoucher(202, 2000.2, new Date('2025-01-21T22:00:00')), // 36 horas después (similitud: 0.0)
       ];
 
-      const result = await service.matchTransaction(transaction, vouchers, new Set());
+      const result = await service.matchTransaction(
+        transaction,
+        vouchers,
+        new Set(),
+      );
 
       expect(result.type).toBe('matched');
       if (result.type === 'matched') {
@@ -391,19 +417,23 @@ describe('MatchingService - Nueva Lógica', () => {
     it('debe manejar más de 2 candidatos y retornar todos en possibleMatches', async () => {
       const transaction = createTransaction(
         'tx-multi-3',
-        1000.10,
+        1000.1,
         new Date('2025-01-10T12:00:00'),
         '12:00:00',
       );
 
       // Tres vouchers con similitud muy cercana
       const vouchers = [
-        createVoucher(301, 1000.10, new Date('2025-01-10T11:00:00')), // 1 hora antes
-        createVoucher(302, 1000.10, new Date('2025-01-10T12:30:00')), // 30 min después
-        createVoucher(303, 1000.10, new Date('2025-01-10T13:00:00')), // 1 hora después
+        createVoucher(301, 1000.1, new Date('2025-01-10T11:00:00')), // 1 hora antes
+        createVoucher(302, 1000.1, new Date('2025-01-10T12:30:00')), // 30 min después
+        createVoucher(303, 1000.1, new Date('2025-01-10T13:00:00')), // 1 hora después
       ];
 
-      const result = await service.matchTransaction(transaction, vouchers, new Set());
+      const result = await service.matchTransaction(
+        transaction,
+        vouchers,
+        new Set(),
+      );
 
       expect(result.type).toBe('manual');
       if (result.type === 'manual') {

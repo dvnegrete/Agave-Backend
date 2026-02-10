@@ -50,9 +50,7 @@ export class TelegramMessagingService {
       await this.telegramApi.sendMessage(chatId, message, {
         parse_mode: 'Markdown',
       });
-      this.logger.log(
-        `Mensaje con Markdown enviado exitosamente a ${chatId}`,
-      );
+      this.logger.log(`Mensaje con Markdown enviado exitosamente a ${chatId}`);
     } catch (error) {
       this.logger.error(
         `Error al enviar mensaje con Markdown a ${chatId}: ${error.message}`,

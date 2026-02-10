@@ -281,7 +281,9 @@ describe('GenericCsvModel', () => {
         is_deposit: true,
       };
 
-      const result = GenericCsvModel.mapJsonItem!(item, { bankName: 'TestBank' });
+      const result = GenericCsvModel.mapJsonItem!(item, {
+        bankName: 'TestBank',
+      });
 
       expect(result.currency).toBe('USD');
       expect(result.amount).toBe(100);
@@ -297,7 +299,9 @@ describe('GenericCsvModel', () => {
         is_deposit: true,
       };
 
-      const result = GenericCsvModel.mapJsonItem!(item, { bankName: 'TestBank' });
+      const result = GenericCsvModel.mapJsonItem!(item, {
+        bankName: 'TestBank',
+      });
 
       expect(result.currency).toBe('MXN');
       expect(result.amount).toBe(100);
@@ -312,7 +316,9 @@ describe('GenericCsvModel', () => {
         retiro: 100,
       };
 
-      const result = GenericCsvModel.mapJsonItem!(item, { bankName: 'TestBank' });
+      const result = GenericCsvModel.mapJsonItem!(item, {
+        bankName: 'TestBank',
+      });
 
       expect(result.currency).toBe('MXN');
       expect(result.amount).toBe(100);

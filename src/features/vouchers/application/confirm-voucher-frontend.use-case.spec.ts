@@ -59,9 +59,7 @@ describe('ConfirmVoucherFrontendUseCase', () => {
       createQueryRunner: jest.fn().mockReturnValue(mockQueryRunner),
       transaction: jest
         .fn()
-        .mockImplementation((callback) =>
-          callback(mockEntityManager),
-        ),
+        .mockImplementation((callback) => callback(mockEntityManager)),
     };
 
     // Mock Repositories
@@ -223,9 +221,7 @@ describe('ConfirmVoucherFrontendUseCase', () => {
         monto: 'invalid',
       };
 
-      await expect(useCase.execute(input)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(useCase.execute(input)).rejects.toThrow(BadRequestException);
     });
 
     it('should reject zero or negative monto', async () => {
@@ -234,9 +230,7 @@ describe('ConfirmVoucherFrontendUseCase', () => {
         monto: '-100',
       };
 
-      await expect(useCase.execute(input)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(useCase.execute(input)).rejects.toThrow(BadRequestException);
     });
 
     it('should detect duplicate vouchers', async () => {

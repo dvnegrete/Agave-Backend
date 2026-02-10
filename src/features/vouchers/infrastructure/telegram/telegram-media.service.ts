@@ -41,8 +41,7 @@ export class TelegramMediaService {
       const finalMimeType = mimeType || this.guessMimeTypeFromBuffer(buffer);
 
       // 3. Generar nombre de archivo
-      const filename =
-        fileName || this.generateFilename(finalMimeType, fileId);
+      const filename = fileName || this.generateFilename(finalMimeType, fileId);
 
       this.logger.log(
         `Media descargado exitosamente: ${filename}, ${buffer.length} bytes`,
@@ -140,9 +139,7 @@ export class TelegramMediaService {
     };
 
     for (const [mimeType, signature] of Object.entries(signatures)) {
-      const matches = signature.every(
-        (byte, index) => buffer[index] === byte,
-      );
+      const matches = signature.every((byte, index) => buffer[index] === byte);
       if (matches) {
         return mimeType;
       }
