@@ -31,6 +31,7 @@ import {
   GeneratePenaltyUseCase,
   ApplyCreditToPeriodsUseCase,
   DistributePaymentWithAIUseCase,
+  BackfillAllocationsUseCase,
 } from './application';
 
 // Infrastructure - Services
@@ -101,6 +102,7 @@ import {
     GeneratePenaltyUseCase,
     ApplyCreditToPeriodsUseCase,
     DistributePaymentWithAIUseCase,
+    BackfillAllocationsUseCase,
     AllocatePaymentUseCase,
     GetPaymentHistoryUseCase,
     GetHouseBalanceUseCase,

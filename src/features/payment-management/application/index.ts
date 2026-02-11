@@ -20,3 +20,4 @@ export * from './update-period-concepts.use-case';
 export * from './generate-penalty.use-case';
 export * from './apply-credit-to-periods.use-case';
 export * from './distribute-payment-with-ai.use-case';
+export * from './backfill-allocations.use-case';

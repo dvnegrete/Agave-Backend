@@ -9,6 +9,7 @@ import {
   Inject,
   ParseIntPipe,
   NotFoundException,
+  BadRequestException,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -38,6 +39,7 @@ import {
   CalculateHouseBalanceStatusUseCase,
   UpdatePeriodConceptsUseCase,
   DistributePaymentWithAIUseCase,
+  BackfillAllocationsUseCase,
 } from '../application';
 import {
   CreatePeriodDto,
@@ -52,6 +54,7 @@ import {
   UpdatePeriodConceptsDto,
   DistributePaymentRequestDto,
   ConfirmDistributionRequestDto,
+  BackfillAllocationsResponseDto,
 } from '../dto';
 import { HouseRepository } from '@/shared/database/repositories/house.repository';
 import { IPeriodConfigRepository } from '../interfaces';
@@ -76,6 +79,7 @@ export class PaymentManagementController {
     private readonly calculateHouseBalanceStatusUseCase: CalculateHouseBalanceStatusUseCase,
     private readonly updatePeriodConceptsUseCase: UpdatePeriodConceptsUseCase,
     private readonly distributePaymentWithAIUseCase: DistributePaymentWithAIUseCase,
+    private readonly backfillAllocationsUseCase: BackfillAllocationsUseCase,
   ) {}
 
   /**
@@ -628,6 +632,41 @@ export class PaymentManagementController {
       allocations_applied: results.length,
       results,
     };
+  }
+
+  /**
+   * POST /payment-management/backfill-allocations
+   * Backfill de record_allocations para records confirmados sin allocations
+   * Usado para corregir records procesados antes del Balance Engine
+   */
+  @Post('backfill-allocations')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Backfill record allocations',
+    description:
+      'Encuentra records confirmados sin allocations y ejecuta AllocatePayment para cada uno. Idempotente.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Backfill completado',
+    type: BackfillAllocationsResponseDto,
+  })
+  async backfillAllocations(
+    @Query('houseNumber') houseNumberStr?: string,
+  ): Promise<BackfillAllocationsResponseDto> {
+    let houseNumber: number | undefined;
+
+    if (houseNumberStr) {
+      houseNumber = parseInt(houseNumberStr, 10);
+      if (isNaN(houseNumber) || houseNumber < 1 || houseNumber > 66) {
+        throw new BadRequestException(
+          'houseNumber debe ser un número entre 1 y 66',
+        );
+      }
+    }
+
+    return this.backfillAllocationsUseCase.execute(houseNumber);
   }
 
   /**

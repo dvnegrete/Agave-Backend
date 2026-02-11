@@ -11,3 +11,4 @@ export * from './unreconciled-voucher.dto';
 export * from './enriched-house-balance.dto';
 export * from './update-period-concepts.dto';
 export * from './distribute-payment.dto';
+export * from './backfill-allocations.dto';
