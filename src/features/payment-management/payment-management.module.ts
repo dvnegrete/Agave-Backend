@@ -17,6 +17,7 @@ import {
   AllocatePaymentUseCase,
   GetPaymentHistoryUseCase,
   GetHouseBalanceUseCase,
+  GetHousePeriodBalanceUseCase,
   GetHouseTransactionsUseCase,
   GetHouseUnreconciledVouchersUseCase,
   CalculateHouseBalanceStatusUseCase,
@@ -28,7 +29,10 @@ import {
 
 // Infrastructure - Services
 import { PaymentDistributionAnalyzerService } from './infrastructure/matching/payment-distribution-analyzer.service';
-import { SeedHousePeriodChargesService } from './infrastructure/services';
+import {
+  SeedHousePeriodChargesService,
+  HousePeriodChargeCalculatorService,
+} from './infrastructure/services';
 
 // Infrastructure Layer - Repositories
 import { PeriodRepository } from './infrastructure/repositories/period.repository';
@@ -91,12 +95,14 @@ import {
     AllocatePaymentUseCase,
     GetPaymentHistoryUseCase,
     GetHouseBalanceUseCase,
+    GetHousePeriodBalanceUseCase,
     GetHouseTransactionsUseCase,
     GetHouseUnreconciledVouchersUseCase,
 
     // Services
     PaymentDistributionAnalyzerService,
     SeedHousePeriodChargesService,
+    HousePeriodChargeCalculatorService,
 
     // Repositories - Provide with interface tokens
     {

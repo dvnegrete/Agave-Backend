@@ -6,6 +6,7 @@ export * from './update-period-config.use-case';
 export * from './allocate-payment.use-case';
 export * from './get-payment-history.use-case';
 export * from './get-house-balance.use-case';
+export * from './get-house-period-balance.use-case';
 export * from './get-house-transactions.use-case';
 export * from './get-house-unreconciled-vouchers.use-case';
 export * from './calculate-house-balance-status.use-case';

@@ -20,6 +20,7 @@ import {
   IHouseBalanceRepository,
   IHousePeriodOverrideRepository,
   IPeriodRepository,
+  IHousePeriodChargeRepository,
 } from '../interfaces';
 import { PeriodConfigRepository } from '../infrastructure/repositories/period-config.repository';
 import { ApplyCreditToPeriodsUseCase } from './apply-credit-to-periods.use-case';
@@ -39,6 +40,8 @@ export class AllocatePaymentUseCase {
     private readonly housePeriodOverrideRepository: IHousePeriodOverrideRepository,
     @Inject('IPeriodRepository')
     private readonly periodRepository: IPeriodRepository,
+    @Inject('IHousePeriodChargeRepository')
+    private readonly housePeriodChargeRepository: IHousePeriodChargeRepository,
     private readonly periodConfigRepository: PeriodConfigRepository,
     private readonly applyCreditToPeriodsUseCase: ApplyCreditToPeriodsUseCase,
   ) {}
@@ -130,9 +133,53 @@ export class AllocatePaymentUseCase {
   }
 
   /**
-   * Prepara la lista de conceptos con montos esperados
+   * Prepara la lista de conceptos con montos esperados desde house_period_charges
+   * Los montos son inmutables (creados cuando se creó el período)
+   * Esto reemplaza el cálculo dinámico anterior
    */
   private async preparePaymentConcepts(
+    houseId: number,
+    periodId: number,
+    periodConfig: any,
+  ): Promise<
+    Array<{
+      type: AllocationConceptType;
+      conceptId: number;
+      expectedAmount: number;
+    }>
+  > {
+    // Obtener los cargos inmutables para esta casa en este período
+    const charges = await this.housePeriodChargeRepository.findByHouseAndPeriod(
+      houseId,
+      periodId,
+    );
+
+    // Si no hay cargos, usar fallback al método antiguo (para retrocompatibilidad)
+    // Esto permite que el sistema funcione incluso si hay períodos creados antes de Fase 2
+    if (charges.length === 0) {
+      return this.preparePaymentConceptsLegacy(
+        houseId,
+        periodId,
+        periodConfig,
+      );
+    }
+
+    // Convertir charges a formato de conceptos
+    const concepts = charges.map((charge) => ({
+      type: charge.concept_type as AllocationConceptType,
+      conceptId: 0, // Será actualizado según registro real en distributePayment
+      expectedAmount: charge.expected_amount,
+    }));
+
+    return concepts;
+  }
+
+  /**
+   * Método legacy para retrocompatibilidad
+   * Se usa si no hay cargos en house_period_charges (períodos creados antes de Fase 2)
+   * @private
+   */
+  private async preparePaymentConceptsLegacy(
     houseId: number,
     periodId: number,
     periodConfig: any,
