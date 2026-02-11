@@ -4,6 +4,7 @@ import { Period } from '@/shared/database/entities';
 import { PeriodDomain } from '../domain';
 import { IPeriodRepository } from '../interfaces';
 import { IPeriodConfigRepository } from '../interfaces';
+import { SeedHousePeriodChargesService } from '@/features/payment-management/infrastructure/services';
 
 /**
  * Caso de uso: Asegurar que existe un período
@@ -24,6 +25,7 @@ export class EnsurePeriodExistsUseCase {
     @Inject('IPeriodConfigRepository')
     private readonly periodConfigRepository: IPeriodConfigRepository,
     private readonly dataSource: DataSource,
+    private readonly seedChargesService: SeedHousePeriodChargesService,
   ) {}
 
   async execute(year: number, month: number): Promise<PeriodDomain> {
@@ -67,8 +69,8 @@ export class EnsurePeriodExistsUseCase {
       activeConfig?.id,
     );
 
-    // TODO: Crear registros default en cta_maintenance, cta_water, etc.
-    // usando los montos de activeConfig
+    // 4. Seed de cargos esperados para todas las casas
+    await this.seedChargesService.seedChargesForPeriod(newPeriod.id);
 
     const periodDomain = PeriodDomain.create({
       id: newPeriod.id,

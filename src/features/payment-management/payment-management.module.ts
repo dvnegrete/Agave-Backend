@@ -28,6 +28,7 @@ import {
 
 // Infrastructure - Services
 import { PaymentDistributionAnalyzerService } from './infrastructure/matching/payment-distribution-analyzer.service';
+import { SeedHousePeriodChargesService } from './infrastructure/services';
 
 // Infrastructure Layer - Repositories
 import { PeriodRepository } from './infrastructure/repositories/period.repository';
@@ -35,6 +36,7 @@ import { PeriodConfigRepository } from './infrastructure/repositories/period-con
 import { RecordAllocationRepository } from './infrastructure/repositories/record-allocation.repository';
 import { HouseBalanceRepository } from './infrastructure/repositories/house-balance.repository';
 import { HousePeriodOverrideRepository } from './infrastructure/repositories/house-period-override.repository';
+import { HousePeriodChargeRepository } from './infrastructure/repositories/house-period-charge.repository';
 
 // Shared Repositories
 import { TransactionBankRepository } from '@/shared/database/repositories/transaction-bank.repository';
@@ -47,6 +49,7 @@ import {
   PeriodConfig,
   HouseBalance,
   HousePeriodOverride,
+  HousePeriodCharge,
   RecordAllocation,
   House,
   TransactionBank,
@@ -64,6 +67,7 @@ import {
       PeriodConfig,
       HouseBalance,
       HousePeriodOverride,
+      HousePeriodCharge,
       RecordAllocation,
       House,
       TransactionBank,
@@ -84,12 +88,15 @@ import {
     GeneratePenaltyUseCase,
     ApplyCreditToPeriodsUseCase,
     DistributePaymentWithAIUseCase,
-    PaymentDistributionAnalyzerService,
     AllocatePaymentUseCase,
     GetPaymentHistoryUseCase,
     GetHouseBalanceUseCase,
     GetHouseTransactionsUseCase,
     GetHouseUnreconciledVouchersUseCase,
+
+    // Services
+    PaymentDistributionAnalyzerService,
+    SeedHousePeriodChargesService,
 
     // Repositories - Provide with interface tokens
     {
@@ -112,12 +119,17 @@ import {
       provide: 'IHousePeriodOverrideRepository',
       useClass: HousePeriodOverrideRepository,
     },
+    {
+      provide: 'IHousePeriodChargeRepository',
+      useClass: HousePeriodChargeRepository,
+    },
     // Also provide as regular classes for DI
     PeriodRepository,
     PeriodConfigRepository,
     RecordAllocationRepository,
     HouseBalanceRepository,
     HousePeriodOverrideRepository,
+    HousePeriodChargeRepository,
     TransactionBankRepository,
     HouseRepository,
     VoucherRepository,
@@ -130,6 +142,7 @@ import {
     RecordAllocationRepository,
     HouseBalanceRepository,
     HousePeriodOverrideRepository,
+    HousePeriodChargeRepository,
   ],
 })
 export class PaymentManagementModule {}

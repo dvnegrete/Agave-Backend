@@ -2,6 +2,7 @@ import { Injectable, ConflictException, Inject } from '@nestjs/common';
 import { PeriodDomain } from '../domain';
 import { CreatePeriodDto } from '../dto';
 import { IPeriodRepository, IPeriodConfigRepository } from '../interfaces';
+import { SeedHousePeriodChargesService } from '@/features/payment-management/infrastructure/services';
 
 /**
  * Caso de uso: Crear un período manualmente
@@ -14,6 +15,7 @@ export class CreatePeriodUseCase {
     private readonly periodRepository: IPeriodRepository,
     @Inject('IPeriodConfigRepository')
     private readonly periodConfigRepository: IPeriodConfigRepository,
+    private readonly seedChargesService: SeedHousePeriodChargesService,
   ) {}
 
   async execute(dto: CreatePeriodDto): Promise<PeriodDomain> {
@@ -37,7 +39,9 @@ export class CreatePeriodUseCase {
       activeConfig?.id,
     );
 
-    // TODO: Crear registros en cta_maintenance, cta_water, etc. usando activeConfig
+    // 4. Seed de cargos esperados para todas las casas
+    await this.seedChargesService.seedChargesForPeriod(period.id);
+
     // TODO: Notificar a sistema de conciliación bancaria
 
     return PeriodDomain.create({
