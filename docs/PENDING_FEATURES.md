@@ -591,6 +591,123 @@ Sistema: "Mismo monto, misma casa. Requiere validación manual para evitar dupli
 
 ---
 
+## Payment Management - House Period Charges System
+
+**Prioridad**: Alta ✅ **COMPLETADO**
+**Fecha registro**: 2026-02-10
+**Fecha completado**: 2026-02-11
+**Estado**: ✅ COMPLETAMENTE IMPLEMENTADO
+**Documentación**: `docs/features/payment-management/HOUSE_PERIOD_CHARGES.md`
+
+### Resumen de Implementación (6 Fases)
+
+Sistema de snapshot inmutable de cargos esperados por casa-período. Reemplaza cálculos dinámicos por datos congelados al crear cada período.
+
+**Fases Completadas:**
+
+| Fase | Descripción | Archivos | Status |
+|------|-------------|----------|--------|
+| **1** | Modelo de datos (Entity, Migration, Repository) | 4 | ✅ |
+| **2** | Seed automático al crear período (M+W+F+P) | 2 | ✅ |
+| **3** | Integración con AllocatePaymentUseCase | 3 | ✅ |
+| **4** | Penalidades automáticas en seed | 2 | ✅ |
+| **5** | Reportes analíticos (período, casa, clasificación) | 5 | ✅ |
+| **6** | Ajustes, reversiones y condonaciones | 5 | ✅ |
+
+**Total**: 21 archivos nuevos + 10 modificados
+
+### Qué se Implementó
+
+**Tabla**: `house_period_charges`
+- Snapshot inmutable de cargos (casa × período × concepto)
+- ~198-264 registros por período (66 casas × 3-4 conceptos)
+- Índices: `(house_id, period_id, concept_type)` UNIQUE
+
+**Servicios (4)**:
+- `SeedHousePeriodChargesService` - Crear cargos inmutables
+- `HousePeriodChargeCalculatorService` - Cálculos basados en cargos
+- `CalculatePeriodPenaltiesService` - Penalidades automáticas
+- `PaymentReportAnalyzerService` - Reportes analíticos
+- `ChargeAdjustmentValidatorService` - Validaciones de negocio
+
+**Use Cases (9)**:
+- `CreatePeriodUseCase` - Modificado para ejecutar seed
+- `EnsurePeriodExistsUseCase` - Modificado para ejecutar seed
+- `AllocatePaymentUseCase` - Modificado para usar HPC
+- `GetHousePeriodBalanceUseCase` - Balance casa-período
+- `GetPeriodReportUseCase` - Reporte período
+- `GetHousePaymentHistoryUseCase` - Historial multi-período
+- `ClassifyHousesByPaymentUseCase` - Clasificación de casas
+- `AdjustHousePeriodChargeUseCase` - Ajustar cargo
+- `ReverseHousePeriodChargeUseCase` - Reversionar cargo
+- `CondonePenaltyUseCase` - Condonar penalidades
+
+### Cómo Funciona
+
+**Al crear período:**
+```
+1. CreatePeriodUseCase.execute()
+2. SeedHousePeriodChargesService.seedChargesForPeriod(periodId)
+   ├─ Para cada casa (1-66):
+   │  ├─ Crear MAINTENANCE (siempre)
+   │  ├─ Crear WATER (si water_active)
+   │  ├─ Crear EXTRAORDINARY_FEE (si extraordinary_fee_active)
+   │  └─ Crear PENALTIES (si hay deuda anterior)
+   └─ Batch insert (~264 cargos)
+```
+
+**Al distribuir pagos:**
+```
+1. AllocatePaymentUseCase.execute(recordId, houseId, periodId, amount)
+2. preparePaymentConcepts():
+   └─ SELECT FROM house_period_charges (montos inmutables)
+3. Distribuir pago FIFO usando montos fijos
+```
+
+**Consultar balance:**
+```
+1. GetHousePeriodBalanceUseCase.execute(houseId, periodId)
+2. SELECT SUM(expected_amount) FROM house_period_charges
+3. SELECT SUM(allocated_amount) FROM record_allocations
+4. Calcular diferencia = expected - paid
+```
+
+### Validaciones de Negocio
+
+- ✅ No editar períodos > 3 meses atrás (proteger histórico)
+- ✅ No reducir cargos por debajo de lo ya pagado
+- ✅ Solo condonar penalidades, no otros conceptos
+- ✅ No permitir reversión de cargos con pagos asignados
+
+### Integración con Sistema Actual
+
+- ✅ Se integra con `AllocatePaymentUseCase` existente
+- ✅ Se integra con `PeriodConfig` para valores por defecto
+- ✅ Se integra con `HousePeriodOverride` para sobrescrituras
+- ✅ Se integra con `RecordAllocation` para tracking de pagos
+- ✅ Retrocompatible con períodos antiguos (fallback a cálculo legacy)
+
+### Beneficios Realizados
+
+| Aspecto | Antes | Después |
+|---------|-------|---------|
+| Montos esperados | Dinámicos (recalculados) | Inmutables (snapshot) |
+| Trazabilidad | Débil | Fuerte (campo `source`) |
+| Auditabilidad | Difícil | Fácil (datos congelados) |
+| Distribución FIFO | Montos variables | Montos garantizados |
+| Penalidades | Manual | Automáticas |
+| Reportes | Aproximados | Precisos |
+
+### Documentación
+
+Ver `docs/features/payment-management/HOUSE_PERIOD_CHARGES.md` para:
+- Detalles técnicos completos
+- Flujos de datos
+- Ejemplos de uso
+- Próximos desarrollos posibles
+
+---
+
 ## Payment Management - Tablas Contables cta_*
 
 **Prioridad**: Baja (No Bloqueante)
