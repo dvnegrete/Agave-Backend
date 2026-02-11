@@ -32,6 +32,7 @@ import { PaymentDistributionAnalyzerService } from './infrastructure/matching/pa
 import {
   SeedHousePeriodChargesService,
   HousePeriodChargeCalculatorService,
+  CalculatePeriodPenaltiesService,
 } from './infrastructure/services';
 
 // Infrastructure Layer - Repositories
@@ -103,6 +104,7 @@ import {
     PaymentDistributionAnalyzerService,
     SeedHousePeriodChargesService,
     HousePeriodChargeCalculatorService,
+    CalculatePeriodPenaltiesService,
 
     // Repositories - Provide with interface tokens
     {

@@ -6,6 +6,7 @@ import { IHousePeriodOverrideRepository } from '../../interfaces/house-period-ov
 import { HouseRepository } from '@/shared/database/repositories/house.repository';
 import { IPeriodRepository } from '../../interfaces/period.repository.interface';
 import { IPeriodConfigRepository } from '../../interfaces/period-config.repository.interface';
+import { CalculatePeriodPenaltiesService } from './calculate-period-penalties.service';
 
 /**
  * Servicio para generar (seed) los cargos esperados de casas en un período
@@ -27,6 +28,7 @@ export class SeedHousePeriodChargesService {
     @Inject('IPeriodConfigRepository')
     private readonly configRepository: IPeriodConfigRepository,
     private readonly houseRepository: HouseRepository,
+    private readonly penaltyCalculator: CalculatePeriodPenaltiesService,
   ) {}
 
   /**
@@ -106,6 +108,22 @@ export class SeedHousePeriodChargesService {
         if (extraCharge) {
           charges.push(extraCharge);
         }
+      }
+
+      // Cargo de PENALTIES (si hay deuda en períodos anteriores) - FASE 4
+      const penaltyAmount = await this.penaltyCalculator.calculatePenaltyForHouse(
+        house.id,
+        period.id,
+      );
+
+      if (penaltyAmount > 0) {
+        charges.push({
+          house_id: house.id,
+          period_id: period.id,
+          concept_type: AllocationConceptType.PENALTIES,
+          expected_amount: penaltyAmount,
+          source: 'auto_penalty',
+        });
       }
     }
 
