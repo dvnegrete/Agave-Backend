@@ -18,6 +18,9 @@ import {
   GetPaymentHistoryUseCase,
   GetHouseBalanceUseCase,
   GetHousePeriodBalanceUseCase,
+  GetPeriodReportUseCase,
+  GetHousePaymentHistoryUseCase,
+  ClassifyHousesByPaymentUseCase,
   GetHouseTransactionsUseCase,
   GetHouseUnreconciledVouchersUseCase,
   CalculateHouseBalanceStatusUseCase,
@@ -33,6 +36,7 @@ import {
   SeedHousePeriodChargesService,
   HousePeriodChargeCalculatorService,
   CalculatePeriodPenaltiesService,
+  PaymentReportAnalyzerService,
 } from './infrastructure/services';
 
 // Infrastructure Layer - Repositories
@@ -97,6 +101,9 @@ import {
     GetPaymentHistoryUseCase,
     GetHouseBalanceUseCase,
     GetHousePeriodBalanceUseCase,
+    GetPeriodReportUseCase,
+    GetHousePaymentHistoryUseCase,
+    ClassifyHousesByPaymentUseCase,
     GetHouseTransactionsUseCase,
     GetHouseUnreconciledVouchersUseCase,
 
@@ -105,6 +112,7 @@ import {
     SeedHousePeriodChargesService,
     HousePeriodChargeCalculatorService,
     CalculatePeriodPenaltiesService,
+    PaymentReportAnalyzerService,
 
     // Repositories - Provide with interface tokens
     {
