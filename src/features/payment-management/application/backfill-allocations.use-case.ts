@@ -73,18 +73,14 @@ export class BackfillAllocationsUseCase {
         const year = txDate.getFullYear();
         const month = txDate.getMonth() + 1;
 
-        // Asegurar que existe el periodo
-        const period = await this.ensurePeriodExistsUseCase.execute(
-          year,
-          month,
-        );
+        // Asegurar que existe el periodo (para que tenga sus house_period_charges)
+        await this.ensurePeriodExistsUseCase.execute(year, month);
 
-        // Ejecutar allocation reutilizando el use case existente
+        // Ejecutar allocation con FIFO automático (sin period_id)
         await this.allocatePaymentUseCase.execute({
           record_id: record.record_id,
           house_id: record.house_id,
           amount_to_distribute: record.amount,
-          period_id: period.id,
         });
 
         processed++;

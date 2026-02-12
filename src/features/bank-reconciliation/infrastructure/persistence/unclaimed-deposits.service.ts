@@ -21,8 +21,6 @@ import {
 } from '@/shared/config/business-rules.config';
 import { UnclaimedDepositsPageDto, AssignHouseResponseDto } from '../../dto';
 import { AllocatePaymentUseCase } from '@/features/payment-management/application';
-import { PeriodRepository } from '@/features/payment-management/infrastructure/repositories/period.repository';
-import { EnsurePeriodExistsUseCase } from '@/features/payment-management/application';
 
 /**
  * Servicio para manejar depósitos no reclamados (estados: conflict, not-found)
@@ -39,8 +37,6 @@ export class UnclaimedDepositsService {
     private readonly houseRecordRepository: HouseRecordRepository,
     private readonly transactionBankRepository: TransactionBankRepository,
     private readonly allocatePaymentUseCase: AllocatePaymentUseCase,
-    private readonly periodRepository: PeriodRepository,
-    private readonly ensurePeriodExistsUseCase: EnsurePeriodExistsUseCase,
   ) {}
 
   /**
@@ -328,17 +324,14 @@ export class UnclaimedDepositsService {
         `Depósito asignado: Transaction ${transactionId} → Casa ${houseNumber} por usuario ${userId}`,
       );
 
-      // 9. FUERA DE TRANSACCIÓN: Asignar pago a conceptos
+      // 9. FUERA DE TRANSACCIÓN: Asignar pago a conceptos (FIFO automático)
       let paymentAllocation: any = undefined;
 
       try {
-        const period = await this.getOrCreateCurrentPeriod();
-
         const allocationResult = await this.allocatePaymentUseCase.execute({
           record_id: recordId,
           house_id: house.id,
           amount_to_distribute: transaction.amount,
-          period_id: period.id,
         });
 
         paymentAllocation = {
@@ -377,27 +370,6 @@ export class UnclaimedDepositsService {
     } finally {
       await queryRunner.release();
     }
-  }
-
-  /**
-   * Obtiene o crea el período actual
-   * @private
-   */
-  private async getOrCreateCurrentPeriod() {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth() + 1;
-
-    const existingPeriod = await this.periodRepository.findByYearAndMonth(
-      year,
-      month,
-    );
-
-    if (existingPeriod) {
-      return existingPeriod;
-    }
-
-    return await this.ensurePeriodExistsUseCase.execute(year, month);
   }
 
   /**

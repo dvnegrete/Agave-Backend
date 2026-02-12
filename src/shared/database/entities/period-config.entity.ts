@@ -51,6 +51,14 @@ export class PeriodConfig {
   })
   effective_until: Date;
 
+  @Column({
+    type: 'float',
+    default: 100,
+    comment:
+      'Umbral de centavos acumulados para convertir a crédito (default $100)',
+  })
+  cents_credit_threshold: number;
+
   @Column({ type: 'boolean', default: true })
   is_active: boolean;
 

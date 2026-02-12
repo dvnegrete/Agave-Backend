@@ -16,8 +16,6 @@ import {
 import { EnsureHouseExistsService } from '@/shared/database/services';
 import { UnclaimedDeposit, ManualValidationCase } from '../../domain';
 import { AllocatePaymentUseCase } from '@/features/payment-management/application';
-import { PeriodRepository } from '@/features/payment-management/infrastructure/repositories/period.repository';
-import { EnsurePeriodExistsUseCase } from '@/features/payment-management/application';
 import { TransactionBankRepository as TransactionBankRepo } from '@/shared/database/repositories/transaction-bank.repository';
 
 /**
@@ -37,8 +35,6 @@ export class ReconciliationPersistenceService implements OnModuleInit {
     private readonly voucherRepository: VoucherRepository,
     private readonly gcsCleanupService: GcsCleanupService,
     private readonly allocatePaymentUseCase: AllocatePaymentUseCase,
-    private readonly periodRepository: PeriodRepository,
-    private readonly ensurePeriodExistsUseCase: EnsurePeriodExistsUseCase,
     private readonly transactionBankRepository: TransactionBankRepo,
     private readonly ensureHouseExistsService: EnsureHouseExistsService,
   ) {}
@@ -151,7 +147,7 @@ export class ReconciliationPersistenceService implements OnModuleInit {
 
       await queryRunner.commitTransaction();
 
-      // 6. FUERA DE LA TRANSACCIÓN: Asignar el pago a conceptos
+      // 6. FUERA DE LA TRANSACCIÓN: Asignar el pago a conceptos (FIFO automático)
       // Esto se hace fuera de la transacción original porque AllocatePaymentUseCase
       // puede hacer múltiples operaciones de base de datos
       try {
@@ -160,20 +156,15 @@ export class ReconciliationPersistenceService implements OnModuleInit {
 
         if (!transactionBank) {
           this.logger.warn(
-            `No se pudo obtener información de TransactionBank ${transactionBankId} para asignar pago. ` +
-              `La asignación se hará al período actual pero sin información del monto original.`,
+            `No se pudo obtener información de TransactionBank ${transactionBankId} para asignar pago.`,
           );
         }
 
-        // Obtener o crear el período actual
-        const period = await this.getOrCreateCurrentPeriod();
-
-        // Asignar el pago a conceptos (mantenimiento, agua, cuota extraordinaria)
+        // Asignar el pago a conceptos con distribución FIFO (sin period_id)
         const allocationResult = await this.allocatePaymentUseCase.execute({
           record_id: recordId,
           house_id: house.id,
           amount_to_distribute: transactionBank?.amount ?? 0,
-          period_id: period.id,
         });
 
         this.logger.log(
@@ -515,60 +506,6 @@ export class ReconciliationPersistenceService implements OnModuleInit {
 
       this.logger.log(
         `✅ Voucher ${voucherId}: archivo eliminado del bucket y URL actualizada a null`,
-      );
-    }
-  }
-
-  /**
-   * Obtiene el período actual o lo crea si no existe
-   * Usa la fecha actual (hoy) para determinar el período
-   *
-   * @returns Período actual o recién creado
-   * @private
-   */
-  private async getOrCreateCurrentPeriod(): Promise<any> {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth() + 1; // Meses van de 1-12
-
-    try {
-      // Intentar obtener el período actual
-      const existingPeriod = await this.periodRepository.findByYearAndMonth(
-        currentYear,
-        currentMonth,
-      );
-
-      if (existingPeriod) {
-        this.logger.log(
-          `Período actual encontrado: ${currentYear}-${currentMonth.toString().padStart(2, '0')} (ID: ${existingPeriod.id})`,
-        );
-        return existingPeriod;
-      }
-
-      // Si no existe, crear automáticamente usando EnsurePeriodExistsUseCase
-      this.logger.log(
-        `Período ${currentYear}-${currentMonth.toString().padStart(2, '0')} no existe, creando automáticamente`,
-      );
-
-      const newPeriod = await this.ensurePeriodExistsUseCase.execute(
-        currentYear,
-        currentMonth,
-      );
-
-      this.logger.log(
-        `Período creado exitosamente: ${currentYear}-${currentMonth.toString().padStart(2, '0')} (ID: ${newPeriod.id})`,
-      );
-
-      return newPeriod;
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
-      this.logger.error(
-        `Error al obtener o crear período actual: ${errorMessage}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-      throw new Error(
-        `No se pudo obtener o crear el período actual para ${currentYear}-${currentMonth}: ${errorMessage}`,
       );
     }
   }

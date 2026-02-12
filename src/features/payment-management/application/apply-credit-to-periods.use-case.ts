@@ -11,6 +11,7 @@ import {
   IPeriodConfigRepository,
   IHouseBalanceRepository,
   IHousePeriodOverrideRepository,
+  IHousePeriodChargeRepository,
 } from '../interfaces';
 import {
   CreditApplicationResult,
@@ -32,6 +33,8 @@ export class ApplyCreditToPeriodsUseCase {
     private readonly houseBalanceRepository: IHouseBalanceRepository,
     @Inject('IHousePeriodOverrideRepository')
     private readonly housePeriodOverrideRepository: IHousePeriodOverrideRepository,
+    @Inject('IHousePeriodChargeRepository')
+    private readonly housePeriodChargeRepository: IHousePeriodChargeRepository,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -60,6 +63,14 @@ export class ApplyCreditToPeriodsUseCase {
       a.year !== b.year ? a.year - b.year : a.month - b.month,
     );
 
+    // Orden de prioridad de conceptos
+    const conceptOrder: AllocationConceptType[] = [
+      AllocationConceptType.MAINTENANCE,
+      AllocationConceptType.WATER,
+      AllocationConceptType.EXTRAORDINARY_FEE,
+      AllocationConceptType.PENALTIES,
+    ];
+
     // Usar queryRunner para atomicidad
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -69,22 +80,27 @@ export class ApplyCreditToPeriodsUseCase {
       for (const period of sortedPeriods) {
         if (remainingCredit <= 0) break;
 
-        // Verificar cuanto falta pagar en este periodo (solo mantenimiento)
-        const periodStartDate =
-          period.start_date instanceof Date
-            ? period.start_date
-            : new Date(period.start_date);
-        const config =
-          await this.periodConfigRepository.findActiveForDate(periodStartDate);
-        if (!config) continue;
-
-        const maintenanceExpected =
-          await this.housePeriodOverrideRepository.getApplicableAmount(
+        // Obtener cargos de house_period_charges
+        const charges =
+          await this.housePeriodChargeRepository.findByHouseAndPeriod(
             houseId,
             period.id,
-            ConceptType.MAINTENANCE,
-            config.default_maintenance_amount,
           );
+
+        // Si no hay charges, usar fallback legacy (solo MAINTENANCE)
+        const concepts =
+          charges.length > 0
+            ? charges
+                .map((c) => ({
+                  type: c.concept_type as AllocationConceptType,
+                  expectedAmount: c.expected_amount,
+                }))
+                .sort((a, b) => {
+                  const idxA = conceptOrder.indexOf(a.type);
+                  const idxB = conceptOrder.indexOf(b.type);
+                  return (idxA === -1 ? 99 : idxA) - (idxB === -1 ? 99 : idxB);
+                })
+            : await this.getLegacyMaintenanceConcept(houseId, period);
 
         // Obtener lo ya pagado
         const existingAllocations =
@@ -93,51 +109,55 @@ export class ApplyCreditToPeriodsUseCase {
             period.id,
           );
 
-        const maintenancePaid = existingAllocations
-          .filter((a) => a.concept_type === AllocationConceptType.MAINTENANCE)
-          .reduce((sum, a) => sum + a.allocated_amount, 0);
+        for (const concept of concepts) {
+          if (remainingCredit <= 0) break;
 
-        const maintenancePending = Math.max(
-          0,
-          maintenanceExpected - maintenancePaid,
-        );
+          const alreadyPaid = existingAllocations
+            .filter((a) => a.concept_type === concept.type)
+            .reduce((sum, a) => sum + a.allocated_amount, 0);
 
-        if (maintenancePending <= 0) continue;
+          const pending = Math.max(
+            0,
+            Math.round((concept.expectedAmount - alreadyPaid) * 100) / 100,
+          );
 
-        // Aplicar crédito
-        const amountToApply = Math.min(remainingCredit, maintenancePending);
-        const isComplete =
-          Math.round(amountToApply * 100) / 100 >=
-          Math.round(maintenancePending * 100) / 100;
+          if (pending <= 0) continue;
 
-        // Crear allocation usando queryRunner directamente
-        await queryRunner.query(
-          `INSERT INTO "record_allocations" (
-            "record_id", "house_id", "period_id", "concept_type",
-            "concept_id", "allocated_amount", "expected_amount", "payment_status"
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-          [
-            0, // record_id 0 = crédito del sistema
-            houseId,
-            period.id,
-            AllocationConceptType.MAINTENANCE,
-            0, // concept_id 0 = crédito aplicado
-            amountToApply,
-            maintenanceExpected,
-            isComplete ? PaymentStatus.COMPLETE : PaymentStatus.PARTIAL,
-          ],
-        );
+          const amountToApply = Math.min(remainingCredit, pending);
+          const totalPaidAfter = alreadyPaid + amountToApply;
+          const isComplete =
+            Math.round(totalPaidAfter * 100) / 100 >=
+            Math.round(concept.expectedAmount * 100) / 100;
 
-        allocationsCreated.push({
-          period_id: period.id,
-          concept_type: AllocationConceptType.MAINTENANCE,
-          allocated_amount: amountToApply,
-          expected_amount: maintenanceExpected,
-          is_complete: isComplete,
-        });
+          // Crear allocation usando queryRunner directamente
+          await queryRunner.query(
+            `INSERT INTO "record_allocations" (
+              "record_id", "house_id", "period_id", "concept_type",
+              "concept_id", "allocated_amount", "expected_amount", "payment_status"
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            [
+              0, // record_id 0 = crédito del sistema
+              houseId,
+              period.id,
+              concept.type,
+              0, // concept_id 0 = crédito aplicado
+              amountToApply,
+              concept.expectedAmount,
+              isComplete ? PaymentStatus.COMPLETE : PaymentStatus.PARTIAL,
+            ],
+          );
 
-        remainingCredit -= amountToApply;
-        remainingCredit = Math.round(remainingCredit * 100) / 100;
+          allocationsCreated.push({
+            period_id: period.id,
+            concept_type: concept.type,
+            allocated_amount: amountToApply,
+            expected_amount: concept.expectedAmount,
+            is_complete: isComplete,
+          });
+
+          remainingCredit -= amountToApply;
+          remainingCredit = Math.round(remainingCredit * 100) / 100;
+        }
       }
 
       // Actualizar balance
@@ -157,7 +177,7 @@ export class ApplyCreditToPeriodsUseCase {
       ).length;
 
       this.logger.log(
-        `Credito aplicado para casa ${houseId}: $${totalApplied} en ${allocationsCreated.length} periodos`,
+        `Credito aplicado para casa ${houseId}: $${totalApplied} en ${allocationsCreated.length} conceptos`,
       );
 
       return {
@@ -178,5 +198,36 @@ export class ApplyCreditToPeriodsUseCase {
     } finally {
       await queryRunner.release();
     }
+  }
+
+  /**
+   * Fallback legacy: obtener solo concepto MAINTENANCE cuando no hay house_period_charges
+   */
+  private async getLegacyMaintenanceConcept(
+    houseId: number,
+    period: any,
+  ): Promise<Array<{ type: AllocationConceptType; expectedAmount: number }>> {
+    const periodStartDate =
+      period.start_date instanceof Date
+        ? period.start_date
+        : new Date(period.start_date);
+    const config =
+      await this.periodConfigRepository.findActiveForDate(periodStartDate);
+    if (!config) return [];
+
+    const maintenanceExpected =
+      await this.housePeriodOverrideRepository.getApplicableAmount(
+        houseId,
+        period.id,
+        ConceptType.MAINTENANCE,
+        config.default_maintenance_amount,
+      );
+
+    return [
+      {
+        type: AllocationConceptType.MAINTENANCE,
+        expectedAmount: maintenanceExpected,
+      },
+    ];
   }
 }
