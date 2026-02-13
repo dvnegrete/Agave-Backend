@@ -9,6 +9,7 @@ import { IHousePeriodChargeRepository } from '../interfaces/house-period-charge.
 import { IRecordAllocationRepository } from '../interfaces/record-allocation.repository.interface';
 import { IPeriodRepository } from '../interfaces/period.repository.interface';
 import { ChargeAdjustmentValidatorService } from '../infrastructure/services/charge-adjustment-validator.service';
+import { HouseStatusSnapshotService } from '../infrastructure/services/house-status-snapshot.service';
 
 /**
  * Use case para condonar (eliminar) penalidades de una casa en un período
@@ -24,6 +25,7 @@ export class CondonePenaltyUseCase {
     @Inject('IPeriodRepository')
     private readonly periodRepository: IPeriodRepository,
     private readonly validator: ChargeAdjustmentValidatorService,
+    private readonly snapshotService: HouseStatusSnapshotService,
   ) {}
 
   /**
@@ -85,6 +87,9 @@ export class CondonePenaltyUseCase {
         `No se pudo eliminar la penalidad con ID ${penaltyCharge.id}`,
       );
     }
+
+    // Invalidar snapshot de la casa
+    await this.snapshotService.invalidateByHouseId(houseId);
 
     return {
       houseId,

@@ -9,6 +9,7 @@ import { UpdatePeriodConceptsDto } from '../dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Period } from '@/shared/database/entities';
+import { HouseStatusSnapshotService } from '../infrastructure/services/house-status-snapshot.service';
 
 @Injectable()
 export class UpdatePeriodConceptsUseCase {
@@ -17,6 +18,7 @@ export class UpdatePeriodConceptsUseCase {
     private readonly periodRepository: IPeriodRepository,
     @InjectRepository(Period)
     private readonly periodEntityRepository: Repository<Period>,
+    private readonly snapshotService: HouseStatusSnapshotService,
   ) {}
 
   async execute(
@@ -46,6 +48,9 @@ export class UpdatePeriodConceptsUseCase {
     }
 
     await this.periodEntityRepository.update(periodId, updateData);
+
+    // Invalidar todos los snapshots (afecta todos los periodos)
+    await this.snapshotService.invalidateAll();
 
     const updated = await this.periodRepository.findById(periodId);
     return updated!;

@@ -4,3 +4,4 @@ export * from './record-allocation.repository.interface';
 export * from './house-balance.repository.interface';
 export * from './house-period-override.repository.interface';
 export * from './house-period-charge.repository.interface';
+export * from './house-status-snapshot.repository.interface';

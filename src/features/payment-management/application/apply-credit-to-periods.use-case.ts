@@ -17,6 +17,7 @@ import {
   CreditApplicationResult,
   CreditAllocationDetail,
 } from '../domain/credit-application.types';
+import { HouseStatusSnapshotService } from '../infrastructure/services/house-status-snapshot.service';
 
 @Injectable()
 export class ApplyCreditToPeriodsUseCase {
@@ -36,6 +37,7 @@ export class ApplyCreditToPeriodsUseCase {
     @Inject('IHousePeriodChargeRepository')
     private readonly housePeriodChargeRepository: IHousePeriodChargeRepository,
     private readonly dataSource: DataSource,
+    private readonly snapshotService: HouseStatusSnapshotService,
   ) {}
 
   async execute(houseId: number): Promise<CreditApplicationResult> {
@@ -167,6 +169,9 @@ export class ApplyCreditToPeriodsUseCase {
       );
 
       await queryRunner.commitTransaction();
+
+      // Invalidar snapshot de la casa
+      await this.snapshotService.invalidateByHouseId(houseId);
 
       const totalApplied = creditBefore - remainingCredit;
       const periodsCovered = allocationsCreated.filter(

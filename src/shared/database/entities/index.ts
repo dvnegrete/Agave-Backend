@@ -19,3 +19,4 @@ export * from './house-record.entity';
 export * from './house-balance.entity';
 export * from './house-period-override.entity';
 export * from './house-period-charge.entity';
+export * from './house-status-snapshot.entity';

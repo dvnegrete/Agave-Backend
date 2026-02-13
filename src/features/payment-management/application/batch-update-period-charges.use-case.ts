@@ -4,6 +4,7 @@ import { AllocationConceptType } from '@/shared/database/entities/enums';
 import { BatchUpdatePeriodChargesDto, BatchUpdateResultDto } from '../dto';
 import { IHousePeriodChargeRepository } from '../interfaces';
 import { EnsurePeriodExistsUseCase } from './ensure-period-exists.use-case';
+import { HouseStatusSnapshotService } from '../infrastructure/services/house-status-snapshot.service';
 
 @Injectable()
 export class BatchUpdatePeriodChargesUseCase {
@@ -14,6 +15,7 @@ export class BatchUpdatePeriodChargesUseCase {
     private readonly housePeriodChargeRepository: IHousePeriodChargeRepository,
     private readonly ensurePeriodExistsUseCase: EnsurePeriodExistsUseCase,
     private readonly dataSource: DataSource,
+    private readonly snapshotService: HouseStatusSnapshotService,
   ) {}
 
   async execute(dto: BatchUpdatePeriodChargesDto): Promise<BatchUpdateResultDto> {
@@ -116,6 +118,9 @@ export class BatchUpdatePeriodChargesUseCase {
       const hasRetroactiveChanges = retroCheck?.[0]?.has_allocations ?? false;
 
       await queryRunner.commitTransaction();
+
+      // Invalidar todos los snapshots
+      await this.snapshotService.invalidateAll();
 
       this.logger.log(
         `Batch update: ${periodIds.length} periods, ${chargesUpdated} charges, retroactive=${hasRetroactiveChanges}`,

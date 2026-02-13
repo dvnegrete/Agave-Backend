@@ -2,6 +2,7 @@ import { Injectable, Inject, Logger } from '@nestjs/common';
 import { IRecordAllocationRepository, IHouseBalanceRepository } from '../interfaces';
 import { ReprocessResultDto } from '../dto';
 import { BackfillAllocationsUseCase } from './backfill-allocations.use-case';
+import { HouseStatusSnapshotService } from '../infrastructure/services/house-status-snapshot.service';
 
 @Injectable()
 export class ReprocessAllAllocationsUseCase {
@@ -13,6 +14,7 @@ export class ReprocessAllAllocationsUseCase {
     @Inject('IHouseBalanceRepository')
     private readonly houseBalanceRepository: IHouseBalanceRepository,
     private readonly backfillAllocationsUseCase: BackfillAllocationsUseCase,
+    private readonly snapshotService: HouseStatusSnapshotService,
   ) {}
 
   async execute(): Promise<ReprocessResultDto> {
@@ -32,6 +34,10 @@ export class ReprocessAllAllocationsUseCase {
     this.logger.log(
       `Backfill complete: ${backfillResult.processed} processed, ${backfillResult.skipped} skipped, ${backfillResult.failed} failed`,
     );
+
+    // 4. Invalidar todos los snapshots
+    await this.snapshotService.invalidateAll();
+    this.logger.log('All house status snapshots invalidated');
 
     return {
       allocations_deleted: allocationsDeleted,

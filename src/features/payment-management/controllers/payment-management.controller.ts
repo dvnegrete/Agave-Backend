@@ -65,6 +65,7 @@ import {
 } from '../dto';
 import { HouseRepository } from '@/shared/database/repositories/house.repository';
 import { IPeriodConfigRepository } from '../interfaces';
+import { HouseStatusSnapshotService } from '../infrastructure/services/house-status-snapshot.service';
 
 @ApiTags('Payment Management')
 @Controller('payment-management')
@@ -84,6 +85,7 @@ export class PaymentManagementController {
     @Inject('IPeriodConfigRepository')
     private readonly periodConfigRepository: IPeriodConfigRepository,
     private readonly calculateHouseBalanceStatusUseCase: CalculateHouseBalanceStatusUseCase,
+    private readonly snapshotService: HouseStatusSnapshotService,
     private readonly updatePeriodConceptsUseCase: UpdatePeriodConceptsUseCase,
     private readonly distributePaymentWithAIUseCase: DistributePaymentWithAIUseCase,
     private readonly backfillAllocationsUseCase: BackfillAllocationsUseCase,
@@ -511,7 +513,7 @@ export class PaymentManagementController {
       throw new NotFoundException(`Casa con número ${houseId} no encontrada`);
     }
 
-    return this.calculateHouseBalanceStatusUseCase.execute(
+    return this.snapshotService.getOrCalculate(
       house.id,
       house,
     ) as Promise<EnrichedHouseBalanceDto>;
@@ -536,15 +538,9 @@ export class PaymentManagementController {
   })
   async getSummary(): Promise<HousesSummaryDto> {
     const houses = await this.houseRepository.findAll();
-    const results: EnrichedHouseBalanceDto[] = [];
-
-    for (const house of houses) {
-      const status = await this.calculateHouseBalanceStatusUseCase.execute(
-        house.id,
-        house,
-      );
-      results.push(status as EnrichedHouseBalanceDto);
-    }
+    const results = (await this.snapshotService.getAllForSummary(
+      houses,
+    )) as EnrichedHouseBalanceDto[];
 
     const morosas = results.filter((r) => r.status === 'morosa').length;
     const alDia = results.filter((r) => r.status === 'al_dia').length;

@@ -7,6 +7,7 @@ import { HouseRepository } from '@/shared/database/repositories/house.repository
 import { IPeriodRepository } from '../../interfaces/period.repository.interface';
 import { IPeriodConfigRepository } from '../../interfaces/period-config.repository.interface';
 import { CalculatePeriodPenaltiesService } from './calculate-period-penalties.service';
+import { HouseStatusSnapshotService } from './house-status-snapshot.service';
 
 /**
  * Servicio para generar (seed) los cargos esperados de casas en un período
@@ -29,6 +30,7 @@ export class SeedHousePeriodChargesService {
     private readonly configRepository: IPeriodConfigRepository,
     private readonly houseRepository: HouseRepository,
     private readonly penaltyCalculator: CalculatePeriodPenaltiesService,
+    private readonly snapshotService: HouseStatusSnapshotService,
   ) {}
 
   /**
@@ -130,6 +132,10 @@ export class SeedHousePeriodChargesService {
     // Batch insert
     if (charges.length > 0) {
       await this.chargeRepository.createBatch(charges);
+
+      // Invalidar todos los snapshots
+      await this.snapshotService.invalidateAll();
+
       this.logger.log(
         `Seeded ${charges.length} charges for period ${periodId}`,
       );

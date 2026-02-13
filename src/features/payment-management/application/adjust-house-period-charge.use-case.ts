@@ -4,6 +4,7 @@ import { IHousePeriodChargeRepository } from '../interfaces/house-period-charge.
 import { IRecordAllocationRepository } from '../interfaces/record-allocation.repository.interface';
 import { IPeriodRepository } from '../interfaces/period.repository.interface';
 import { ChargeAdjustmentValidatorService } from '../infrastructure/services/charge-adjustment-validator.service';
+import { HouseStatusSnapshotService } from '../infrastructure/services/house-status-snapshot.service';
 
 /**
  * Use case para ajustar (aumentar o disminuir) un cargo de casa-período
@@ -19,6 +20,7 @@ export class AdjustHousePeriodChargeUseCase {
     @Inject('IPeriodRepository')
     private readonly periodRepository: IPeriodRepository,
     private readonly validator: ChargeAdjustmentValidatorService,
+    private readonly snapshotService: HouseStatusSnapshotService,
   ) {}
 
   /**
@@ -79,6 +81,9 @@ export class AdjustHousePeriodChargeUseCase {
     const updatedCharge = await this.chargeRepository.update(chargeId, {
       expected_amount: newAmount,
     });
+
+    // Invalidar snapshot de la casa
+    await this.snapshotService.invalidateByHouseId(updatedCharge.house_id);
 
     const difference = this.validator.calculateAdjustmentDifference(
       charge.expected_amount,

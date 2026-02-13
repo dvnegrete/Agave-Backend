@@ -45,6 +45,7 @@ import {
   CalculatePeriodPenaltiesService,
   PaymentReportAnalyzerService,
   ChargeAdjustmentValidatorService,
+  HouseStatusSnapshotService,
 } from './infrastructure/services';
 
 // Infrastructure Layer - Repositories
@@ -54,6 +55,7 @@ import { RecordAllocationRepository } from './infrastructure/repositories/record
 import { HouseBalanceRepository } from './infrastructure/repositories/house-balance.repository';
 import { HousePeriodOverrideRepository } from './infrastructure/repositories/house-period-override.repository';
 import { HousePeriodChargeRepository } from './infrastructure/repositories/house-period-charge.repository';
+import { HouseStatusSnapshotRepository } from './infrastructure/repositories/house-status-snapshot.repository';
 
 // Shared Repositories
 import { TransactionBankRepository } from '@/shared/database/repositories/transaction-bank.repository';
@@ -72,6 +74,7 @@ import {
   TransactionBank,
   Voucher,
   CtaPenalties,
+  HouseStatusSnapshot,
 } from '@/shared/database/entities';
 
 @Module({
@@ -90,6 +93,7 @@ import {
       TransactionBank,
       Voucher,
       CtaPenalties,
+      HouseStatusSnapshot,
     ]),
   ],
   controllers: [PaymentManagementController],
@@ -129,6 +133,7 @@ import {
     CalculatePeriodPenaltiesService,
     PaymentReportAnalyzerService,
     ChargeAdjustmentValidatorService,
+    HouseStatusSnapshotService,
 
     // Repositories - Provide with interface tokens
     {
@@ -155,6 +160,10 @@ import {
       provide: 'IHousePeriodChargeRepository',
       useClass: HousePeriodChargeRepository,
     },
+    {
+      provide: 'IHouseStatusSnapshotRepository',
+      useClass: HouseStatusSnapshotRepository,
+    },
     // Also provide as regular classes for DI
     PeriodRepository,
     PeriodConfigRepository,
@@ -162,6 +171,7 @@ import {
     HouseBalanceRepository,
     HousePeriodOverrideRepository,
     HousePeriodChargeRepository,
+    HouseStatusSnapshotRepository,
     TransactionBankRepository,
     HouseRepository,
     VoucherRepository,
@@ -175,6 +185,8 @@ import {
     HouseBalanceRepository,
     HousePeriodOverrideRepository,
     HousePeriodChargeRepository,
+    HouseStatusSnapshotRepository,
+    HouseStatusSnapshotService,
   ],
 })
 export class PaymentManagementModule {}

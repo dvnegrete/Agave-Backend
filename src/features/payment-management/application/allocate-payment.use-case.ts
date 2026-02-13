@@ -25,6 +25,7 @@ import {
 } from '../interfaces';
 import { PeriodConfigRepository } from '../infrastructure/repositories/period-config.repository';
 import { ApplyCreditToPeriodsUseCase } from './apply-credit-to-periods.use-case';
+import { HouseStatusSnapshotService } from '../infrastructure/services/house-status-snapshot.service';
 
 /**
  * Use case para asignar pagos a conceptos con distribución FIFO.
@@ -52,6 +53,7 @@ export class AllocatePaymentUseCase {
     private readonly housePeriodChargeRepository: IHousePeriodChargeRepository,
     private readonly periodConfigRepository: PeriodConfigRepository,
     private readonly applyCreditToPeriodsUseCase: ApplyCreditToPeriodsUseCase,
+    private readonly snapshotService: HouseStatusSnapshotService,
   ) {}
 
   /**
@@ -120,7 +122,7 @@ export class AllocatePaymentUseCase {
 
     const allocationDTOs = allocations.map((a) => this.toAllocationDTO(a));
 
-    return {
+    const result = {
       record_id: request.record_id,
       house_id: request.house_id,
       total_distributed: totalAmount - integerRemaining - cents,
@@ -132,6 +134,11 @@ export class AllocatePaymentUseCase {
         debit_balance: updatedBalance.debit_balance,
       },
     };
+
+    // Invalidar snapshot de la casa
+    await this.snapshotService.invalidateByHouseId(request.house_id);
+
+    return result;
   }
 
   /**

@@ -3,6 +3,7 @@ import { IHousePeriodChargeRepository } from '../interfaces/house-period-charge.
 import { IRecordAllocationRepository } from '../interfaces/record-allocation.repository.interface';
 import { IPeriodRepository } from '../interfaces/period.repository.interface';
 import { ChargeAdjustmentValidatorService } from '../infrastructure/services/charge-adjustment-validator.service';
+import { HouseStatusSnapshotService } from '../infrastructure/services/house-status-snapshot.service';
 
 /**
  * Use case para reversionar (eliminar) un cargo de casa-período
@@ -18,6 +19,7 @@ export class ReverseHousePeriodChargeUseCase {
     @Inject('IPeriodRepository')
     private readonly periodRepository: IPeriodRepository,
     private readonly validator: ChargeAdjustmentValidatorService,
+    private readonly snapshotService: HouseStatusSnapshotService,
   ) {}
 
   /**
@@ -75,6 +77,9 @@ export class ReverseHousePeriodChargeUseCase {
         `No se pudo eliminar el cargo con ID ${chargeId}`,
       );
     }
+
+    // Invalidar snapshot de la casa
+    await this.snapshotService.invalidateByHouseId(charge.house_id);
 
     return {
       chargeId,

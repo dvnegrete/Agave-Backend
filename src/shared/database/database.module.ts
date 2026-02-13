@@ -22,6 +22,7 @@ import { HouseBalance } from './entities/house-balance.entity';
 import { HousePeriodOverride } from './entities/house-period-override.entity';
 import { RecordAllocation } from './entities/record-allocation.entity';
 import { ManualValidationApproval } from './entities/manual-validation-approval.entity';
+import { HouseStatusSnapshot } from './entities/house-status-snapshot.entity';
 import { TransactionBankRepository } from './repositories/transaction-bank.repository';
 import { LastTransactionBankRepository } from './repositories/last-transaction-bank.repository';
 import { VoucherRepository } from './repositories/voucher.repository';
@@ -68,6 +69,7 @@ import { TransactionalRetryService } from './services/transactional-retry.servic
       HousePeriodOverride,
       RecordAllocation,
       ManualValidationApproval,
+      HouseStatusSnapshot,
     ]),
   ],
   providers: [
