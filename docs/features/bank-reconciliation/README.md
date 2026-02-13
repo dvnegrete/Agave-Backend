@@ -110,17 +110,23 @@ Concilia manualmente un voucher sin fondos con un deposito bancario existente.
 
 ## Integracion con Payment Management
 
-Cada conciliacion exitosa ejecuta automaticamente `AllocatePaymentUseCase`:
+Cada conciliacion exitosa ejecuta automaticamente `AllocatePaymentUseCase` con **distribucion FIFO** (sin `period_id`):
 
-1. Obtiene/crea periodo actual (ano-mes)
-2. Distribuye monto entre conceptos (mantenimiento, agua, cuota extraordinaria)
-3. Crea `RecordAllocation` para trazabilidad
+1. Distribuye monto a periodos mas antiguos primero (FIFO)
+2. Para cada periodo: cubre conceptos en orden (MAINTENANCE → WATER → EXTRAORDINARY_FEE → PENALTIES)
+3. Verifica allocaciones existentes para evitar sobre-asignacion
+4. Centavos se acumulan en `house_balances.accumulated_cents`
+5. Crea `RecordAllocation` para trazabilidad
+
+**Cambio Feb 2026**: Ya NO se obtiene/crea periodo actual. El FIFO automatico determina a que periodos aplicar el pago. Los callers (`ReconciliationPersistenceService`, `UnclaimedDepositsService`, `MatchSuggestionsService`) ya no inyectan `PeriodRepository` ni `EnsurePeriodExistsUseCase`.
 
 Esto ocurre en:
 - Conciliaciones automaticas con voucher
 - Conciliaciones automaticas sin voucher (centavos/concepto)
 - Asignaciones manuales de depositos no reclamados
 - Conciliaciones manuales de vouchers sin fondos
+
+**Excepcion**: `PaymentManagementController.confirmDistribution()` SI pasa `period_id` (modo manual, cuando admin confirma distribucion AI).
 
 ## Persistencia en Base de Datos
 

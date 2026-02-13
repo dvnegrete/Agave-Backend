@@ -1,7 +1,7 @@
 # Payment Management - Estado Actual del Sistema
 
-**Fecha**: 2026-02-11
-**Status**: ✅ COMPLETAMENTE FUNCIONAL
+**Fecha**: 2026-02-12
+**Status**: ✅ COMPLETAMENTE FUNCIONAL (FIFO + Centavos)
 
 Este documento describe el estado ACTUAL y COMPLETO del módulo Payment Management, cómo funciona, qué componentes están implementados, y cómo un desarrollador puede continuar con desarrollos o fixes.
 
@@ -15,11 +15,11 @@ Este documento describe el estado ACTUAL y COMPLETO del módulo Payment Manageme
 PaymentManagementModule
 ├─ Entities (10)
 │  ├─ Period
-│  ├─ PeriodConfig
+│  ├─ PeriodConfig (+ cents_credit_threshold)
 │  ├─ RecordAllocation
 │  ├─ HouseBalance
 │  ├─ HousePeriodOverride
-│  ├─ HousePeriodCharge ✨ NEW
+│  ├─ HousePeriodCharge
 │  ├─ CtaMaintenace, CtaWater, CtaPenalties, etc. (legacy, sin usar)
 │  └─ ...
 ├─ Repositories (6)
@@ -28,34 +28,35 @@ PaymentManagementModule
 │  ├─ RecordAllocationRepository
 │  ├─ HouseBalanceRepository
 │  ├─ HousePeriodOverrideRepository
-│  └─ HousePeriodChargeRepository ✨ NEW
+│  └─ HousePeriodChargeRepository
 ├─ Services (5)
 │  ├─ PaymentDistributionAnalyzerService
-│  ├─ SeedHousePeriodChargesService ✨ NEW
-│  ├─ HousePeriodChargeCalculatorService ✨ NEW
-│  ├─ CalculatePeriodPenaltiesService ✨ NEW
-│  ├─ PaymentReportAnalyzerService ✨ NEW
-│  └─ ChargeAdjustmentValidatorService ✨ NEW
-├─ Use Cases (17)
-│  ├─ CreatePeriodUseCase ✏️ MODIFIED
-│  ├─ EnsurePeriodExistsUseCase ✏️ MODIFIED
+│  ├─ SeedHousePeriodChargesService
+│  ├─ HousePeriodChargeCalculatorService
+│  ├─ CalculatePeriodPenaltiesService
+│  ├─ PaymentReportAnalyzerService
+│  └─ ChargeAdjustmentValidatorService
+├─ Use Cases (17+)
+│  ├─ CreatePeriodUseCase
+│  ├─ EnsurePeriodExistsUseCase
 │  ├─ GetPeriodsUseCase
 │  ├─ CreatePeriodConfigUseCase
 │  ├─ UpdatePeriodConfigUseCase
-│  ├─ AllocatePaymentUseCase ✏️ MODIFIED
+│  ├─ AllocatePaymentUseCase ← REESCRITO (FIFO + verificación existentes)
+│  ├─ ApplyCreditToPeriodsUseCase ← ACTUALIZADO (todos los conceptos)
+│  ├─ BackfillAllocationsUseCase ← ACTUALIZADO (FIFO automático)
 │  ├─ GetPaymentHistoryUseCase
 │  ├─ GetHouseBalanceUseCase
-│  ├─ GetHousePeriodBalanceUseCase ✨ NEW
-│  ├─ GetPeriodReportUseCase ✨ NEW
-│  ├─ GetHousePaymentHistoryUseCase ✨ NEW
-│  ├─ ClassifyHousesByPaymentUseCase ✨ NEW
-│  ├─ AdjustHousePeriodChargeUseCase ✨ NEW
-│  ├─ ReverseHousePeriodChargeUseCase ✨ NEW
-│  ├─ CondonePenaltyUseCase ✨ NEW
+│  ├─ GetHousePeriodBalanceUseCase
+│  ├─ GetPeriodReportUseCase
+│  ├─ GetHousePaymentHistoryUseCase
+│  ├─ ClassifyHousesByPaymentUseCase
+│  ├─ AdjustHousePeriodChargeUseCase
+│  ├─ ReverseHousePeriodChargeUseCase
+│  ├─ CondonePenaltyUseCase
 │  ├─ CalculateHouseBalanceStatusUseCase
 │  ├─ UpdatePeriodConceptsUseCase
 │  ├─ GeneratePenaltyUseCase
-│  ├─ ApplyCreditToPeriodsUseCase
 │  └─ DistributePaymentWithAIUseCase
 └─ Controllers (1)
    └─ PaymentManagementController
@@ -73,7 +74,7 @@ PaymentManagementModule
 ```
 1. IPeriodRepository.create(year, month, configId)
    └─ Crea período en tabla periods
-2. SeedHousePeriodChargesService.seedChargesForPeriod(periodId) ✨ NEW
+2. SeedHousePeriodChargesService.seedChargesForPeriod(periodId)
    ├─ Obtiene PeriodConfig activa
    ├─ Para cada casa (1-66):
    │  ├─ Crea cargo MAINTENANCE (por defecto $800)
@@ -90,52 +91,102 @@ PaymentManagementModule
 - Tabla `house_period_charges` tiene todos los cargos inmutables
 - Los montos están congelados y no cambiarán
 
-### 2. Distribuir Pagos
+**Problema conocido**: Si se crea un período sin casas en la BD, los charges no se crean. Ver [Áreas Problemáticas](#áreas-problemáticas-que-necesitan-atención).
 
-**Quién lo hace**: `AllocatePaymentUseCase` (llamado por `BankReconciliationModule`)
+### 2. Distribuir Pagos (FIFO Automático)
 
-**Qué sucede**:
+**Quién lo hace**: `AllocatePaymentUseCase` (llamado por `BankReconciliationModule` o `BackfillAllocationsUseCase`)
+
+**Modos de operación**:
+- **Sin `period_id`** → Distribución FIFO automática (períodos más antiguos primero)
+- **Con `period_id`** → Distribución manual a un período específico (solo desde `confirmDistribution`)
+
+**Flujo FIFO (modo automático, sin period_id)**:
 ```
 1. AllocatePaymentUseCase.execute({
      record_id: 123,
      house_id: 15,
-     amount_to_distribute: 1500,
-     period_id: 1
+     amount_to_distribute: 2400.22
+     // SIN period_id → FIFO
    })
-2. preparePaymentConcepts(houseId=15, periodId=1)
-   ├─ IHousePeriodChargeRepository.findByHouseAndPeriod(15, 1)
-   │  └─ SELECT * FROM house_period_charges
-   │     WHERE house_id=15 AND period_id=1
-   │     Retorna: [
-   │       { concept_type: 'maintenance', expected_amount: 800 },
-   │       { concept_type: 'water', expected_amount: 200 },
-   │       { concept_type: 'extraordinary_fee', expected_amount: 1000 },
-   │       { concept_type: 'penalties', expected_amount: 100 }  // si existe
-   │     ]
-   └─ Si no hay cargos (período antiguo), fallback a cálculo legacy
-3. distributePayment() - FIFO sobre conceptos
-   ├─ $800 → MAINTENANCE (completo)
-   ├─ $200 → WATER (completo)
-   ├─ $500 → EXTRAORDINARY_FEE (parcial, faltan $500)
-   └─ $0 → PENALTIES (no alcanza)
-4. Para cada asignación:
-   └─ IRecordAllocationRepository.create({
-        record_id, house_id, period_id, concept_type,
-        allocated_amount, expected_amount, payment_status
-      })
-5. updateHouseBalance()
-   ├─ Procesar monto restante ($0)
-   ├─ Si hay excedente → aplicar a crédito
-   └─ Si hay crédito → ejecutar ApplyCreditToPeriodsUseCase
-6. Retorna resultado con detalles de asignación
+
+2. Separar centavos:
+   ├─ totalAmount = 2400.22
+   ├─ cents = 0.22
+   └─ integerAmount = 2400
+
+3. allocateFIFO(recordId, houseId, 2400, periodConfig):
+   ├─ Obtener TODOS los períodos ordenados ASC (year, month)
+   ├─ Para cada período:
+   │  ├─ Obtener house_period_charges (cargos esperados)
+   │  ├─ Obtener allocaciones EXISTENTES (ya pagadas)
+   │  ├─ Para cada concepto (MAINTENANCE → WATER → EXTRAORDINARY → PENALTIES):
+   │  │  ├─ alreadyPaid = SUM(allocaciones existentes del mismo concepto)
+   │  │  ├─ remaining = max(0, expected - alreadyPaid)
+   │  │  ├─ allocate = min(amountRemaining, remaining)
+   │  │  └─ Crear record_allocation
+   │  └─ Si amountRemaining <= 0: break
+   │
+   │  Ejemplo con 3 períodos pendientes:
+   │  ├─ Dic 2024: MAINTENANCE $800 (ya pagado $0) → asigna $800
+   │  ├─ Ene 2025: MAINTENANCE $800 (ya pagado $0) → asigna $800
+   │  └─ Feb 2025: MAINTENANCE $800 (ya pagado $0) → asigna $800
+   └─ integerRemaining = 0
+
+4. updateHouseBalance(houseId, balance, integerRemaining=0, cents=0.22, threshold=100):
+   ├─ integerRemaining → pagar debit_balance primero, sobrante → credit_balance
+   ├─ cents (0.22) → accumulated_cents += 0.22
+   ├─ Si accumulated_cents >= cents_credit_threshold ($100):
+   │  └─ credit_balance += threshold, accumulated_cents -= threshold
+   └─ Si credit_balance > 0 → applyCreditToPeriodsUseCase.execute()
+
+5. Retorna response con detalles de allocación
+```
+
+**Flujo manual (con period_id)**:
+```
+Solo usado desde PaymentManagementController.confirmDistribution()
+(cuando el admin confirma una distribución sugerida por AI)
+
+Misma lógica que FIFO pero limitada a UN solo período.
+También verifica allocaciones existentes para evitar sobre-asignación.
 ```
 
 **Resultado**:
 - Tabla `record_allocations` tiene nuevos registros
 - Tabla `house_balances` está actualizada
-- Casa 15 en período 1: debe $600 más en extraordinary_fee
+- No hay sobre-asignación (verificación de existentes)
+- Centavos se acumulan correctamente
 
-### 3. Consultar Balance
+### 3. Centavos y Crédito
+
+**Configuración**: `PeriodConfig.cents_credit_threshold` (default $100)
+
+**Flujo**:
+```
+1. Cada pago tiene centavos (ej: $800.22 → cents = 0.22)
+2. Los centavos NO se asignan a conceptos
+3. Se acumulan en house_balances.accumulated_cents
+4. Cuando accumulated_cents >= cents_credit_threshold ($100):
+   ├─ credit_balance += $100
+   ├─ accumulated_cents -= $100
+   └─ Se ejecuta ApplyCreditToPeriodsUseCase
+5. ApplyCreditToPeriodsUseCase aplica crédito FIFO a períodos impagos:
+   ├─ Cubre TODOS los conceptos (MAINTENANCE, WATER, EXTRAORDINARY_FEE, PENALTIES)
+   ├─ Verifica allocaciones existentes para no duplicar
+   └─ Usa queryRunner para atomicidad
+```
+
+**Ejemplo**: Casa 22 con pagos mensuales de $800.22:
+```
+Mes 1:  accumulated_cents = 0.22
+Mes 2:  accumulated_cents = 0.44
+...
+Mes 454: accumulated_cents ≈ $99.88
+Mes 455: accumulated_cents = $100.10 → credit_balance += $100, accumulated_cents = $0.10
+```
+
+### 4. Consultar Balance
 
 **Quién lo hace**: `GetHousePeriodBalanceUseCase`
 
@@ -143,108 +194,101 @@ PaymentManagementModule
 ```
 1. GetHousePeriodBalanceUseCase.execute(houseId=15, periodId=1)
 2. HousePeriodChargeCalculatorService.getTotalExpectedByHousePeriod(15, 1)
-   ├─ SELECT SUM(expected_amount) FROM house_period_charges
-   │  WHERE house_id=15 AND period_id=1
-   └─ Retorna: 2100 (800+200+1000+100 penalidad)
+   └─ SELECT SUM(expected_amount) FROM house_period_charges
 3. HousePeriodChargeCalculatorService.getTotalPaidByHousePeriod(15, 1)
-   ├─ SELECT SUM(allocated_amount) FROM record_allocations
-   │  WHERE house_id=15 AND period_id=1
-   └─ Retorna: 1500 (lo distribuido hasta ahora)
-4. calculateBalance() = 2100 - 1500 = 600 (deuda)
-5. getPaymentDetails() por concepto:
-   └─ [
-       { concept: 'maintenance', expected: 800, paid: 800, balance: 0, isPaid: true },
-       { concept: 'water', expected: 200, paid: 200, balance: 0, isPaid: true },
-       { concept: 'extraordinary_fee', expected: 1000, paid: 500, balance: 500, isPaid: false },
-       { concept: 'penalties', expected: 100, paid: 0, balance: 100, isPaid: false }
-     ]
-6. Retorna resultado con detalles
+   └─ SELECT SUM(allocated_amount) FROM record_allocations
+4. calculateBalance() = expected - paid
+5. Retorna desglose por concepto
 ```
 
-**Resultado**:
-- Cliente ve que debe $600
-- Sabe que maintenance y water están pagos
-- Sabe que debe $500 en extraordinary_fee y $100 en penalidad
+### 5. Generar Reportes
 
-### 4. Generar Reportes
+**Use Cases**: `GetPeriodReportUseCase`, `GetHousePaymentHistoryUseCase`, `ClassifyHousesByPaymentUseCase`
 
-**Quién lo hace**: `GetPeriodReportUseCase`, `GetHousePaymentHistoryUseCase`, `ClassifyHousesByPaymentUseCase`
+(Sin cambios respecto a la versión anterior - referir a API_ENDPOINTS.md para detalles)
 
-**Ejemplo 1: Reporte de Período**
+---
+
+## Integración con Otros Módulos
+
+### Bank Reconciliation Module
+
+**Flujo actualizado (FIFO, sin period_id)**:
 ```
-GetPeriodReportUseCase.execute(periodId=1)
-  └─ PaymentReportAnalyzerService.getPeriodReport(1)
-     ├─ Agrupa cargos por concepto
-     ├─ Suma pagos por concepto
-     ├─ Calcula % de cobranza
-     └─ Cuenta casas por estado (con deuda, pagadas, parciales)
-
-Resultado:
-{
-  totalExpected: 132000,  // 66 casas × 2000
-  totalPaid: 98500,
-  totalDebt: 33500,
-  collectionPercentage: 74.62%,
-  conceptBreakdown: [
-    { concept: 'maintenance', expected: 52800, paid: 45600, percentage: 86.36% },
-    { concept: 'water', expected: 13200, paid: 6000, percentage: 45.45% },
-    { concept: 'extraordinary_fee', expected: 66000, paid: 46900, percentage: 71.06% },
-    { concept: 'penalties', expected: 600, paid: 0, percentage: 0% }
-  ],
-  housesWithDebt: 32,
-  housesFullyPaid: 34,
-  housesPartiallyPaid: 15
-}
+TransactionBank → ReconciliationUseCase
+  ├─ ReconciliationPersistenceService.persistReconciliation()
+  │  └─ (transacción atómica: crear status, record, house_record)
+  │
+  └─ FUERA DE TX: AllocatePaymentUseCase.execute({
+       record_id, house_id, amount_to_distribute
+       // SIN period_id → FIFO automático
+     })
 ```
 
-**Ejemplo 2: Historial de Casa**
-```
-GetHousePaymentHistoryUseCase.executeLastYear(houseId=15)
-  └─ Retorna datos de últimos 12 períodos
-     Con tendencia (improving/stable/worsening)
-     Y promedio de pago
+**Callers actualizados** (todos usan FIFO sin period_id):
+- `ReconciliationPersistenceService` - conciliación automática
+- `UnclaimedDepositsService` - asignación manual de depósitos
+- `MatchSuggestionsService` - cross-matching
 
-Resultado:
-{
-  houseNumber: 15,
-  periods: [
-    { month: 1, expected: 2000, paid: 2000, balance: 0, percentage: 100% },
-    { month: 2, expected: 2100, paid: 1500, balance: 600, percentage: 71% },
-    { month: 3, expected: 2000, paid: 1800, balance: 200, percentage: 90% },
-    // ... más períodos
-  ],
-  totalExpectedAllTime: 24100,
-  totalPaidAllTime: 20200,
-  totalDebtAllTime: 3900,
-  averagePaymentPercentage: 83.84%,
-  debtTrend: 'stable'  // mejorando / estable / empeorando
-}
+**Callers que mantienen period_id (modo manual)**:
+- `PaymentManagementController.confirmDistribution()` - confirmación de distribución AI
+
+### Backfill Allocations
+
+**Flujo actualizado**:
+```
+BackfillAllocationsUseCase.execute()
+  ├─ Encuentra records confirmados sin allocations
+  ├─ Para cada record (orden cronológico ASC):
+  │  ├─ EnsurePeriodExistsUseCase.execute(year, month)
+  │  │  └─ Garantiza que el período y sus charges existan
+  │  └─ AllocatePaymentUseCase.execute({
+  │       record_id, house_id, amount
+  │       // SIN period_id → FIFO automático
+  │     })
+  └─ Retorna resultados por record
 ```
 
-**Ejemplo 3: Clasificación de Casas**
-```
-ClassifyHousesByPaymentUseCase.executeForCurrentPeriod()
-  └─ Analiza últimos 6 períodos
+---
 
-Resultado:
-{
-  goodPayers: [
-    { houseNumber: 5, fullyPaidPercentage: 100% },
-    { houseNumber: 8, fullyPaidPercentage: 100% },
-    // ... 43 casas más
-  ],
-  atRisk: [
-    { houseNumber: 15, debt: 600, monthsBehind: 1, lastPaymentDate: '2026-02-10' },
-    { houseNumber: 28, debt: 1500, monthsBehind: 2, lastPaymentDate: '2026-01-15' },
-    // ... más casas
-  ],
-  delinquent: [
-    { houseNumber: 42, totalDebt: 8500, monthsDelinquent: 4 },
-    { houseNumber: 51, totalDebt: 5200, monthsDelinquent: 3 },
-    // ... casas morosas
-  ]
-}
-```
+## Áreas Problemáticas que Necesitan Atención
+
+### 1. Creación/Ajuste de Períodos
+
+**Problema**: El sistema de creación de períodos tiene gaps que pueden causar inconsistencias.
+
+**Escenarios problemáticos**:
+
+a) **Período creado antes de que existan todas las casas**: Si se crea un período y luego se agregan casas nuevas, esas casas NO tendrán `house_period_charges` para ese período.
+   - **Impacto**: AllocatePaymentUseCase caerá al fallback legacy para esas casas en ese período
+   - **Fix necesario**: Un mecanismo para regenerar charges cuando se agregan casas
+
+b) **Cambio de PeriodConfig después de crear período**: Los charges se congelan al crear el período. Si se cambia la config después, los períodos existentes mantienen los montos anteriores.
+   - **Impacto**: Intencional (snapshot inmutable), pero no hay UI para ajustar en batch
+   - **Fix necesario**: Endpoint de ajuste batch por período
+
+c) **Activación/desactivación de water o extraordinary_fee**: Si se cambia `water_active` o `extraordinary_fee_active` en un período existente, los charges existentes NO se actualizan.
+   - **Impacto**: Inconsistencia entre flags del período y charges reales
+   - **Fix necesario**: `UpdatePeriodConceptsUseCase` debe regenerar charges al cambiar flags
+
+d) **Períodos sin charges (legacy)**: Períodos creados antes del sistema HPC no tienen charges.
+   - **Impacto**: Se usa fallback legacy (funciona pero no incluye PENALTIES)
+   - **Mitigación**: Migración `SeedLegacyHousePeriodCharges` rellena charges faltantes
+   - **Estado**: Migración creada, pendiente de ejecutar en staging/prod
+
+### 2. Penalidades en Distribución FIFO
+
+**Estado actual**: Las penalidades se incluyen como concepto a cubrir en FIFO si existen en `house_period_charges`.
+
+**Pendiente**: Verificar que `SeedHousePeriodChargesService` crea charges de tipo PENALTIES correctamente para casas morosas al crear un nuevo período.
+
+### 3. AI Distribution + FIFO
+
+**Estado actual**: `DistributePaymentWithAIUseCase` sugiere distribución y `confirmDistribution` la aplica con `period_id` específico (modo manual).
+
+**Potencial problema**: La sugerencia de AI podría no considerar allocaciones existentes. Si el admin confirma una distribución AI para un período que ya tiene pagos, podría haber sobre-asignación.
+
+**Fix necesario**: Actualizar `DistributePaymentWithAIUseCase` para que consulte allocaciones existentes antes de sugerir.
 
 ---
 
@@ -269,165 +313,71 @@ ORDER BY concept_type;
 **Índices**:
 - `UNIQUE (house_id, period_id, concept_type)` - No hay duplicados
 - `INDEX (house_id, period_id)` - Queries rápidas para una casa
-- `INDEX (period_id)` - Queries rápidas de toda un período
+- `INDEX (period_id)` - Queries rápidas de todo un período
 
 ---
 
-## Flujo de Ajustes y Reversiones
+## Tabla de Datos: `period_config`
 
-### Ajustar Cargo
+**Campos relevantes para distribución**:
+```sql
+SELECT id, default_maintenance_amount, default_water_amount,
+       default_extraordinary_fee_amount, late_payment_penalty_amount,
+       cents_credit_threshold, is_active
+FROM period_config WHERE is_active = true;
 
-**Quién lo hace**: `AdjustHousePeriodChargeUseCase`
-
-**Validaciones antes de ajustar**:
-- ✅ Período no > 3 meses atrás (proteger histórico)
-- ✅ Nuevo monto diferente al actual
-- ✅ Nuevo monto >= pagos ya asignados
-
-**Qué sucede**:
-```
-AdjustHousePeriodChargeUseCase.execute(chargeId=100, newAmount=900)
-  ├─ ChargeAdjustmentValidatorService.validateAdjustment()
-  │  └─ Verifica: período reciente, monto diferente, no reduce bajo pagado
-  └─ IHousePeriodChargeRepository.update(100, { expected_amount: 900 })
-     └─ UPDATE house_period_charges SET expected_amount=900 WHERE id=100
-
-Resultado:
-{
-  previousAmount: 800,
-  newAmount: 900,
-  difference: +100,  // Aumento
-  isPaid: false
-}
+| id | maintenance | water | extraordinary | penalty | cents_threshold | active |
+|----|-------------|-------|---------------|---------|-----------------|--------|
+| 1  | 800         | 200   | 1000          | 100     | 100             | true   |
 ```
 
-**Efecto**:
-- Casa 15 ahora debe $100 más en maintenance
-- En siguiente reporte, total esperado aumenta $100
-- Todos los cálculos basados en HPC se actualizan automáticamente
-
-### Reversionar Cargo
-
-**Quién lo hace**: `ReverseHousePeriodChargeUseCase`
-
-**Validaciones**:
-- ✅ Período no > 3 meses atrás
-- ✅ Sin pagos asignados a este cargo (error si existen)
-
-**Qué sucede**:
-```
-ReverseHousePeriodChargeUseCase.execute(chargeId=103)  // Penalidad
-  ├─ ChargeAdjustmentValidatorService.validateReversal()
-  │  └─ Verifica: período reciente, sin pagos asignados
-  └─ IHousePeriodChargeRepository.delete(103)
-     └─ DELETE FROM house_period_charges WHERE id=103
-
-Resultado:
-{
-  chargeId: 103,
-  removedAmount: 100,
-  message: "Cargo de $100 (penalties) ha sido reversado..."
-}
-```
-
-**Efecto**:
-- Penalidad de $100 es eliminada completamente
-- Casa 15 ya no debe la penalidad
-- En siguiente reporte, totalExpected disminuye $100
-
-### Condonar Penalidad
-
-**Quién lo hace**: `CondonePenaltyUseCase`
-
-**Validaciones**:
-- ✅ Solo penalidades (error si es otro concepto)
-- ✅ Sin pagos asignados a la penalidad
-
-**Qué sucede**:
-```
-CondonePenaltyUseCase.execute(houseId=15, periodId=1)
-  ├─ IHousePeriodChargeRepository.findByHouseAndPeriod(15, 1)
-  │  └─ Busca cargo con concept_type='penalties'
-  ├─ ChargeAdjustmentValidatorService.validatePenaltyCondonation()
-  │  └─ Verifica: solo penalties, sin pagos
-  └─ IHousePeriodChargeRepository.delete(chargeId)
-     └─ Elimina penalidad
-
-Resultado:
-{
-  houseId: 15,
-  condonedAmount: 100,
-  message: "Penalidad de $100 ha sido condonada..."
-}
-```
-
-**Efecto**:
-- Penalidad desaparece
-- Muy similar a reversión, pero es una decisión gerencial consciente
-- Se puede hacer en batch para múltiples casas
-
----
-
-## Integración con Otros Módulos
-
-### Bank Reconciliation Module
-
-**Llamadas a Payment Management**:
-1. `BankReconciliationModule` procesa transacciones bancarias
-2. Para cada transacción conciliada:
-   - Obtiene o crea período actual: `EnsurePeriodExistsUseCase.execute()`
-     - Esto dispara `SeedHousePeriodChargesService.seedChargesForPeriod()`
-   - Distribuye pago: `AllocatePaymentUseCase.execute()`
-     - Usa montos de `house_period_charges`
-   - Actualiza balance: `GetHouseBalanceUseCase.execute()`
-
-**Flujo**:
-```
-TransactionBank → ReconcilationUseCase
-  ├─ EnsurePeriodExistsUseCase (crea período + seed charges)
-  ├─ VoucherRepository (obtiene voucher)
-  └─ AllocatePaymentUseCase (distribuye pago usando HPC)
-```
+**`cents_credit_threshold`**: Umbral configurable para convertir centavos acumulados a crédito. Default $100. Antes era hardcodeado a $1 (causaba crédito prematuro).
 
 ---
 
 ## Consultas SQL Útiles para Debugging
 
-### Ver todos los cargos de una casa en un período
+### Verificar sobre-asignaciones (DEBE RETORNAR 0 FILAS)
 ```sql
-SELECT * FROM house_period_charges
-WHERE house_id = 15 AND period_id = 1
-ORDER BY concept_type;
+SELECT ra.house_id, ra.period_id, ra.concept_type,
+       hpc.expected_amount, SUM(ra.allocated_amount) as total_allocated
+FROM record_allocations ra
+JOIN house_period_charges hpc ON hpc.house_id = ra.house_id
+  AND hpc.period_id = ra.period_id AND hpc.concept_type = ra.concept_type
+GROUP BY ra.house_id, ra.period_id, ra.concept_type, hpc.expected_amount
+HAVING SUM(ra.allocated_amount) > hpc.expected_amount;
 ```
 
-### Verificar deuda total de una casa
+### Ver centavos acumulados por casa
 ```sql
-SELECT
-  SUM(hpc.expected_amount) as total_expected,
-  COALESCE(SUM(ra.allocated_amount), 0) as total_paid,
-  SUM(hpc.expected_amount) - COALESCE(SUM(ra.allocated_amount), 0) as balance
-FROM house_period_charges hpc
-LEFT JOIN record_allocations ra
-  ON hpc.house_id = ra.house_id
-  AND hpc.period_id = ra.period_id
-  AND hpc.concept_type = ra.concept_type
-WHERE hpc.house_id = 15 AND hpc.period_id = 1
-GROUP BY hpc.period_id;
+SELECT house_id, accumulated_cents, credit_balance, debit_balance
+FROM house_balances
+WHERE accumulated_cents > 0
+ORDER BY accumulated_cents DESC;
 ```
 
-### Ver cargos por concepto en un período
+### Ver distribución FIFO de una casa (cómo se distribuyeron los pagos)
 ```sql
-SELECT
-  concept_type,
-  COUNT(*) as num_casas,
-  SUM(expected_amount) as total_esperado
-FROM house_period_charges
-WHERE period_id = 1
-GROUP BY concept_type
-ORDER BY concept_type;
+SELECT ra.period_id, p.year, p.month, ra.concept_type,
+       ra.allocated_amount, ra.expected_amount, ra.payment_status,
+       ra.record_id, ra.created_at
+FROM record_allocations ra
+JOIN periods p ON p.id = ra.period_id
+WHERE ra.house_id = (SELECT id FROM houses WHERE number_house = 22)
+ORDER BY p.year ASC, p.month ASC, ra.concept_type;
 ```
 
-### Casas sin cargos seeded (potencial problema)
+### Períodos sin house_period_charges (potencial problema)
+```sql
+SELECT p.id, p.year, p.month
+FROM periods p
+WHERE NOT EXISTS (
+  SELECT 1 FROM house_period_charges hpc WHERE hpc.period_id = p.id
+)
+ORDER BY p.year, p.month;
+```
+
+### Casas sin charges en el último período
 ```sql
 SELECT DISTINCT h.id, h.number_house
 FROM houses h
@@ -449,49 +399,74 @@ HAVING COUNT(*) > 1;
 
 ---
 
-## Validaciones de Integridad
+## Flujo de Ajustes y Reversiones
 
-### Al crear un período
+### Ajustar Cargo
 
-✅ Debe haber PeriodConfig activa
-✅ Debe haber 66 casas en la BD
-✅ Se crean ~198-264 cargos
-✅ NO hay duplicados (UNIQUE constraint)
-✅ Todas las casas tienen cargos (si no hay problema)
+**Quién lo hace**: `AdjustHousePeriodChargeUseCase`
 
-### Al distribuir pago
+**Validaciones antes de ajustar**:
+- Período no > 3 meses atrás (proteger histórico)
+- Nuevo monto diferente al actual
+- Nuevo monto >= pagos ya asignados
 
-✅ Periodo existe en BD
-✅ Casa existe en BD
-✅ Cargos existen en house_period_charges
-✅ Montos son positivos
-✅ Distribución respeta FIFO
+### Reversionar Cargo
 
-### Al consultar balance
+**Quién lo hace**: `ReverseHousePeriodChargeUseCase`
 
-✅ Período existe
-✅ Casa existe
-✅ Cargos están creados (si no, error)
-✅ Suma es correcta (expected vs paid)
+**Validaciones**:
+- Período no > 3 meses atrás
+- Sin pagos asignados a este cargo (error si existen)
+
+### Condonar Penalidad
+
+**Quién lo hace**: `CondonePenaltyUseCase`
+
+**Validaciones**:
+- Solo penalidades (error si es otro concepto)
+- Sin pagos asignados a la penalidad
 
 ---
 
-## Próximos Pasos Recomendados
+## Migraciones Recientes
 
-### Corto Plazo (No Urgente)
-- [ ] Crear endpoints REST en controller para ajustes/reversiones
-- [ ] Agregar tests unitarios de servicios y use cases
-- [ ] Documentar en Swagger/OpenAPI los nuevos endpoints
+### Ejecutadas o pendientes de ejecutar
 
-### Mediano Plazo (Enhancements)
-- [ ] Notificaciones automáticas cuando se crea penalidad
-- [ ] Penalidades progresivas (aumentan si siguen impagadas)
-- [ ] Planes de pago (distribuir deuda en cuotas)
+| Migración | Timestamp | Descripción | Estado |
+|-----------|-----------|-------------|--------|
+| `UpdatePaymentDueDay` | 1769800000000 | Cambiar día límite de pago | Pendiente staging |
+| `AddConceptActivationToPeriods` | 1769810000000 | Flags water/extraordinary en periods | Pendiente staging |
+| `AddHouseIdToCtaPenalties` | 1769820000000 | house_id + unique index en cta_penalties | Pendiente staging |
+| `CreateHousePeriodCharges` | 1770000000000 | Tabla house_period_charges | Pendiente staging |
+| `AddCentsCreditThreshold` | 1770100000000 | cents_credit_threshold en period_config | Pendiente staging |
+| `SeedLegacyHousePeriodCharges` | 1770200000000 | Rellenar charges para períodos existentes | Pendiente staging |
+| `FixStaleEnumTypes` | 1770300000000 | Limpiar tipos enum _old residuales | Pendiente staging |
 
-### Largo Plazo (Auditoría Completa)
-- [ ] Tabla `charge_adjustments` para auditoría de cambios
-- [ ] Registrar quién/cuándo/por qué de cada ajuste
-- [ ] Trail completo de cambios por cargo
+### Orden de ejecución
+
+```bash
+npm run db:deploy   # Ejecuta todas las pendientes en orden de timestamp
+```
+
+---
+
+## Problemas Conocidos con TypeORM Enums
+
+### Causa raíz
+La BD original (`bd_initial.sql`) creó enums con nombres cortos (`validation_status_t`, `role_t`, `status_t`), pero TypeORM `synchronize` espera nombres auto-generados (`transactions_status_validation_status_enum`, etc.).
+
+### Fix aplicado
+Se agregó `enumName` explícito en las entities para que TypeORM use los nombres originales de la BD:
+
+| Entity | Column | enumName |
+|--------|--------|----------|
+| `TransactionStatus` | `validation_status` | `validation_status_t` |
+| `User` | `role` | `role_t` |
+| `User` | `status` | `status_t` |
+| `HousePeriodCharge` | `concept_type` | `record_allocations_concept_type_enum` |
+
+### Regla para nuevas entities con enums
+Siempre especificar `enumName` que coincida con el tipo que existe en la BD. Si se comparte un enum entre tablas (como `AllocationConceptType`), usar el nombre del primer tipo creado.
 
 ---
 
@@ -505,6 +480,7 @@ HAVING COUNT(*) > 1;
 - `findByHouseAndPeriod()`: ~10ms (índice compuesto)
 - `getTotalExpectedByHousePeriod()`: ~5ms (SUM con WHERE)
 - `getPeriodReport()`: ~50ms (agrupa 198 registros)
+- FIFO con 12 períodos: ~120ms (12 × findByHouseAndPeriod)
 
 ### Escalabilidad
 - Soporta 66 casas actuales
@@ -516,18 +492,20 @@ HAVING COUNT(*) > 1;
 ## Referencias
 
 **Documentación detallada**:
-- `docs/features/payment-management/HOUSE_PERIOD_CHARGES.md` - Detalles técnicos
-- `docs/features/payment-management/README.md` - Visión general
+- `docs/features/payment-management/HOUSE_PERIOD_CHARGES.md` - Detalles técnicos de charges
+- `docs/features/payment-management/README.md` - Visión general del módulo
 - `docs/features/payment-management/API_ENDPOINTS.md` - Endpoints REST
+- `docs/features/payment-management/MIGRATIONS.md` - Migraciones de BD
 
 **Código**:
-- Entity: `src/shared/database/entities/house-period-charge.entity.ts`
-- Repository: `src/features/payment-management/infrastructure/repositories/house-period-charge.repository.ts`
-- Servicios: `src/features/payment-management/infrastructure/services/`
-- Use Cases: `src/features/payment-management/application/`
+- AllocatePaymentUseCase: `src/features/payment-management/application/allocate-payment.use-case.ts`
+- ApplyCreditToPeriodsUseCase: `src/features/payment-management/application/apply-credit-to-periods.use-case.ts`
+- BackfillAllocationsUseCase: `src/features/payment-management/application/backfill-allocations.use-case.ts`
+- Entity PeriodConfig: `src/shared/database/entities/period-config.entity.ts`
+- Entity HouseBalance: `src/shared/database/entities/house-balance.entity.ts`
 - Módulo: `src/features/payment-management/payment-management.module.ts`
 
 ---
 
-**Última actualización**: 2026-02-11
+**Última actualización**: 2026-02-12
 **Status**: ✅ COMPLETAMENTE IMPLEMENTADO Y FUNCIONAL

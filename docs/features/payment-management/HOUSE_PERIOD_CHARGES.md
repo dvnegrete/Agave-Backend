@@ -328,21 +328,27 @@ CreatePeriodUseCase.execute()
 - ~66 cargos adicionales de penalidad (si hay deuda)
 - = ~264 cargos totales por período
 
-### Distribuir Pagos
+### Distribuir Pagos (FIFO Automático)
 
 ```
-AllocatePaymentUseCase.execute(recordId, houseId, periodId, amount)
+AllocatePaymentUseCase.execute(recordId, houseId, amount)
   ↓
-1. Obtener período
-2. preparePaymentConcepts()
-   ├─ IHousePeriodChargeRepository.findByHouseAndPeriod()
-   └─ Extraer montos inmutables (snapshot)
-3. Para cada concepto:
-   ├─ Calcular allocated_amount (FIFO)
-   └─ IRecordAllocationRepository.create()
-4. Actualizar house_balance
-5. Retornar resultado
+1. Separar centavos: cents = amount - floor(amount)
+2. allocateFIFO(recordId, houseId, integerAmount):
+   ├─ Obtener TODOS los períodos ordenados ASC
+   ├─ Para cada período:
+   │  ├─ IHousePeriodChargeRepository.findByHouseAndPeriod()
+   │  │  └─ Extraer montos inmutables (snapshot)
+   │  ├─ Obtener allocaciones EXISTENTES (evitar sobre-asignación)
+   │  ├─ Para cada concepto (remaining = expected - alreadyPaid):
+   │  │  ├─ Calcular allocated_amount = min(remaining, amountLeft)
+   │  │  └─ IRecordAllocationRepository.create()
+   │  └─ Si amountLeft <= 0: break
+3. updateHouseBalance(remaining, cents, threshold)
+4. Retornar resultado
 ```
+
+**Nota**: Sin `period_id` → FIFO automático. Con `period_id` → modo manual (solo desde confirmDistribution).
 
 ### Obtener Balance
 
@@ -365,10 +371,11 @@ GetHousePeriodBalanceUseCase.execute(houseId, periodId)
 ### Con AllocatePaymentUseCase
 
 Cuando se distribuye un pago:
-1. **Antes**: Se calculaba dinámicamente expected_amount
-2. **Ahora**: Se obtiene de `house_period_charges` (inmutable)
+1. **Antes**: Se calculaba dinámicamente expected_amount y se asignaba a un solo período
+2. **Ahora**: Se obtiene de `house_period_charges` (inmutable) y se distribuye FIFO a todos los períodos con deuda
+3. **Verificación**: Siempre se consultan allocaciones existentes para evitar sobre-asignación
 
-Retrocompatibilidad: Si no hay cargos en HPC (períodos antiguos), cae a cálculo legacy.
+Retrocompatibilidad: Si no hay cargos en HPC (períodos antiguos), cae a cálculo legacy (`preparePaymentConceptsLegacy`).
 
 ### Con PeriodConfig
 
@@ -518,5 +525,5 @@ npm run build
 
 ---
 
-**Última actualización**: 2026-02-11
-**Status**: ✅ COMPLETAMENTE IMPLEMENTADO Y FUNCIONAL
+**Última actualización**: 2026-02-12
+**Status**: ✅ COMPLETAMENTE IMPLEMENTADO Y FUNCIONAL (Integrado con FIFO)

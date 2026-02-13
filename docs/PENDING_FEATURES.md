@@ -1,52 +1,48 @@
 # Funcionalidades Pendientes
 
-Este archivo registra features y funcionalidades planificadas pero no implementadas aún.
+Este archivo registra features y funcionalidades planificadas pero no implementadas aún, y áreas que necesitan correcciones.
 
-**Última actualización**: 2026-01-11
+**Última actualización**: 2026-02-12
+
+---
+
+## Payment Management - Distribución FIFO de Pagos
+
+**Prioridad**: Alta ✅ **COMPLETADO**
+**Fecha registro**: 2026-02-11
+**Fecha completado**: 2026-02-12
+**Estado**: ✅ IMPLEMENTADO
+
+**Contexto**: Reescritura de `AllocatePaymentUseCase` para distribuir pagos FIFO (períodos más antiguos primero) en lugar de asignar todo a un solo período.
+
+### Problemas Resueltos
+- ✅ Sobre-asignación: ahora verifica allocaciones existentes antes de asignar
+- ✅ Todo a un período: ahora distribuye FIFO a todos los períodos con deuda
+- ✅ Centavos prematuros: threshold configurable ($100 default vs $1 hardcodeado)
+- ✅ Penalidades: incluidas como concepto a cubrir en FIFO
+- ✅ Callers actualizados: reconciliation, unclaimed deposits, match suggestions usan FIFO
+
+### Archivos Clave Modificados
+- `allocate-payment.use-case.ts` - Reescritura completa
+- `apply-credit-to-periods.use-case.ts` - Todos los conceptos
+- `backfill-allocations.use-case.ts` - Sin period_id
+- `reconciliation-persistence.service.ts` - Sin period_id
+- `unclaimed-deposits.service.ts` - Sin period_id
+- `match-suggestions.service.ts` - Sin period_id
+
+### Documentación
+Ver `docs/features/payment-management/CURRENT_STATE.md` para flujos detallados.
 
 ---
 
 ## Payment Management - Automatic Payment Allocation
 
-**Prioridad**: Alta ✅ **COMPLETADO**
+**Prioridad**: Alta ✅ **COMPLETADO** (Superseded por FIFO)
 **Fecha registro**: 2025-11-17
 **Fecha completado**: 2025-11-17
-**Estado**: ✅ IMPLEMENTADO
+**Estado**: ✅ IMPLEMENTADO → ✅ MEJORADO CON FIFO (Feb 2026)
 
-**Contexto**: Integración de AllocatePaymentUseCase en el flujo de conciliación bancaria para crear automáticamente `record_allocations` cuando se concilian transacciones.
-
-### Problema Resuelto
-Antes de esta implementación:
-- ❌ GET /payment-management/houses/:houseId/payments retornaba lista vacía
-- ❌ `record_allocations` nunca se creaban durante conciliación
-- ❌ Flujo incompleto: solo creaba records, no la distribución de pagos por conceptos
-
-### Implementación Completada
-
-**Archivos Modificados:**
-1. `src/features/bank-reconciliation/infrastructure/persistence/reconciliation-persistence.service.ts`
-   - Inyectadas 4 nuevas dependencias: AllocatePaymentUseCase, PeriodRepository, EnsurePeriodExistsUseCase, TransactionBankRepository
-   - Modificado método `persistReconciliation()` para ejecutar asignación automática (paso 6)
-   - Modificado `createHouseRecordAssociation()` para retornar la house (necesario para allocations)
-   - Agregado método `getOrCreateCurrentPeriod()` para obtener/crear período automáticamente
-   - Total: ~90 líneas de código agregadas
-
-2. `src/features/bank-reconciliation/bank-reconciliation.module.ts`
-   - Importado PaymentManagementModule para acceso a dependencias
-   - Agregado al array de imports
-
-**Funcionalidad Implementada:**
-- ✅ Asignación automática de pagos después de cada conciliación exitosa
-- ✅ Creación automática de `record_allocations` (distribución por concepto)
-- ✅ Obtención/creación automática del período actual
-- ✅ Actualización automática de `house_balance`
-- ✅ Manejo robusto de errores (no cancela conciliación si allocations falla)
-- ✅ Logging detallado del proceso
-
-**Resultado:**
-- ✅ GET /payment-management/houses/:houseId/payments ahora retorna todos los pagos
-- ✅ Flujo completo de conciliación a asignación automatizado
-- ✅ Aplicación compilada y ejecutándose correctamente
+**Contexto**: Integración original de AllocatePaymentUseCase en conciliación bancaria. Desde Feb 2026, los callers ya no pasan `period_id` y la distribución es FIFO automática.
 
 ---
 
@@ -558,36 +554,37 @@ Sistema: "Mismo monto, misma casa. Requiere validación manual para evitar dupli
 
 ## Resumen General de Features
 
-**Última verificación de código**: 2026-01-11
+**Última verificación de código**: 2026-02-12
 
 ### Features Implementadas (5/6)
 
-| Feature | Prioridad | Estado | Módulo | Controllers | Endpoints |
-|---------|-----------|--------|--------|-------------|-----------|
-| Payment Management | Alta | ✅ COMPLETO | `payment-management` | 1 | 6 |
-| Bank Reconciliation | Alta | ✅ COMPLETO | `bank-reconciliation` | 1 | 5 (+ manual validation) |
-| Historical Records | Media | ✅ COMPLETO | `historical-records` | 1 | 1 |
-| Vouchers + Telegram | Baja | ✅ COMPLETO | `vouchers` | 2 | 2 (webhook endpoints) |
-| Transactions Bank | Media | ✅ OPERACIONAL | `transactions-bank` | 1 | - |
-| **Houses Management** | **Media** | **⚠️ PENDIENTE** | **No existe** | **0** | **0** |
+| Feature | Prioridad | Estado | Módulo | Notas |
+|---------|-----------|--------|--------|-------|
+| Payment Management | Alta | ✅ COMPLETO + FIFO | `payment-management` | FIFO Feb 2026, HPC, centavos config |
+| Bank Reconciliation | Alta | ✅ COMPLETO | `bank-reconciliation` | Integrado con FIFO |
+| Historical Records | Media | ✅ COMPLETO | `historical-records` | |
+| Vouchers + Telegram | Baja | ✅ COMPLETO | `vouchers` | |
+| Transactions Bank | Media | ✅ OPERACIONAL | `transactions-bank` | |
+| **Houses Management** | **Media** | **⚠️ PENDIENTE** | **No existe** | |
 
-### Módulos Registrados en app.module.ts
+### Trabajo Pendiente (Priorizado)
 
-✅ Todos los módulos principales están registrados y operacionales:
-- VouchersModule
-- TransactionsBankModule
-- BankReconciliationModule
-- PaymentManagementModule
-- HistoricalRecordsModule
-- Plus: AuthModule, DatabaseModule, GoogleCloudModule, OpenAIModule, VertexAIModule, HealthModule
+| # | Área | Prioridad | Tipo | Descripción |
+|---|------|-----------|------|-------------|
+| 1 | Payment Mgmt | Alta | Fix | Conceptos opcionales: regenerar charges al cambiar flags |
+| 2 | Payment Mgmt | Alta | Fix | AI Distribution: verificar allocaciones existentes |
+| 3 | Payment Mgmt | Media | Fix | Casas nuevas: crear charges para períodos existentes |
+| 4 | Payment Mgmt | Media | Feature | Batch adjust charges por período |
+| 5 | Migraciones | Alta | Deploy | 7 migraciones pendientes en staging/prod |
+| 6 | Houses Mgmt | Media | Feature | Módulo completo (CRUD, reasignación) |
+| 7 | Payment Mgmt | Baja | Decision | Definir futuro de tablas cta_* |
 
-### Próximo Paso Recomendado
+### Migraciones Pendientes de Ejecutar
 
-**Implementar Houses Management** - Es el único feature planificado sin módulo dedicado:
-- Requiere: 1 módulo, 4 use cases, 1 controller con ~4 endpoints
-- Dependencias: Todo ya existe en infraestructura
-- Esfuerzo: Bajo (solo capa de aplicación e interfaces)
-- Impacto: Permite reasignar casas del usuario sistema a propietarios reales
+7 migraciones pendientes. Ver `docs/features/payment-management/MIGRATIONS.md`:
+```bash
+npm run db:deploy  # Ejecuta todas en orden
+```
 
 ---
 
@@ -599,112 +596,92 @@ Sistema: "Mismo monto, misma casa. Requiere validación manual para evitar dupli
 **Estado**: ✅ COMPLETAMENTE IMPLEMENTADO
 **Documentación**: `docs/features/payment-management/HOUSE_PERIOD_CHARGES.md`
 
-### Resumen de Implementación (6 Fases)
+Sistema de snapshot inmutable de cargos esperados por casa-período. 6 fases completadas (21 archivos nuevos + 10 modificados). Referir a la documentación para detalles completos.
 
-Sistema de snapshot inmutable de cargos esperados por casa-período. Reemplaza cálculos dinámicos por datos congelados al crear cada período.
+---
 
-**Fases Completadas:**
+## Creación y Ajuste de Períodos - Gaps Conocidos
 
-| Fase | Descripción | Archivos | Status |
-|------|-------------|----------|--------|
-| **1** | Modelo de datos (Entity, Migration, Repository) | 4 | ✅ |
-| **2** | Seed automático al crear período (M+W+F+P) | 2 | ✅ |
-| **3** | Integración con AllocatePaymentUseCase | 3 | ✅ |
-| **4** | Penalidades automáticas en seed | 2 | ✅ |
-| **5** | Reportes analíticos (período, casa, clasificación) | 5 | ✅ |
-| **6** | Ajustes, reversiones y condonaciones | 5 | ✅ |
+**Prioridad**: Media-Alta
+**Fecha registro**: 2026-02-12
+**Estado**: ⚠️ PENDIENTE DE IMPLEMENTACIÓN
 
-**Total**: 21 archivos nuevos + 10 modificados
+**Contexto**: El sistema de creación de períodos tiene gaps que pueden causar inconsistencias con los `house_period_charges`. Estos son bugs conocidos que no se han corregido aún.
 
-### Qué se Implementó
+### Gap 1: Casas agregadas después de crear un período
 
-**Tabla**: `house_period_charges`
-- Snapshot inmutable de cargos (casa × período × concepto)
-- ~198-264 registros por período (66 casas × 3-4 conceptos)
-- Índices: `(house_id, period_id, concept_type)` UNIQUE
+**Problema**: Si se crea un período y luego se agregan casas nuevas a la BD, esas casas NO tendrán `house_period_charges` para ese período.
 
-**Servicios (4)**:
-- `SeedHousePeriodChargesService` - Crear cargos inmutables
-- `HousePeriodChargeCalculatorService` - Cálculos basados en cargos
-- `CalculatePeriodPenaltiesService` - Penalidades automáticas
-- `PaymentReportAnalyzerService` - Reportes analíticos
-- `ChargeAdjustmentValidatorService` - Validaciones de negocio
+**Impacto**: `AllocatePaymentUseCase` caerá al fallback legacy para esas casas en ese período (funciona pero no incluye PENALTIES).
 
-**Use Cases (9)**:
-- `CreatePeriodUseCase` - Modificado para ejecutar seed
-- `EnsurePeriodExistsUseCase` - Modificado para ejecutar seed
-- `AllocatePaymentUseCase` - Modificado para usar HPC
-- `GetHousePeriodBalanceUseCase` - Balance casa-período
-- `GetPeriodReportUseCase` - Reporte período
-- `GetHousePaymentHistoryUseCase` - Historial multi-período
-- `ClassifyHousesByPaymentUseCase` - Clasificación de casas
-- `AdjustHousePeriodChargeUseCase` - Ajustar cargo
-- `ReverseHousePeriodChargeUseCase` - Reversionar cargo
-- `CondonePenaltyUseCase` - Condonar penalidades
+**Fix necesario**: Mecanismo para regenerar charges cuando se agregan casas. Opciones:
+- a) Trigger/hook en creación de casa que cree charges para períodos existentes
+- b) Endpoint manual de "re-seed" para un período específico
+- c) Detección automática al ejecutar `AllocatePaymentUseCase` (si no hay charges, crearlos on-demand)
 
-### Cómo Funciona
+**Archivos clave**:
+- `src/features/payment-management/infrastructure/services/seed-house-period-charges.service.ts`
+- `src/features/payment-management/application/allocate-payment.use-case.ts` (fallback legacy)
 
-**Al crear período:**
+### Gap 2: Cambio de PeriodConfig después de crear período
+
+**Problema**: Los charges se congelan al crear el período. Si se cambia la config después, los períodos existentes mantienen los montos anteriores.
+
+**Impacto**: Intencional (snapshot inmutable), pero no hay UI/endpoint para ajustar charges en batch cuando es necesario.
+
+**Fix necesario**: Endpoint de ajuste batch por período que permita:
+- Recalcular charges basándose en nueva PeriodConfig
+- Con confirmación del admin (no automático)
+
+**Archivos clave**:
+- `src/features/payment-management/application/adjust-house-period-charge.use-case.ts` (ajuste individual)
+- Falta: BatchAdjustChargesUseCase o similar
+
+### Gap 3: Activación/desactivación de conceptos opcionales
+
+**Problema**: Si se cambia `water_active` o `extraordinary_fee_active` en un período existente, los `house_period_charges` existentes NO se actualizan.
+
+**Impacto**: Inconsistencia entre flags del período y charges reales. El FIFO distribuirá (o no) basándose en charges existentes, no en flags actuales.
+
+**Fix necesario**: `UpdatePeriodConceptsUseCase` debe regenerar charges al cambiar flags.
+
+**Archivos clave**:
+- `src/features/payment-management/application/update-period-concepts.use-case.ts`
+- Verificar: ¿El use case actual regenera charges o solo cambia flags?
+
+### Gap 4: AI Distribution no verifica allocaciones existentes
+
+**Problema**: `DistributePaymentWithAIUseCase` sugiere distribución sin consultar allocaciones existentes. Si el admin confirma para un período que ya tiene pagos, podría haber sobre-asignación.
+
+**Impacto**: Potencial sobre-asignación en modo manual (confirmDistribution con period_id).
+
+**Fix necesario**: Actualizar `DistributePaymentWithAIUseCase` para consultar allocaciones existentes antes de sugerir.
+
+**Archivos clave**:
+- `src/features/payment-management/application/distribute-payment-with-ai.use-case.ts`
+
+### Notas para planificación
+
+Los gaps 1-3 afectan la **integridad de `house_period_charges`**. El gap 4 afecta la **distribución manual vía AI**.
+
+**Orden de prioridad sugerido**:
+1. Gap 3 (conceptos opcionales) - Más probable en uso diario
+2. Gap 4 (AI distribution) - Puede causar sobre-asignación
+3. Gap 1 (casas nuevas) - Raro pero crítico cuando ocurre
+4. Gap 2 (batch adjust) - Mejora de UX, no bug crítico
+
+**Query para detectar inconsistencias**:
+```sql
+-- Casas sin charges en el último período
+SELECT DISTINCT h.id, h.number_house
+FROM houses h
+LEFT JOIN house_period_charges hpc
+  ON h.id = hpc.house_id AND hpc.period_id = (
+    SELECT id FROM periods ORDER BY year DESC, month DESC LIMIT 1
+  )
+WHERE hpc.id IS NULL
+ORDER BY h.number_house;
 ```
-1. CreatePeriodUseCase.execute()
-2. SeedHousePeriodChargesService.seedChargesForPeriod(periodId)
-   ├─ Para cada casa (1-66):
-   │  ├─ Crear MAINTENANCE (siempre)
-   │  ├─ Crear WATER (si water_active)
-   │  ├─ Crear EXTRAORDINARY_FEE (si extraordinary_fee_active)
-   │  └─ Crear PENALTIES (si hay deuda anterior)
-   └─ Batch insert (~264 cargos)
-```
-
-**Al distribuir pagos:**
-```
-1. AllocatePaymentUseCase.execute(recordId, houseId, periodId, amount)
-2. preparePaymentConcepts():
-   └─ SELECT FROM house_period_charges (montos inmutables)
-3. Distribuir pago FIFO usando montos fijos
-```
-
-**Consultar balance:**
-```
-1. GetHousePeriodBalanceUseCase.execute(houseId, periodId)
-2. SELECT SUM(expected_amount) FROM house_period_charges
-3. SELECT SUM(allocated_amount) FROM record_allocations
-4. Calcular diferencia = expected - paid
-```
-
-### Validaciones de Negocio
-
-- ✅ No editar períodos > 3 meses atrás (proteger histórico)
-- ✅ No reducir cargos por debajo de lo ya pagado
-- ✅ Solo condonar penalidades, no otros conceptos
-- ✅ No permitir reversión de cargos con pagos asignados
-
-### Integración con Sistema Actual
-
-- ✅ Se integra con `AllocatePaymentUseCase` existente
-- ✅ Se integra con `PeriodConfig` para valores por defecto
-- ✅ Se integra con `HousePeriodOverride` para sobrescrituras
-- ✅ Se integra con `RecordAllocation` para tracking de pagos
-- ✅ Retrocompatible con períodos antiguos (fallback a cálculo legacy)
-
-### Beneficios Realizados
-
-| Aspecto | Antes | Después |
-|---------|-------|---------|
-| Montos esperados | Dinámicos (recalculados) | Inmutables (snapshot) |
-| Trazabilidad | Débil | Fuerte (campo `source`) |
-| Auditabilidad | Difícil | Fácil (datos congelados) |
-| Distribución FIFO | Montos variables | Montos garantizados |
-| Penalidades | Manual | Automáticas |
-| Reportes | Aproximados | Precisos |
-
-### Documentación
-
-Ver `docs/features/payment-management/HOUSE_PERIOD_CHARGES.md` para:
-- Detalles técnicos completos
-- Flujos de datos
-- Ejemplos de uso
-- Próximos desarrollos posibles
 
 ---
 
