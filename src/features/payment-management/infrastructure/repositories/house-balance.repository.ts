@@ -124,4 +124,11 @@ export class HouseBalanceRepository implements IHouseBalanceRepository {
     const result = await this.repository.delete({ house_id: houseId });
     return (result.affected ?? 0) > 0;
   }
+
+  async resetAll(): Promise<number> {
+    const result = await this.repository.query(
+      `UPDATE house_balances SET credit_balance = 0, debit_balance = 0, accumulated_cents = 0, updated_at = NOW()`,
+    );
+    return result?.[1] ?? 0;
+  }
 }

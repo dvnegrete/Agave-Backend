@@ -40,6 +40,9 @@ import {
   UpdatePeriodConceptsUseCase,
   DistributePaymentWithAIUseCase,
   BackfillAllocationsUseCase,
+  GetPeriodChargesSummaryUseCase,
+  BatchUpdatePeriodChargesUseCase,
+  ReprocessAllAllocationsUseCase,
 } from '../application';
 import {
   CreatePeriodDto,
@@ -55,6 +58,10 @@ import {
   DistributePaymentRequestDto,
   ConfirmDistributionRequestDto,
   BackfillAllocationsResponseDto,
+  BatchUpdatePeriodChargesDto,
+  PeriodChargeSummaryDto,
+  BatchUpdateResultDto,
+  ReprocessResultDto,
 } from '../dto';
 import { HouseRepository } from '@/shared/database/repositories/house.repository';
 import { IPeriodConfigRepository } from '../interfaces';
@@ -80,6 +87,9 @@ export class PaymentManagementController {
     private readonly updatePeriodConceptsUseCase: UpdatePeriodConceptsUseCase,
     private readonly distributePaymentWithAIUseCase: DistributePaymentWithAIUseCase,
     private readonly backfillAllocationsUseCase: BackfillAllocationsUseCase,
+    private readonly getPeriodChargesSummaryUseCase: GetPeriodChargesSummaryUseCase,
+    private readonly batchUpdatePeriodChargesUseCase: BatchUpdatePeriodChargesUseCase,
+    private readonly reprocessAllAllocationsUseCase: ReprocessAllAllocationsUseCase,
   ) {}
 
   /**
@@ -667,6 +677,72 @@ export class PaymentManagementController {
     }
 
     return this.backfillAllocationsUseCase.execute(houseNumber);
+  }
+
+  /**
+   * GET /payment-management/period-charges
+   * Obtiene resumen de cargos por período
+   */
+  @Get('period-charges')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Obtener resumen de cargos por período',
+    description:
+      'Retorna todos los períodos con sus montos de mantenimiento, agua y cuota extraordinaria',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Resumen de cargos obtenido',
+    type: [PeriodChargeSummaryDto],
+  })
+  async getPeriodCharges(): Promise<PeriodChargeSummaryDto[]> {
+    return this.getPeriodChargesSummaryUseCase.execute();
+  }
+
+  /**
+   * POST /payment-management/period-charges/batch-update
+   * Actualiza cargos en batch para un rango de períodos
+   */
+  @Post('period-charges/batch-update')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Actualizar cargos en batch',
+    description:
+      'Actualiza los montos esperados de mantenimiento, agua y cuota extraordinaria para un rango de períodos × 66 casas',
+  })
+  @ApiBody({ type: BatchUpdatePeriodChargesDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Cargos actualizados',
+    type: BatchUpdateResultDto,
+  })
+  async batchUpdateCharges(
+    @Body() dto: BatchUpdatePeriodChargesDto,
+  ): Promise<BatchUpdateResultDto> {
+    return this.batchUpdatePeriodChargesUseCase.execute(dto);
+  }
+
+  /**
+   * POST /payment-management/reprocess-allocations
+   * Reprocesa todas las asignaciones de pago (nuclear)
+   */
+  @Post('reprocess-allocations')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Reprocesar todas las asignaciones',
+    description:
+      'Borra todas las allocations, resetea balances y re-ejecuta backfill FIFO para todo',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Reprocesamiento completado',
+    type: ReprocessResultDto,
+  })
+  async reprocessAllocations(): Promise<ReprocessResultDto> {
+    return this.reprocessAllAllocationsUseCase.execute();
   }
 
   /**

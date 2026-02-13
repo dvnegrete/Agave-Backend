@@ -32,6 +32,9 @@ import {
   ApplyCreditToPeriodsUseCase,
   DistributePaymentWithAIUseCase,
   BackfillAllocationsUseCase,
+  GetPeriodChargesSummaryUseCase,
+  BatchUpdatePeriodChargesUseCase,
+  ReprocessAllAllocationsUseCase,
 } from './application';
 
 // Infrastructure - Services
@@ -103,6 +106,9 @@ import {
     ApplyCreditToPeriodsUseCase,
     DistributePaymentWithAIUseCase,
     BackfillAllocationsUseCase,
+    GetPeriodChargesSummaryUseCase,
+    BatchUpdatePeriodChargesUseCase,
+    ReprocessAllAllocationsUseCase,
     AllocatePaymentUseCase,
     GetPaymentHistoryUseCase,
     GetHouseBalanceUseCase,

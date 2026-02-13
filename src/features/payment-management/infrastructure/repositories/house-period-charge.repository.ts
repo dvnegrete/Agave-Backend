@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { HousePeriodCharge } from '@/shared/database/entities';
+import { AllocationConceptType } from '@/shared/database/entities/enums';
 import { IHousePeriodChargeRepository } from '../../interfaces/house-period-charge.repository.interface';
 
 @Injectable()
@@ -83,5 +84,40 @@ export class HousePeriodChargeRepository
       .getRawOne();
 
     return result?.total ? parseFloat(result.total) : 0;
+  }
+
+  async upsertBatchForPeriods(
+    periodIds: number[],
+    conceptType: AllocationConceptType,
+    expectedAmount: number,
+    source: string,
+  ): Promise<number> {
+    if (periodIds.length === 0) return 0;
+
+    const result = await this.repository.query(
+      `INSERT INTO house_period_charges (house_id, period_id, concept_type, expected_amount, source)
+       SELECT h.id, p.period_id, $1, $2, $3
+       FROM houses h
+       CROSS JOIN (SELECT unnest($4::int[]) AS period_id) p
+       ON CONFLICT (house_id, period_id, concept_type)
+       DO UPDATE SET expected_amount = EXCLUDED.expected_amount, source = EXCLUDED.source, updated_at = NOW()`,
+      [conceptType, expectedAmount, source, periodIds],
+    );
+
+    return result?.length ?? (result?.rowCount ?? 0);
+  }
+
+  async deleteByPeriodsAndConcept(
+    periodIds: number[],
+    conceptType: AllocationConceptType,
+  ): Promise<number> {
+    if (periodIds.length === 0) return 0;
+
+    const result = await this.repository.query(
+      `DELETE FROM house_period_charges WHERE period_id = ANY($1::int[]) AND concept_type = $2`,
+      [periodIds, conceptType],
+    );
+
+    return result?.[1] ?? 0;
   }
 }

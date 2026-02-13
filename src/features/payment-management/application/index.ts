@@ -21,3 +21,6 @@ export * from './generate-penalty.use-case';
 export * from './apply-credit-to-periods.use-case';
 export * from './distribute-payment-with-ai.use-case';
 export * from './backfill-allocations.use-case';
+export * from './get-period-charges-summary.use-case';
+export * from './batch-update-period-charges.use-case';
+export * from './reprocess-all-allocations.use-case';

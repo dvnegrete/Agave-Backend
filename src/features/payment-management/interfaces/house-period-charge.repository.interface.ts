@@ -1,4 +1,5 @@
 import { HousePeriodCharge } from '@/shared/database/entities';
+import { AllocationConceptType } from '@/shared/database/entities/enums';
 
 /**
  * Interface para el repositorio de Cargos de Casa-Período
@@ -54,5 +55,23 @@ export interface IHousePeriodChargeRepository {
   getTotalExpectedByHousePeriod(
     houseId: number,
     periodId: number,
+  ): Promise<number>;
+
+  /**
+   * Upsert masivo de cargos para múltiples períodos × todas las casas
+   */
+  upsertBatchForPeriods(
+    periodIds: number[],
+    conceptType: AllocationConceptType,
+    expectedAmount: number,
+    source: string,
+  ): Promise<number>;
+
+  /**
+   * Elimina cargos de un concepto para múltiples períodos
+   */
+  deleteByPeriodsAndConcept(
+    periodIds: number[],
+    conceptType: AllocationConceptType,
   ): Promise<number>;
 }

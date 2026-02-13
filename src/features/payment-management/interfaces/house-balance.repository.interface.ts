@@ -72,4 +72,9 @@ export interface IHouseBalanceRepository {
    * Elimina el saldo de una casa
    */
   delete(houseId: number): Promise<boolean>;
+
+  /**
+   * Resetea todos los saldos a 0 (credit, debit, cents)
+   */
+  resetAll(): Promise<number>;
 }
