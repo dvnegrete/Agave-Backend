@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { OpenAIService } from '@/shared/libs/openai/openai.service';
 import { VertexAIService } from '@/shared/libs/vertex-ai/vertex-ai.service';
 import { getPaymentDistributionPrompt } from '../../config/payment-distribution-prompts.config';
-import { PaymentManagementConfig } from '../../config/payment-management.config';
+import { BusinessValues } from '@/shared/content/config/business-values.config';
 import {
   PaymentDistributionAIRequest,
   PaymentDistributionAIResponse,
@@ -21,7 +21,7 @@ export class PaymentDistributionAnalyzerService {
   async analyzeDistribution(
     request: PaymentDistributionAIRequest,
   ): Promise<PaymentDistributionAIResponse | null> {
-    if (!PaymentManagementConfig.ENABLE_AI_PAYMENT_DISTRIBUTION) {
+    if (!BusinessValues.payments.enableAiPaymentDistribution) {
       this.logger.debug('AI payment distribution deshabilitado');
       return null;
     }
@@ -40,7 +40,7 @@ export class PaymentDistributionAnalyzerService {
         request.credit_balance,
         request.total_debt,
         unpaidPeriodsText,
-        PaymentManagementConfig.DEFAULT_MAINTENANCE_AMOUNT,
+        BusinessValues.payments.defaultMaintenanceAmount,
       );
 
       let aiResponse: PaymentDistributionAIResponse | null = null;

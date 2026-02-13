@@ -11,7 +11,7 @@ import {
   IHouseBalanceRepository,
   IHousePeriodOverrideRepository,
 } from '../interfaces';
-import { PaymentManagementConfig } from '../config/payment-management.config';
+import { BusinessValues } from '@/shared/content/config/business-values.config';
 import { PaymentDistributionAnalyzerService } from '../infrastructure/matching/payment-distribution-analyzer.service';
 import {
   PaymentDistributionResult,
@@ -103,7 +103,7 @@ export class DistributePaymentWithAIUseCase {
     const thresholdLevels = { high: 3, medium: 2, low: 1 };
     const meetsThreshold =
       confidenceLevels[aiResponse.confidence] >=
-      thresholdLevels[PaymentManagementConfig.AI_CONFIDENCE_THRESHOLD];
+      thresholdLevels[BusinessValues.payments.aiConfidenceThreshold];
 
     return {
       method: 'ai',
@@ -123,7 +123,7 @@ export class DistributePaymentWithAIUseCase {
   ): PaymentDistributionResult | null {
     // Verificar si el monto es múltiplo exacto del monto de mantenimiento
     const maintenanceAmount =
-      PaymentManagementConfig.DEFAULT_MAINTENANCE_AMOUNT;
+      BusinessValues.payments.defaultMaintenanceAmount;
 
     // Caso 1: monto exacto de N periodos
     if (amount % maintenanceAmount === 0) {
@@ -289,7 +289,7 @@ export class DistributePaymentWithAIUseCase {
       }
 
       if (
-        unpaid.length >= PaymentManagementConfig.MAX_PERIODS_FOR_DISTRIBUTION
+        unpaid.length >= BusinessValues.payments.maxPeriodsForDistribution
       ) {
         break;
       }

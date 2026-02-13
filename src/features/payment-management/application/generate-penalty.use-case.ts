@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { CtaPenalties } from '@/shared/database/entities';
 import { IPeriodConfigRepository } from '../interfaces';
 import { PENALTY_MESSAGES } from '@/shared/common/constants/messages';
-import { PaymentManagementConfig } from '../config/payment-management.config';
+import { BusinessValues } from '@/shared/content/config/business-values.config';
 
 @Injectable()
 export class GeneratePenaltyUseCase {
@@ -41,7 +41,7 @@ export class GeneratePenaltyUseCase {
 
     const penaltyAmount =
       config?.late_payment_penalty_amount ??
-      PaymentManagementConfig.DEFAULT_LATE_PENALTY_AMOUNT;
+      BusinessValues.payments.defaultLatePenaltyAmount;
 
     try {
       const penalty = this.penaltiesRepository.create({
