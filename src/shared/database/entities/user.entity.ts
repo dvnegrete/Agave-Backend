@@ -18,6 +18,7 @@ export class User {
   @Column({
     type: 'enum',
     enum: Role,
+    enumName: 'role_t',
     default: Role.TENANT,
   })
   role: Role;
@@ -25,6 +26,7 @@ export class User {
   @Column({
     type: 'enum',
     enum: Status,
+    enumName: 'status_t',
     default: Status.ACTIVE,
   })
   status: Status;

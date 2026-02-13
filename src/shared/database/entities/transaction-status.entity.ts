@@ -27,6 +27,7 @@ export class TransactionStatus {
   @Column({
     type: 'enum',
     enum: ValidationStatus,
+    enumName: 'validation_status_t',
     default: ValidationStatus.PENDING,
   })
   validation_status: ValidationStatus;

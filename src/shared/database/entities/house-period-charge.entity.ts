@@ -31,6 +31,7 @@ export class HousePeriodCharge {
   @Column({
     type: 'enum',
     enum: AllocationConceptType,
+    enumName: 'record_allocations_concept_type_enum',
     comment: 'Tipo de concepto del cargo',
   })
   concept_type: AllocationConceptType;
