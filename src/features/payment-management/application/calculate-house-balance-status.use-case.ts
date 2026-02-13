@@ -4,12 +4,14 @@ import {
   AllocationConceptType,
   ConceptType,
 } from '@/shared/database/entities/enums';
+import { BusinessValues } from '@/shared/content/config/business-values.config';
 import {
   IRecordAllocationRepository,
   IPeriodRepository,
   IPeriodConfigRepository,
   IHouseBalanceRepository,
   IHousePeriodOverrideRepository,
+  IHousePeriodChargeRepository,
 } from '../interfaces';
 import { GeneratePenaltyUseCase } from './generate-penalty.use-case';
 import {
@@ -37,6 +39,8 @@ export class CalculateHouseBalanceStatusUseCase {
     private readonly houseBalanceRepository: IHouseBalanceRepository,
     @Inject('IHousePeriodOverrideRepository')
     private readonly housePeriodOverrideRepository: IHousePeriodOverrideRepository,
+    @Inject('IHousePeriodChargeRepository')
+    private readonly housePeriodChargeRepository: IHousePeriodChargeRepository,
     private readonly generatePenaltyUseCase: GeneratePenaltyUseCase,
   ) {}
 
@@ -153,64 +157,82 @@ export class CalculateHouseBalanceStatusUseCase {
     }
 
     // Calcular montos esperados por concepto
+    // Fuente de verdad: house_period_charges (por casa/período/concepto)
+    // Fallback: PeriodConfig defaults (solo si no existen charges)
     const concepts: ConceptBreakdown[] = [];
     let expectedTotal = 0;
 
-    // Mantenimiento (siempre obligatorio)
-    const maintenanceExpected = config
-      ? await this.housePeriodOverrideRepository.getApplicableAmount(
-          houseId,
-          period.id,
-          ConceptType.MAINTENANCE,
-          config.default_maintenance_amount,
-        )
-      : 800; // fallback
-    concepts.push({
-      concept_type: AllocationConceptType.MAINTENANCE,
-      expected_amount: maintenanceExpected,
-      paid_amount: 0,
-      pending_amount: maintenanceExpected,
-    });
-    expectedTotal += maintenanceExpected;
+    const charges =
+      await this.housePeriodChargeRepository.findByHouseAndPeriod(
+        houseId,
+        period.id,
+      );
 
-    // Agua - solo si está activo en el período
-    const periodEntity = period as any;
-    if (periodEntity.water_active && config?.default_water_amount) {
-      const waterExpected =
-        await this.housePeriodOverrideRepository.getApplicableAmount(
-          houseId,
-          period.id,
-          ConceptType.WATER,
-          config.default_water_amount,
-        );
+    if (charges.length > 0) {
+      // Usar montos de house_period_charges (fuente de verdad)
+      for (const charge of charges) {
+        concepts.push({
+          concept_type: charge.concept_type as AllocationConceptType,
+          expected_amount: charge.expected_amount,
+          paid_amount: 0,
+          pending_amount: charge.expected_amount,
+        });
+        expectedTotal += charge.expected_amount;
+      }
+    } else {
+      // Fallback: PeriodConfig defaults (períodos legacy sin charges)
+      const maintenanceExpected = config
+        ? await this.housePeriodOverrideRepository.getApplicableAmount(
+            houseId,
+            period.id,
+            ConceptType.MAINTENANCE,
+            config.default_maintenance_amount,
+          )
+        : BusinessValues.payments.defaultMaintenanceAmount;
       concepts.push({
-        concept_type: AllocationConceptType.WATER,
-        expected_amount: waterExpected,
+        concept_type: AllocationConceptType.MAINTENANCE,
+        expected_amount: maintenanceExpected,
         paid_amount: 0,
-        pending_amount: waterExpected,
+        pending_amount: maintenanceExpected,
       });
-      expectedTotal += waterExpected;
-    }
+      expectedTotal += maintenanceExpected;
 
-    // Cuota extraordinaria - solo si está activo en el período
-    if (
-      periodEntity.extraordinary_fee_active &&
-      config?.default_extraordinary_fee_amount
-    ) {
-      const feeExpected =
-        await this.housePeriodOverrideRepository.getApplicableAmount(
-          houseId,
-          period.id,
-          ConceptType.EXTRAORDINARY_FEE,
-          config.default_extraordinary_fee_amount,
-        );
-      concepts.push({
-        concept_type: AllocationConceptType.EXTRAORDINARY_FEE,
-        expected_amount: feeExpected,
-        paid_amount: 0,
-        pending_amount: feeExpected,
-      });
-      expectedTotal += feeExpected;
+      if (period.water_active && config?.default_water_amount) {
+        const waterExpected =
+          await this.housePeriodOverrideRepository.getApplicableAmount(
+            houseId,
+            period.id,
+            ConceptType.WATER,
+            config.default_water_amount,
+          );
+        concepts.push({
+          concept_type: AllocationConceptType.WATER,
+          expected_amount: waterExpected,
+          paid_amount: 0,
+          pending_amount: waterExpected,
+        });
+        expectedTotal += waterExpected;
+      }
+
+      if (
+        period.extraordinary_fee_active &&
+        config?.default_extraordinary_fee_amount
+      ) {
+        const feeExpected =
+          await this.housePeriodOverrideRepository.getApplicableAmount(
+            houseId,
+            period.id,
+            ConceptType.EXTRAORDINARY_FEE,
+            config.default_extraordinary_fee_amount,
+          );
+        concepts.push({
+          concept_type: AllocationConceptType.EXTRAORDINARY_FEE,
+          expected_amount: feeExpected,
+          paid_amount: 0,
+          pending_amount: feeExpected,
+        });
+        expectedTotal += feeExpected;
+      }
     }
 
     // Obtener allocations reales

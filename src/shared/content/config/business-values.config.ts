@@ -130,4 +130,57 @@ export const BusinessValues = {
      */
     suspiciousAmounts: [999999, 1000000, 0, 1, 9999999, 10000000],
   },
+
+  /**
+   * Configuración de gestión de pagos y períodos
+   * Fallback defaults cuando PeriodConfig (BD) no está disponible
+   */
+  payments: {
+    /**
+     * Monto default de mantenimiento mensual
+     * Puede ser sobreescrito por PeriodConfig.default_maintenance_amount (BD)
+     * O por house_period_charges específicas (para cada casa/período)
+     */
+    defaultMaintenanceAmount: 800,
+
+    /**
+     * Monto default de agua mensual
+     * Puede ser sobreescrito por PeriodConfig.default_water_amount (BD)
+     * O por house_period_charges específicas
+     */
+    defaultWaterAmount: 0,
+
+    /**
+     * Monto default de cuota extraordinaria
+     * Puede ser sobreescrito por PeriodConfig.default_extraordinary_fee_amount (BD)
+     * O por house_period_charges específicas
+     */
+    defaultExtraordinaryFeeAmount: 0,
+
+    /**
+     * Monto default de penalidad por pago tardío
+     * Puede ser sobreescrito por PeriodConfig.late_payment_penalty_amount (BD)
+     */
+    defaultLatePenaltyAmount: 100,
+
+    /**
+     * Habilitar distribución de pagos con AI
+     */
+    enableAiPaymentDistribution: true,
+
+    /**
+     * Umbral de confianza para sugerencias AI
+     */
+    aiConfidenceThreshold: 'medium' as const,
+
+    /**
+     * Máximo de períodos para considerar en distribución de pagos
+     */
+    maxPeriodsForDistribution: 12,
+
+    /**
+     * Umbral en dólares para convertir centavos acumulados a crédito
+     */
+    centsCreditThreshold: 100,
+  },
 } as const;
