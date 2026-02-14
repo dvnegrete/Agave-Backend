@@ -158,10 +158,10 @@ describe('GeneratePenaltyUseCase', () => {
       );
 
       let createdPenalty: any;
-      penaltiesRepository.create.mockImplementation((data) => {
-        createdPenalty = data;
-        return data;
-      });
+      penaltiesRepository.create.mockImplementation(((data: any) => {
+        createdPenalty = { ...data, id: 1 };
+        return createdPenalty;
+      }) as any);
       penaltiesRepository.save.mockResolvedValue(mockCtaPenalty as any);
 
       await useCase.execute(houseId, periodId, periodStartDate);

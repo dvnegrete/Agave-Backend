@@ -6,8 +6,11 @@ import {
   IHouseBalanceRepository,
   IHousePeriodOverrideRepository,
   IPeriodRepository,
+  IHousePeriodChargeRepository,
 } from '../../interfaces';
 import { PeriodConfigRepository } from '../../infrastructure/repositories/period-config.repository';
+import { ApplyCreditToPeriodsUseCase } from '../apply-credit-to-periods.use-case';
+import { HouseStatusSnapshotService } from '../../infrastructure/services/house-status-snapshot.service';
 import {
   AllocationConceptType,
   PaymentStatus,
@@ -20,6 +23,7 @@ describe('AllocatePaymentUseCase', () => {
   let houseBalanceRepository: jest.Mocked<IHouseBalanceRepository>;
   let housePeriodOverrideRepository: jest.Mocked<IHousePeriodOverrideRepository>;
   let periodRepository: jest.Mocked<IPeriodRepository>;
+  let housePeriodChargeRepository: jest.Mocked<IHousePeriodChargeRepository>;
   let periodConfigRepository: jest.Mocked<PeriodConfigRepository>;
 
   const mockPeriod = {
@@ -89,9 +93,27 @@ describe('AllocatePaymentUseCase', () => {
           },
         },
         {
+          provide: 'IHousePeriodChargeRepository',
+          useValue: {
+            findByHouseAndPeriod: jest.fn(),
+          },
+        },
+        {
           provide: PeriodConfigRepository,
           useValue: {
             findActiveForDate: jest.fn(),
+          },
+        },
+        {
+          provide: ApplyCreditToPeriodsUseCase,
+          useValue: {
+            execute: jest.fn(),
+          },
+        },
+        {
+          provide: HouseStatusSnapshotService,
+          useValue: {
+            invalidateByHouseId: jest.fn(),
           },
         },
       ],
@@ -104,6 +126,7 @@ describe('AllocatePaymentUseCase', () => {
       'IHousePeriodOverrideRepository',
     );
     periodRepository = module.get('IPeriodRepository');
+    housePeriodChargeRepository = module.get('IHousePeriodChargeRepository');
     periodConfigRepository = module.get(PeriodConfigRepository);
   });
 
@@ -123,6 +146,12 @@ describe('AllocatePaymentUseCase', () => {
       jest
         .spyOn(periodConfigRepository, 'findActiveForDate')
         .mockResolvedValue(mockPeriodConfig);
+      jest
+        .spyOn(housePeriodChargeRepository, 'findByHouseAndPeriod')
+        .mockResolvedValue([]);
+      jest
+        .spyOn(recordAllocationRepository, 'findByHouseAndPeriod')
+        .mockResolvedValue([]);
 
       // Mock sequential calls to getApplicableAmount for maintenance, water, and extraordinary fee
       jest
@@ -238,6 +267,12 @@ describe('AllocatePaymentUseCase', () => {
         .spyOn(periodConfigRepository, 'findActiveForDate')
         .mockResolvedValue(mockPeriodConfig);
       jest
+        .spyOn(housePeriodChargeRepository, 'findByHouseAndPeriod')
+        .mockResolvedValue([]);
+      jest
+        .spyOn(recordAllocationRepository, 'findByHouseAndPeriod')
+        .mockResolvedValue([]);
+      jest
         .spyOn(housePeriodOverrideRepository, 'getApplicableAmount')
         .mockResolvedValue(100000);
 
@@ -279,6 +314,12 @@ describe('AllocatePaymentUseCase', () => {
       jest
         .spyOn(periodConfigRepository, 'findActiveForDate')
         .mockResolvedValue(mockPeriodConfig);
+      jest
+        .spyOn(housePeriodChargeRepository, 'findByHouseAndPeriod')
+        .mockResolvedValue([]);
+      jest
+        .spyOn(recordAllocationRepository, 'findByHouseAndPeriod')
+        .mockResolvedValue([]);
 
       // Mock sequential calls for maintenance, water, and extraordinary fee
       jest

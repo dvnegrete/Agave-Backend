@@ -37,6 +37,7 @@ export class EnrichedHouseBalanceDto {
   next_due_date: string | null;
   deadline_message: string | null;
   total_unpaid_periods: number;
+  bank_coverage_date: string | null;
   summary: {
     total_expected: number;
     total_paid: number;

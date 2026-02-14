@@ -36,10 +36,14 @@ describe('ApplyCreditToPeriodsUseCase', () => {
     id,
     year: 2026,
     month,
-    startDate: new Date(2026, month - 1, 1),
-    endDate: new Date(2026, month, 0),
-    periodConfigId: 1,
-  });
+    start_date: new Date(2026, month - 1, 1),
+    end_date: new Date(2026, month, 0),
+    period_config_id: 1,
+    water_active: false,
+    extraordinary_fee_active: false,
+    created_at: new Date(),
+    updated_at: new Date(),
+  } as any);
 
   const mockHousePeriodCharge = {
     id: 1,
@@ -47,7 +51,12 @@ describe('ApplyCreditToPeriodsUseCase', () => {
     period_id: 1,
     concept_type: AllocationConceptType.MAINTENANCE,
     expected_amount: 800,
-  };
+    source: 'period_config',
+    created_at: new Date(),
+    updated_at: new Date(),
+    house: null,
+    period: null,
+  } as any;
 
   const mockQueryRunner = {
     connect: jest.fn(),
@@ -218,7 +227,15 @@ describe('ApplyCreditToPeriodsUseCase', () => {
         id: 1,
         allocated_amount: 400,
         concept_type: AllocationConceptType.MAINTENANCE,
-      };
+        record_id: 1,
+        house_id: houseId,
+        period_id: 1,
+        concept_id: 1,
+        expected_amount: 800,
+        payment_status: 'PARTIAL',
+        created_at: new Date(),
+        updated_at: new Date(),
+      } as any;
 
       houseBalanceRepository.getOrCreate.mockResolvedValue(mockBalance as any);
       periodRepository.findAll.mockResolvedValue([mockPeriod(1, 1)]);
@@ -251,7 +268,9 @@ describe('ApplyCreditToPeriodsUseCase', () => {
       const result = await useCase.execute(houseId);
 
       expect(result.total_applied).toBeLessThanOrEqual(1234.57);
-      expect(result.total_applied % 0.01).toBeLessThan(0.001); // 2 decimal places
+      // Check that total_applied is rounded to 2 decimal places (within floating point tolerance)
+      const rounded = Math.round(result.total_applied * 100) / 100;
+      expect(Math.abs(result.total_applied - rounded)).toBeLessThan(0.001);
     });
 
     it('should handle transaction rollback on error', async () => {

@@ -68,15 +68,17 @@ describe('PaymentManagementController', () => {
   let applyCreditToPeriodsUseCase: jest.Mocked<ApplyCreditToPeriodsUseCase>;
   let houseBalanceRepository: jest.Mocked<HouseBalanceRepository>;
 
-  const mockPeriod = (id: number, year: number, month: number): Period => ({
+  const mockPeriod = (id: number, year: number, month: number, periodConfigId: number = 1): any => ({
     id,
     year,
     month,
     startDate: new Date(year, month - 1, 1),
     endDate: new Date(year, month, 0),
-    periodConfigId: 1,
+    periodConfigId,
     getDisplayName: () => `${['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'][month - 1]} ${year}`,
-  } as Period);
+    containsDate: jest.fn().mockReturnValue(true),
+    isCurrentYear: jest.fn().mockReturnValue(year === new Date().getFullYear()),
+  });
 
   const mockHouse = {
     id: 1,
@@ -85,7 +87,7 @@ describe('PaymentManagementController', () => {
     user: null,
     created_at: new Date(),
     updated_at: new Date(),
-  } as House;
+  } as any;
 
   const mockPeriodConfig = {
     id: 1,
@@ -94,7 +96,7 @@ describe('PaymentManagementController', () => {
     default_extraordinary_fee_amount: null,
     payment_due_day: 15,
     late_payment_penalty_amount: 50,
-    effective_from: new Date(),
+    effective_from: new Date().toISOString(),
     effective_until: null,
     is_active: true,
     created_at: new Date(),
@@ -332,7 +334,7 @@ describe('PaymentManagementController', () => {
         default_water_amount: 100,
         payment_due_day: 15,
         late_payment_penalty_amount: 50,
-        effective_from: new Date(),
+        effective_from: new Date().toISOString(),
       };
 
       createPeriodConfigUseCase.execute.mockResolvedValue(mockPeriodConfig as any);
@@ -417,9 +419,14 @@ describe('PaymentManagementController', () => {
         confirmed_transactions: 3,
         pending_transactions: 2,
         transactions: [],
+        unreconciled_vouchers: {
+          total_count: 0,
+          total_amount: 0,
+          vouchers: [],
+        },
       };
 
-      getHouseTransactionsUseCase.execute.mockResolvedValue(mockTransactions);
+      getHouseTransactionsUseCase.execute.mockResolvedValue(mockTransactions as any);
 
       const result = await controller.getPaymentHistory(houseId);
 
@@ -449,11 +456,11 @@ describe('PaymentManagementController', () => {
         credit_balance: 1000,
         debit_balance: 0,
         net_balance: 1000,
-        status: 'credited',
+        status: 'credited' as const,
         updated_at: new Date().toISOString(),
       };
 
-      getHouseBalanceUseCase.execute.mockResolvedValue(mockBalance);
+      getHouseBalanceUseCase.execute.mockResolvedValue(mockBalance as any);
 
       const result = await controller.getHouseBalance(houseId);
 
@@ -497,7 +504,7 @@ describe('PaymentManagementController', () => {
 
       snapshotService.getAllForSummary.mockResolvedValue(mockSummary as any);
 
-      const result = await controller.getHouseSummary();
+      const result = await controller.getSummary();
 
       expect(result).toBeDefined();
       expect(result.total_houses).toBe(66);

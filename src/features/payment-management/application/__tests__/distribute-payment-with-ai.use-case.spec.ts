@@ -28,10 +28,14 @@ describe('DistributePaymentWithAIUseCase', () => {
     id: year * 100 + month,
     year,
     month,
-    startDate: new Date(year, month - 1, 1),
-    endDate: new Date(year, month, 0),
-    periodConfigId: 1,
-  } as Period);
+    start_date: new Date(year, month - 1, 1),
+    end_date: new Date(year, month, 0),
+    period_config_id: 1,
+    water_active: false,
+    extraordinary_fee_active: false,
+    created_at: new Date(),
+    updated_at: new Date(),
+  } as any);
 
   const mockBalance = {
     id: 1,
