@@ -20,15 +20,21 @@ describe('UnclaimedDepositsService', () => {
   let allocatePaymentUseCase: jest.Mocked<AllocatePaymentUseCase>;
 
   const mockQueryBuilder = {
+    leftJoin: jest.fn().mockReturnThis(),
     leftJoinAndSelect: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
     orderBy: jest.fn().mockReturnThis(),
+    addOrderBy: jest.fn().mockReturnThis(),
     skip: jest.fn().mockReturnThis(),
     take: jest.fn().mockReturnThis(),
+    select: jest.fn().mockReturnThis(),
+    addSelect: jest.fn().mockReturnThis(),
     distinctOn: jest.fn().mockReturnThis(),
-    getManyAndCount: jest.fn(),
-    getCount: jest.fn(),
+    getRawMany: jest.fn().mockResolvedValue([]),
+    getRawOne: jest.fn().mockResolvedValue({ cnt: 0 }),
+    getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+    getCount: jest.fn().mockResolvedValue(0),
   };
 
   const mockQueryRunner = {
@@ -38,9 +44,9 @@ describe('UnclaimedDepositsService', () => {
     rollbackTransaction: jest.fn(),
     release: jest.fn(),
     manager: {
-      save: jest.fn(),
+      save: jest.fn().mockResolvedValue({}),
       findOne: jest.fn(),
-      create: jest.fn(),
+      create: jest.fn().mockReturnValue({}),
     },
   };
 
@@ -55,7 +61,7 @@ describe('UnclaimedDepositsService', () => {
   const mockTransactionStatus = {
     id: 1,
     transaction_bank_id: mockTransactionBank.id,
-    validation_status: 'not_found',
+    validation_status: 'not-found',
   };
 
   const mockHouse = {
@@ -65,6 +71,27 @@ describe('UnclaimedDepositsService', () => {
   };
 
   beforeEach(async () => {
+    jest.clearAllMocks();
+
+    // Reset chainable mocks
+    mockQueryBuilder.leftJoin.mockReturnThis();
+    mockQueryBuilder.leftJoinAndSelect.mockReturnThis();
+    mockQueryBuilder.where.mockReturnThis();
+    mockQueryBuilder.andWhere.mockReturnThis();
+    mockQueryBuilder.orderBy.mockReturnThis();
+    mockQueryBuilder.addOrderBy.mockReturnThis();
+    mockQueryBuilder.skip.mockReturnThis();
+    mockQueryBuilder.take.mockReturnThis();
+    mockQueryBuilder.select.mockReturnThis();
+    mockQueryBuilder.addSelect.mockReturnThis();
+    mockQueryBuilder.distinctOn.mockReturnThis();
+    mockQueryBuilder.getRawMany.mockResolvedValue([]);
+    mockQueryBuilder.getRawOne.mockResolvedValue({ cnt: 0 });
+
+    // Reset queryRunner manager mocks
+    mockQueryRunner.manager.save.mockResolvedValue({});
+    mockQueryRunner.manager.create.mockReturnValue({});
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UnclaimedDepositsService,
@@ -73,12 +100,16 @@ describe('UnclaimedDepositsService', () => {
           useValue: {
             createQueryRunner: jest.fn().mockReturnValue(mockQueryRunner),
             createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
+            getRepository: jest.fn().mockReturnValue({
+              createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
+            }),
           },
         },
         {
           provide: TransactionStatusRepository,
           useValue: {
             findByTransactionId: jest.fn(),
+            findByTransactionBankId: jest.fn().mockResolvedValue([mockTransactionStatus]),
             create: jest.fn(),
           },
         },
@@ -93,7 +124,7 @@ describe('UnclaimedDepositsService', () => {
         {
           provide: RecordRepository,
           useValue: {
-            create: jest.fn(),
+            create: jest.fn().mockResolvedValue({ id: 1 }),
           },
         },
         {
@@ -105,7 +136,7 @@ describe('UnclaimedDepositsService', () => {
         {
           provide: TransactionBankRepository,
           useValue: {
-            findOne: jest.fn(),
+            findById: jest.fn(),
           },
         },
         {
@@ -129,12 +160,13 @@ describe('UnclaimedDepositsService', () => {
 
   describe('getUnclaimedDeposits', () => {
     it('should return paginated unclaimed deposits', async () => {
-      const mockDeposits = [
-        { ...mockTransactionBank, id: '1' },
-        { ...mockTransactionBank, id: '2' },
+      const rawDeposits = [
+        { tb_id: '1', tb_amount: 10042.15, tb_date: new Date(), tb_time: '10:00', tb_concept: 'DEP', ts_validation_status: 'not-found', ts_reason: 'test', ts_metadata: {}, ts_processed_at: new Date() },
+        { tb_id: '2', tb_amount: 10042.15, tb_date: new Date(), tb_time: '11:00', tb_concept: 'DEP', ts_validation_status: 'conflict', ts_reason: 'test', ts_metadata: {}, ts_processed_at: new Date() },
       ];
 
-      mockQueryBuilder.getManyAndCount.mockResolvedValue([mockDeposits, 2]);
+      mockQueryBuilder.getRawMany.mockResolvedValue(rawDeposits);
+      mockQueryBuilder.getRawOne.mockResolvedValue({ cnt: 2 });
 
       const result = await service.getUnclaimedDeposits();
 
@@ -146,7 +178,8 @@ describe('UnclaimedDepositsService', () => {
     });
 
     it('should return empty list when no deposits', async () => {
-      mockQueryBuilder.getManyAndCount.mockResolvedValue([[], 0]);
+      mockQueryBuilder.getRawMany.mockResolvedValue([]);
+      mockQueryBuilder.getRawOne.mockResolvedValue({ cnt: 0 });
 
       const result = await service.getUnclaimedDeposits();
 
@@ -156,7 +189,8 @@ describe('UnclaimedDepositsService', () => {
 
     it('should apply startDate filter when provided', async () => {
       const startDate = new Date('2026-02-01');
-      mockQueryBuilder.getManyAndCount.mockResolvedValue([[], 0]);
+      mockQueryBuilder.getRawMany.mockResolvedValue([]);
+      mockQueryBuilder.getRawOne.mockResolvedValue({ cnt: 0 });
 
       await service.getUnclaimedDeposits(startDate);
 
@@ -165,7 +199,8 @@ describe('UnclaimedDepositsService', () => {
 
     it('should apply endDate filter and set to end of day', async () => {
       const endDate = new Date('2026-02-28');
-      mockQueryBuilder.getManyAndCount.mockResolvedValue([[], 0]);
+      mockQueryBuilder.getRawMany.mockResolvedValue([]);
+      mockQueryBuilder.getRawOne.mockResolvedValue({ cnt: 0 });
 
       await service.getUnclaimedDeposits(undefined, endDate);
 
@@ -173,7 +208,8 @@ describe('UnclaimedDepositsService', () => {
     });
 
     it('should filter by validationStatus = conflict', async () => {
-      mockQueryBuilder.getManyAndCount.mockResolvedValue([[], 0]);
+      mockQueryBuilder.getRawMany.mockResolvedValue([]);
+      mockQueryBuilder.getRawOne.mockResolvedValue({ cnt: 0 });
 
       await service.getUnclaimedDeposits(
         undefined,
@@ -185,7 +221,8 @@ describe('UnclaimedDepositsService', () => {
     });
 
     it('should filter by validationStatus = not-found', async () => {
-      mockQueryBuilder.getManyAndCount.mockResolvedValue([[], 0]);
+      mockQueryBuilder.getRawMany.mockResolvedValue([]);
+      mockQueryBuilder.getRawOne.mockResolvedValue({ cnt: 0 });
 
       await service.getUnclaimedDeposits(
         undefined,
@@ -197,18 +234,19 @@ describe('UnclaimedDepositsService', () => {
     });
 
     it('should extract suggested house number from centavos', async () => {
-      const depositWith42Cents = { ...mockTransactionBank, amount: 10000.42 };
-      mockQueryBuilder.getManyAndCount.mockResolvedValue(
-        [[depositWith42Cents], 1],
-      );
+      const rawDeposit = { tb_id: '1', tb_amount: 10000.42, tb_date: new Date(), tb_time: '10:00', tb_concept: 'DEP', ts_validation_status: 'not-found', ts_reason: 'test', ts_metadata: {}, ts_processed_at: new Date() };
+      mockQueryBuilder.getRawMany.mockResolvedValue([rawDeposit]);
+      mockQueryBuilder.getRawOne.mockResolvedValue({ cnt: 1 });
 
       const result = await service.getUnclaimedDeposits();
 
       expect(result.items).toHaveLength(1);
+      expect(result.items[0].suggestedHouseNumber).toBe(42);
     });
 
     it('should paginate correctly with page=2', async () => {
-      mockQueryBuilder.getManyAndCount.mockResolvedValue([[], 100]);
+      mockQueryBuilder.getRawMany.mockResolvedValue([]);
+      mockQueryBuilder.getRawOne.mockResolvedValue({ cnt: 100 });
 
       const result = await service.getUnclaimedDeposits(
         undefined,
@@ -224,7 +262,8 @@ describe('UnclaimedDepositsService', () => {
     });
 
     it('should handle limit > 100 and cap to 100', async () => {
-      mockQueryBuilder.getManyAndCount.mockResolvedValue([[], 0]);
+      mockQueryBuilder.getRawMany.mockResolvedValue([]);
+      mockQueryBuilder.getRawOne.mockResolvedValue({ cnt: 0 });
 
       const result = await service.getUnclaimedDeposits(
         undefined,
@@ -239,7 +278,8 @@ describe('UnclaimedDepositsService', () => {
     });
 
     it('should use DISTINCT ON to prevent duplicates', async () => {
-      mockQueryBuilder.getManyAndCount.mockResolvedValue([[], 0]);
+      mockQueryBuilder.getRawMany.mockResolvedValue([]);
+      mockQueryBuilder.getRawOne.mockResolvedValue({ cnt: 0 });
 
       await service.getUnclaimedDeposits();
 
@@ -247,7 +287,8 @@ describe('UnclaimedDepositsService', () => {
     });
 
     it('should sort by date DESC by default', async () => {
-      mockQueryBuilder.getManyAndCount.mockResolvedValue([[], 0]);
+      mockQueryBuilder.getRawMany.mockResolvedValue([]);
+      mockQueryBuilder.getRawOne.mockResolvedValue({ cnt: 0 });
 
       await service.getUnclaimedDeposits();
 
@@ -255,7 +296,8 @@ describe('UnclaimedDepositsService', () => {
     });
 
     it('should sort by amount DESC if specified', async () => {
-      mockQueryBuilder.getManyAndCount.mockResolvedValue([[], 0]);
+      mockQueryBuilder.getRawMany.mockResolvedValue([]);
+      mockQueryBuilder.getRawOne.mockResolvedValue({ cnt: 0 });
 
       await service.getUnclaimedDeposits(
         undefined,
@@ -271,7 +313,8 @@ describe('UnclaimedDepositsService', () => {
     });
 
     it('should calculate totalPages correctly', async () => {
-      mockQueryBuilder.getManyAndCount.mockResolvedValue([[], 150]);
+      mockQueryBuilder.getRawMany.mockResolvedValue([]);
+      mockQueryBuilder.getRawOne.mockResolvedValue({ cnt: 150 });
 
       const result = await service.getUnclaimedDeposits(
         undefined,
@@ -290,9 +333,12 @@ describe('UnclaimedDepositsService', () => {
     it('should assign house to deposit successfully', async () => {
       const transactionId = mockTransactionBank.id;
 
-      transactionBankRepository.findOne.mockResolvedValue(
+      transactionBankRepository.findById.mockResolvedValue(
         mockTransactionBank as any,
       );
+      transactionStatusRepository.findByTransactionBankId.mockResolvedValue([
+        mockTransactionStatus as any,
+      ]);
       houseRepository.findByNumberHouse.mockResolvedValue(mockHouse as any);
       (mockQueryRunner.manager as any).create.mockReturnValue({});
       (mockQueryRunner.manager as any).save.mockResolvedValue({});
@@ -312,7 +358,7 @@ describe('UnclaimedDepositsService', () => {
     it('should reject invalid house number (< 1)', async () => {
       const transactionId = mockTransactionBank.id;
 
-      transactionBankRepository.findOne.mockResolvedValue(
+      transactionBankRepository.findById.mockResolvedValue(
         mockTransactionBank as any,
       );
 
@@ -326,7 +372,7 @@ describe('UnclaimedDepositsService', () => {
     it('should reject invalid house number (> 66)', async () => {
       const transactionId = mockTransactionBank.id;
 
-      transactionBankRepository.findOne.mockResolvedValue(
+      transactionBankRepository.findById.mockResolvedValue(
         mockTransactionBank as any,
       );
 
@@ -340,7 +386,7 @@ describe('UnclaimedDepositsService', () => {
     it('should throw NotFoundException if transaction not found', async () => {
       const transactionId = 'non-existent-id';
 
-      transactionBankRepository.findOne.mockResolvedValue(null);
+      transactionBankRepository.findById.mockResolvedValue(null);
 
       await expect(
         service.assignHouseToDeposit(transactionId, 42, 'user-uuid'),
@@ -351,7 +397,7 @@ describe('UnclaimedDepositsService', () => {
       const transactionId = mockTransactionBank.id;
       const confirmedTransaction = { ...mockTransactionBank, confirmation_status: true };
 
-      transactionBankRepository.findOne.mockResolvedValue(
+      transactionBankRepository.findById.mockResolvedValue(
         confirmedTransaction as any,
       );
 
@@ -363,12 +409,16 @@ describe('UnclaimedDepositsService', () => {
     it('should create house if not exists', async () => {
       const transactionId = mockTransactionBank.id;
 
-      transactionBankRepository.findOne.mockResolvedValue(
+      transactionBankRepository.findById.mockResolvedValue(
         mockTransactionBank as any,
       );
+      transactionStatusRepository.findByTransactionBankId.mockResolvedValue([
+        mockTransactionStatus as any,
+      ]);
       houseRepository.findByNumberHouse.mockResolvedValue(null);
+      houseRepository.create.mockResolvedValue(mockHouse as any);
       (mockQueryRunner.manager as any).create.mockReturnValue({});
-      (mockQueryRunner.manager as any).save.mockResolvedValue(mockHouse);
+      (mockQueryRunner.manager as any).save.mockResolvedValue({});
       allocatePaymentUseCase.execute.mockResolvedValue({} as any);
 
       const result = await service.assignHouseToDeposit(
@@ -384,9 +434,12 @@ describe('UnclaimedDepositsService', () => {
     it('should handle allocation failure gracefully', async () => {
       const transactionId = mockTransactionBank.id;
 
-      transactionBankRepository.findOne.mockResolvedValue(
+      transactionBankRepository.findById.mockResolvedValue(
         mockTransactionBank as any,
       );
+      transactionStatusRepository.findByTransactionBankId.mockResolvedValue([
+        mockTransactionStatus as any,
+      ]);
       houseRepository.findByNumberHouse.mockResolvedValue(mockHouse as any);
       (mockQueryRunner.manager as any).create.mockReturnValue({});
       (mockQueryRunner.manager as any).save.mockResolvedValue({});
@@ -409,9 +462,12 @@ describe('UnclaimedDepositsService', () => {
       const transactionId = mockTransactionBank.id;
       const adminNotes = 'Manual review required - high amount';
 
-      transactionBankRepository.findOne.mockResolvedValue(
+      transactionBankRepository.findById.mockResolvedValue(
         mockTransactionBank as any,
       );
+      transactionStatusRepository.findByTransactionBankId.mockResolvedValue([
+        mockTransactionStatus as any,
+      ]);
       houseRepository.findByNumberHouse.mockResolvedValue(mockHouse as any);
       (mockQueryRunner.manager as any).create.mockReturnValue({});
       (mockQueryRunner.manager as any).save.mockResolvedValue({});
@@ -430,9 +486,12 @@ describe('UnclaimedDepositsService', () => {
     it('should set CONFIRMED validation status', async () => {
       const transactionId = mockTransactionBank.id;
 
-      transactionBankRepository.findOne.mockResolvedValue(
+      transactionBankRepository.findById.mockResolvedValue(
         mockTransactionBank as any,
       );
+      transactionStatusRepository.findByTransactionBankId.mockResolvedValue([
+        mockTransactionStatus as any,
+      ]);
       houseRepository.findByNumberHouse.mockResolvedValue(mockHouse as any);
       (mockQueryRunner.manager as any).create.mockReturnValue({
         validation_status: 'confirmed',
@@ -452,9 +511,12 @@ describe('UnclaimedDepositsService', () => {
     it('should return correct AssignHouseResponseDto structure', async () => {
       const transactionId = mockTransactionBank.id;
 
-      transactionBankRepository.findOne.mockResolvedValue(
+      transactionBankRepository.findById.mockResolvedValue(
         mockTransactionBank as any,
       );
+      transactionStatusRepository.findByTransactionBankId.mockResolvedValue([
+        mockTransactionStatus as any,
+      ]);
       houseRepository.findByNumberHouse.mockResolvedValue(mockHouse as any);
       (mockQueryRunner.manager as any).create.mockReturnValue({});
       (mockQueryRunner.manager as any).save.mockResolvedValue({});
@@ -477,9 +539,12 @@ describe('UnclaimedDepositsService', () => {
     it('should handle rollback on transaction error', async () => {
       const transactionId = mockTransactionBank.id;
 
-      transactionBankRepository.findOne.mockResolvedValue(
+      transactionBankRepository.findById.mockResolvedValue(
         mockTransactionBank as any,
       );
+      transactionStatusRepository.findByTransactionBankId.mockResolvedValue([
+        mockTransactionStatus as any,
+      ]);
       houseRepository.findByNumberHouse.mockResolvedValue(mockHouse as any);
       (mockQueryRunner.manager as any).save.mockRejectedValue(
         new Error('Save failed'),
@@ -495,9 +560,12 @@ describe('UnclaimedDepositsService', () => {
     it('should handle boundary house numbers (1 and 66)', async () => {
       const transactionId = mockTransactionBank.id;
 
-      transactionBankRepository.findOne.mockResolvedValue(
+      transactionBankRepository.findById.mockResolvedValue(
         mockTransactionBank as any,
       );
+      transactionStatusRepository.findByTransactionBankId.mockResolvedValue([
+        mockTransactionStatus as any,
+      ]);
       houseRepository.findByNumberHouse.mockResolvedValue(mockHouse as any);
       (mockQueryRunner.manager as any).create.mockReturnValue({});
       (mockQueryRunner.manager as any).save.mockResolvedValue({});

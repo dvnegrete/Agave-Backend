@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ReconciliationDataService } from './reconciliation-data.service';
 import { TransactionBankRepository } from '@/shared/database/repositories/transaction-bank.repository';
 import { VoucherRepository } from '@/shared/database/repositories/voucher.repository';
+import { TransactionStatusRepository } from '@/shared/database/repositories/transaction-status.repository';
 import { TransactionBank } from '@/shared/database/entities/transaction-bank.entity';
 import { Voucher } from '@/shared/database/entities/voucher.entity';
 
@@ -9,6 +10,7 @@ describe('ReconciliationDataService', () => {
   let service: ReconciliationDataService;
   let transactionBankRepository: jest.Mocked<TransactionBankRepository>;
   let voucherRepository: jest.Mocked<VoucherRepository>;
+  let transactionStatusRepository: jest.Mocked<TransactionStatusRepository>;
 
   beforeEach(async () => {
     const mockTransactionBankRepo = {
@@ -16,7 +18,11 @@ describe('ReconciliationDataService', () => {
     };
 
     const mockVoucherRepo = {
-      findByConfirmationStatus: jest.fn(),
+      findByConfirmationStatusWithHouse: jest.fn(),
+    };
+
+    const mockTransactionStatusRepo = {
+      findAll: jest.fn().mockResolvedValue([]),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -30,12 +36,17 @@ describe('ReconciliationDataService', () => {
           provide: VoucherRepository,
           useValue: mockVoucherRepo,
         },
+        {
+          provide: TransactionStatusRepository,
+          useValue: mockTransactionStatusRepo,
+        },
       ],
     }).compile();
 
     service = module.get<ReconciliationDataService>(ReconciliationDataService);
     transactionBankRepository = module.get(TransactionBankRepository);
     voucherRepository = module.get(VoucherRepository);
+    transactionStatusRepository = module.get(TransactionStatusRepository);
   });
 
   describe('getPendingTransactions', () => {
@@ -140,16 +151,16 @@ describe('ReconciliationDataService', () => {
         createMockTransaction(
           '2',
           600,
-          new Date('2025-01-20T23:59:59'),
+          new Date('2025-01-20T12:00:00'),
           true,
           false,
-        ), // Exactly end date ✓
+        ), // Within end date ✓
       ];
 
       transactionBankRepository.findAll.mockResolvedValue(mockTransactions);
 
       const startDate = new Date('2025-01-10');
-      const endDate = new Date('2025-01-20');
+      const endDate = new Date('2025-01-20T23:59:59');
 
       const result = await service.getPendingTransactions(startDate, endDate);
 
@@ -179,7 +190,7 @@ describe('ReconciliationDataService', () => {
         createMockVoucher(3, 700, new Date('2025-01-12'), true), // Confirmed (shouldn't be in list)
       ];
 
-      voucherRepository.findByConfirmationStatus.mockResolvedValue(
+      voucherRepository.findByConfirmationStatusWithHouse.mockResolvedValue(
         mockVouchers.filter((v) => !v.confirmation_status),
       );
 
@@ -188,7 +199,7 @@ describe('ReconciliationDataService', () => {
       expect(result).toHaveLength(2);
       expect(result[0].id).toBe(1);
       expect(result[1].id).toBe(2);
-      expect(voucherRepository.findByConfirmationStatus).toHaveBeenCalledWith(
+      expect(voucherRepository.findByConfirmationStatusWithHouse).toHaveBeenCalledWith(
         false,
       );
     });
@@ -201,7 +212,7 @@ describe('ReconciliationDataService', () => {
         createMockVoucher(4, 800, new Date('2025-01-25'), false), // After range
       ];
 
-      voucherRepository.findByConfirmationStatus.mockResolvedValue(
+      voucherRepository.findByConfirmationStatusWithHouse.mockResolvedValue(
         mockVouchers,
       );
 
@@ -221,7 +232,7 @@ describe('ReconciliationDataService', () => {
         createMockVoucher(2, 600, new Date('2025-12-31'), false),
       ];
 
-      voucherRepository.findByConfirmationStatus.mockResolvedValue(
+      voucherRepository.findByConfirmationStatusWithHouse.mockResolvedValue(
         mockVouchers,
       );
 
@@ -231,7 +242,7 @@ describe('ReconciliationDataService', () => {
     });
 
     it('should return empty array when no pending vouchers found', async () => {
-      voucherRepository.findByConfirmationStatus.mockResolvedValue([]);
+      voucherRepository.findByConfirmationStatusWithHouse.mockResolvedValue([]);
 
       const result = await service.getPendingVouchers();
 
@@ -241,15 +252,15 @@ describe('ReconciliationDataService', () => {
     it('should handle date range boundary correctly', async () => {
       const mockVouchers = [
         createMockVoucher(1, 500, new Date('2025-01-10T00:00:00'), false), // Exactly start date ✓
-        createMockVoucher(2, 600, new Date('2025-01-20T23:59:59'), false), // Exactly end date ✓
+        createMockVoucher(2, 600, new Date('2025-01-20T12:00:00'), false), // Within end date ✓
       ];
 
-      voucherRepository.findByConfirmationStatus.mockResolvedValue(
+      voucherRepository.findByConfirmationStatusWithHouse.mockResolvedValue(
         mockVouchers,
       );
 
       const startDate = new Date('2025-01-10');
-      const endDate = new Date('2025-01-20');
+      const endDate = new Date('2025-01-20T23:59:59');
 
       const result = await service.getPendingVouchers(startDate, endDate);
 

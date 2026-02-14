@@ -247,7 +247,7 @@ export class ConceptAnalyzerService {
 
     const result: ConceptHouseExtractionResult = {
       houseNumber: aiResponse.house_number,
-      confidence: aiResponse.confidence,
+      confidence: aiResponse.house_number !== null ? aiResponse.confidence : 'none',
       method: 'ai',
       reason: aiResponse.reasoning,
     };

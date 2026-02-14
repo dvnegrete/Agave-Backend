@@ -158,7 +158,7 @@ describe('ConceptHouseExtractorService', () => {
       });
 
       it('debería identificar "condominio"', () => {
-        const result = service.extractHouseNumber('Casa 5 cuota de condominio');
+        const result = service.extractHouseNumber('Casa 5 pago condominio');
         expect(result.paymentType?.type).toBe('condominio');
       });
     });

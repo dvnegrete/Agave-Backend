@@ -90,12 +90,12 @@ export const ReconciliationConfig = {
 export const CONCEPT_HOUSE_PATTERNS = [
   // Patrones con palabra "casa" explícita
   {
-    pattern: /casa\s*[#-]?\s*(\d{1,2})/gi,
+    pattern: /casa\s*[#-]?\s*(\d{1,2})(?!\d)/gi,
     name: 'casa_numero',
     confidence: 'high' as const,
   },
   {
-    pattern: /casa\s+(\d{1,2})/gi,
+    pattern: /casa\s+(\d{1,2})(?!\d)/gi,
     name: 'casa_numero_espacio',
     confidence: 'high' as const,
   },
@@ -153,7 +153,7 @@ export const CONCEPT_HOUSE_PATTERNS = [
 
   // Número aislado al inicio (menos confiable)
   {
-    pattern: /^(\d{1,2})(?:\s|$)/i,
+    pattern: /^(\d{1,2})(?:\s|$)/gi,
     name: 'leading_number',
     confidence: 'low' as const,
   },

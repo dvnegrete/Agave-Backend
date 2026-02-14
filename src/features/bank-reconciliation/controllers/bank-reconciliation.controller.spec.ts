@@ -2,6 +2,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BankReconciliationController } from './bank-reconciliation.controller';
 import { ReconcileUseCase } from '../application/reconcile.use-case';
 import { ManualValidationService } from '../infrastructure/persistence/manual-validation.service';
+import { UnclaimedDepositsService } from '../infrastructure/persistence/unclaimed-deposits.service';
+import { UnfundedVouchersService } from '../infrastructure/persistence/unfunded-vouchers.service';
+import { MatchSuggestionsService } from '../infrastructure/persistence/match-suggestions.service';
+import { AuthGuard } from '@/shared/auth/guards/auth.guard';
 import {
   ApproveManualCaseDto,
   RejectManualCaseDto,
@@ -39,8 +43,32 @@ describe('BankReconciliationController - Manual Validation Endpoints', () => {
           provide: ReconcileUseCase,
           useValue: reconcileUseCaseMock,
         },
+        {
+          provide: UnclaimedDepositsService,
+          useValue: {
+            getUnclaimedDeposits: jest.fn(),
+            assignHouseToDeposit: jest.fn(),
+          },
+        },
+        {
+          provide: UnfundedVouchersService,
+          useValue: {
+            getUnfundedVouchers: jest.fn(),
+            matchVoucherToDeposit: jest.fn(),
+          },
+        },
+        {
+          provide: MatchSuggestionsService,
+          useValue: {
+            findMatchSuggestions: jest.fn(),
+            applyMatchSuggestion: jest.fn(),
+          },
+        },
       ],
-    }).compile();
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<BankReconciliationController>(
       BankReconciliationController,
@@ -195,10 +223,10 @@ describe('BankReconciliationController - Manual Validation Endpoints', () => {
       );
     });
 
-    it('debe usar userId system si no hay autenticación', async () => {
+    it('debe aprobar sin notas opcionales', async () => {
       const transactionId = 'TX-002';
       const dto: ApproveManualCaseDto = { voucherId: 102 };
-      const mockRequest = {}; // Sin user
+      const mockRequest = { user: { id: 'user-456' } };
 
       manualValidationService.approveManualCase.mockResolvedValue({
         message: 'Caso aprobado exitosamente',
@@ -219,7 +247,7 @@ describe('BankReconciliationController - Manual Validation Endpoints', () => {
       expect(manualValidationService.approveManualCase).toHaveBeenCalledWith(
         transactionId,
         102,
-        'system',
+        'user-456',
         undefined,
       );
     });

@@ -121,9 +121,9 @@ export class ConceptHouseExtractorService {
       }
     }
 
-    // Buscar números de mes (01-12, 1-12)
+    // Buscar números de mes (01-12, 1-12) - requiere prefijo "mes"
     const monthMatch = conceptLower.match(
-      /(?:mes|m[eé]s|mes-|mes\s+)?([01]?\d)(?:\s|$|[^0-9])/,
+      /(?:mes|m[eé]s)\s+([01]?\d)(?:\s|$|[^0-9])/,
     );
     if (monthMatch && monthMatch[1]) {
       const monthNum = parseInt(monthMatch[1], 10);

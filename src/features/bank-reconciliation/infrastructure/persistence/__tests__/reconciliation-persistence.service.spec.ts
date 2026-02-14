@@ -7,10 +7,10 @@ import { RecordRepository } from '@/shared/database/repositories/record.reposito
 import { HouseRecordRepository } from '@/shared/database/repositories/house-record.repository';
 import { HouseRepository } from '@/shared/database/repositories/house.repository';
 import { VoucherRepository } from '@/shared/database/repositories/voucher.repository';
-import { GcsCleanupService } from '@/shared/gcs/services/gcs-cleanup.service';
+import { GcsCleanupService } from '@/shared/libs/google-cloud/gcs-cleanup.service';
 import { AllocatePaymentUseCase } from '@/features/payment-management/application';
 import { TransactionBankRepository } from '@/shared/database/repositories/transaction-bank.repository';
-import { EnsureHouseExistsService } from '@/features/user-management/infrastructure/services';
+import { EnsureHouseExistsService } from '@/shared/database/services';
 
 describe('ReconciliationPersistenceService', () => {
   let service: ReconciliationPersistenceService;
@@ -32,10 +32,14 @@ describe('ReconciliationPersistenceService', () => {
     rollbackTransaction: jest.fn(),
     release: jest.fn(),
     manager: {
-      save: jest.fn(),
-      findOne: jest.fn(),
-      create: jest.fn(),
-    },
+      save: jest.fn().mockResolvedValue({}),
+      findOne: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockReturnValue({}),
+      update: jest.fn().mockResolvedValue({ affected: 1 }),
+      query: jest.fn().mockResolvedValue([]),
+      findOneBy: jest.fn().mockResolvedValue(null),
+      find: jest.fn().mockResolvedValue([]),
+    } as any,
   };
 
   const mockTransactionBank = {
@@ -60,6 +64,13 @@ describe('ReconciliationPersistenceService', () => {
   };
 
   beforeEach(async () => {
+    jest.clearAllMocks();
+
+    // Reset queryRunner manager mocks
+    (mockQueryRunner.manager as any).save.mockResolvedValue({});
+    (mockQueryRunner.manager as any).create.mockReturnValue({});
+    (mockQueryRunner.manager as any).update.mockResolvedValue({ affected: 1 });
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ReconciliationPersistenceService,
@@ -72,14 +83,14 @@ describe('ReconciliationPersistenceService', () => {
         {
           provide: TransactionStatusRepository,
           useValue: {
-            create: jest.fn(),
+            create: jest.fn().mockResolvedValue({ id: 1, validation_status: 'confirmed' }),
             findByTransactionId: jest.fn(),
           },
         },
         {
           provide: RecordRepository,
           useValue: {
-            create: jest.fn(),
+            create: jest.fn().mockResolvedValue({ id: 1 }),
             findOne: jest.fn(),
           },
         },
@@ -100,31 +111,44 @@ describe('ReconciliationPersistenceService', () => {
           provide: VoucherRepository,
           useValue: {
             findOne: jest.fn(),
+            findById: jest.fn().mockResolvedValue({ id: 1, records: [] }),
             update: jest.fn(),
           },
         },
         {
           provide: GcsCleanupService,
           useValue: {
-            deleteFile: jest.fn(),
+            deleteFile: jest.fn().mockResolvedValue(undefined),
           },
         },
         {
           provide: AllocatePaymentUseCase,
           useValue: {
-            execute: jest.fn(),
+            execute: jest.fn().mockResolvedValue({
+              total_distributed: 10000,
+              allocations: [],
+            }),
           },
         },
         {
           provide: TransactionBankRepository,
           useValue: {
             update: jest.fn(),
+            findById: jest.fn().mockResolvedValue({
+              id: '550e8400-e29b-41d4-a716-446655440000',
+              amount: 10000,
+              is_deposit: true,
+              confirmation_status: false,
+            }),
           },
         },
         {
           provide: EnsureHouseExistsService,
           useValue: {
-            ensure: jest.fn(),
+            execute: jest.fn().mockResolvedValue({
+              house: { id: 1, number_house: 42, user_id: 'user-uuid' },
+              created: false,
+            }),
           },
         },
         {
@@ -159,9 +183,13 @@ describe('ReconciliationPersistenceService', () => {
 
       houseRepository.findByNumberHouse.mockResolvedValue(mockHouse as any);
       (mockQueryRunner.manager as any).create.mockReturnValue({
+        id: 1,
         validation_status: 'confirmed',
       });
-      (mockQueryRunner.manager as any).save.mockResolvedValue({});
+      (mockQueryRunner.manager as any).save.mockResolvedValue({
+        id: 1,
+        validation_status: 'confirmed',
+      });
       allocatePaymentUseCase.execute.mockResolvedValue({} as any);
 
       await service.persistReconciliation(
@@ -181,9 +209,13 @@ describe('ReconciliationPersistenceService', () => {
 
       houseRepository.findByNumberHouse.mockResolvedValue(mockHouse as any);
       (mockQueryRunner.manager as any).create.mockReturnValue({
+        id: 1,
         validation_status: 'confirmed',
       });
-      (mockQueryRunner.manager as any).save.mockResolvedValue({});
+      (mockQueryRunner.manager as any).save.mockResolvedValue({
+        id: 1,
+        validation_status: 'confirmed',
+      });
       allocatePaymentUseCase.execute.mockResolvedValue({} as any);
 
       await service.persistReconciliation(transactionId, null, houseNumber);
@@ -247,6 +279,7 @@ describe('ReconciliationPersistenceService', () => {
 
       expect(gcsCleanupService.deleteFile).toHaveBeenCalledWith(
         mockVoucher.url,
+        expect.objectContaining({ reason: expect.any(String) }),
       );
     });
 
@@ -273,14 +306,13 @@ describe('ReconciliationPersistenceService', () => {
     it('should rollback on transaction error', async () => {
       const transactionId = mockTransactionBank.id;
 
-      houseRepository.findByNumberHouse.mockResolvedValue(mockHouse as any);
-      (mockQueryRunner.manager as any).save.mockRejectedValue(
-        new Error('Save failed'),
+      transactionStatusRepository.create.mockRejectedValueOnce(
+        new Error('DB write failed'),
       );
 
       await expect(
         service.persistReconciliation(transactionId, mockVoucher as any, 42),
-      ).rejects.toThrow();
+      ).rejects.toThrow('DB write failed');
 
       expect(mockQueryRunner.rollbackTransaction).toHaveBeenCalled();
     });
@@ -314,24 +346,17 @@ describe('ReconciliationPersistenceService', () => {
     it('should create transaction status with CONFIRMED validation', async () => {
       const transactionId = mockTransactionBank.id;
 
-      houseRepository.findByNumberHouse.mockResolvedValue(mockHouse as any);
-      (mockQueryRunner.manager as any).create.mockReturnValue({
-        validation_status: 'confirmed',
-      });
-      (mockQueryRunner.manager as any).save.mockResolvedValue({});
-      allocatePaymentUseCase.execute.mockResolvedValue({} as any);
-
       await service.persistReconciliation(
         transactionId,
         mockVoucher as any,
         42,
       );
 
-      const createCall = (mockQueryRunner.manager as any).create.mock.calls[0];
-      expect(createCall[1]).toEqual(
+      expect(transactionStatusRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
           validation_status: 'confirmed',
         }),
+        expect.anything(),
       );
     });
   });
@@ -402,20 +427,19 @@ describe('ReconciliationPersistenceService', () => {
       const manualCase = {
         transactionBankId: transactionId,
         possibleMatches: [{ houseNumber: 10, confidence: 0.8 }],
+        reason: 'Multiple matches',
       };
-
-      (mockQueryRunner.manager as any).create.mockReturnValue({
-        validation_status: 'requires_manual',
-      });
-      (mockQueryRunner.manager as any).save.mockResolvedValue({});
 
       await service.persistManualValidationCase(transactionId, manualCase as any);
 
-      const createCall = (mockQueryRunner.manager as any).create.mock.calls[0];
-      expect(createCall[1]).toEqual(
+      expect(transactionStatusRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          validation_status: 'requires_manual',
+          validation_status: 'requires-manual',
+          metadata: expect.objectContaining({
+            possibleMatches: expect.any(Array),
+          }),
         }),
+        expect.anything(),
       );
     });
   });

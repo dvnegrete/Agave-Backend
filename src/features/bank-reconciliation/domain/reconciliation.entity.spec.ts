@@ -260,15 +260,15 @@ describe('Domain Entities - Bank Reconciliation', () => {
       const summary = ReconciliationSummary.create({
         totalProcessed: 100,
         conciliados: 75,
-        pendientes: 15,
-        sobrantes: 10,
+        unclaimedDeposits: 15,
+        unfundedVouchers: 10,
         requiresManualValidation: 20,
       });
 
       expect(summary.totalProcessed).toBe(100);
       expect(summary.conciliados).toBe(75);
-      expect(summary.pendientes).toBe(15);
-      expect(summary.sobrantes).toBe(10);
+      expect(summary.unclaimedDeposits).toBe(15);
+      expect(summary.unfundedVouchers).toBe(10);
       expect(summary.requiresManualValidation).toBe(20);
     });
 
@@ -276,8 +276,8 @@ describe('Domain Entities - Bank Reconciliation', () => {
       const summary = ReconciliationSummary.create({
         totalProcessed: 100,
         conciliados: 75,
-        pendientes: 15,
-        sobrantes: 10,
+        unclaimedDeposits: 15,
+        unfundedVouchers: 10,
         requiresManualValidation: 20,
       });
 
@@ -288,8 +288,8 @@ describe('Domain Entities - Bank Reconciliation', () => {
       const summary = ReconciliationSummary.create({
         totalProcessed: 0,
         conciliados: 0,
-        pendientes: 0,
-        sobrantes: 0,
+        unclaimedDeposits: 0,
+        unfundedVouchers: 0,
         requiresManualValidation: 0,
       });
 
@@ -300,16 +300,16 @@ describe('Domain Entities - Bank Reconciliation', () => {
       const withManual = ReconciliationSummary.create({
         totalProcessed: 100,
         conciliados: 75,
-        pendientes: 15,
-        sobrantes: 10,
+        unclaimedDeposits: 15,
+        unfundedVouchers: 10,
         requiresManualValidation: 20,
       });
 
       const withoutManual = ReconciliationSummary.create({
         totalProcessed: 100,
         conciliados: 100,
-        pendientes: 0,
-        sobrantes: 0,
+        unclaimedDeposits: 0,
+        unfundedVouchers: 0,
         requiresManualValidation: 0,
       });
 
