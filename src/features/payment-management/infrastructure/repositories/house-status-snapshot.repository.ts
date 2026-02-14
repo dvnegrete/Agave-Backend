@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { HouseStatusSnapshot } from '@/shared/database/entities';
 import { IHouseStatusSnapshotRepository } from '../../interfaces/house-status-snapshot.repository.interface';
 
@@ -77,7 +77,7 @@ export class HouseStatusSnapshotRepository
       return;
     }
     await this.repository.update(
-      { house_id: require('typeorm').In(houseIds) },
+      { house_id: In(houseIds) },
       {
         is_stale: true,
         invalidated_at: new Date(),

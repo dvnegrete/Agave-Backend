@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -43,6 +44,10 @@ import {
   GetPeriodChargesSummaryUseCase,
   BatchUpdatePeriodChargesUseCase,
   ReprocessAllAllocationsUseCase,
+  CondonePenaltyUseCase,
+  AdjustHousePeriodChargeUseCase,
+  ReverseHousePeriodChargeUseCase,
+  ApplyCreditToPeriodsUseCase,
 } from '../application';
 import {
   CreatePeriodDto,
@@ -62,10 +67,13 @@ import {
   PeriodChargeSummaryDto,
   BatchUpdateResultDto,
   ReprocessResultDto,
+  InitialBalanceDto,
+  AdjustChargeDto,
 } from '../dto';
 import { HouseRepository } from '@/shared/database/repositories/house.repository';
 import { IPeriodConfigRepository } from '../interfaces';
 import { HouseStatusSnapshotService } from '../infrastructure/services/house-status-snapshot.service';
+import { HouseBalanceRepository } from '../infrastructure/repositories/house-balance.repository';
 
 @ApiTags('Payment Management')
 @Controller('payment-management')
@@ -92,6 +100,11 @@ export class PaymentManagementController {
     private readonly getPeriodChargesSummaryUseCase: GetPeriodChargesSummaryUseCase,
     private readonly batchUpdatePeriodChargesUseCase: BatchUpdatePeriodChargesUseCase,
     private readonly reprocessAllAllocationsUseCase: ReprocessAllAllocationsUseCase,
+    private readonly condonePenaltyUseCase: CondonePenaltyUseCase,
+    private readonly adjustHousePeriodChargeUseCase: AdjustHousePeriodChargeUseCase,
+    private readonly reverseHousePeriodChargeUseCase: ReverseHousePeriodChargeUseCase,
+    private readonly applyCreditToPeriodsUseCase: ApplyCreditToPeriodsUseCase,
+    private readonly houseBalanceRepository: HouseBalanceRepository,
   ) {}
 
   /**
@@ -739,6 +752,151 @@ export class PaymentManagementController {
   })
   async reprocessAllocations(): Promise<ReprocessResultDto> {
     return this.reprocessAllAllocationsUseCase.execute();
+  }
+
+  // ──────────────────────────────────────────────
+  // ADMIN: Operaciones de ajuste y crédito inicial
+  // ──────────────────────────────────────────────
+
+  /**
+   * POST /payment-management/houses/:houseId/initial-balance
+   * Asigna crédito inicial a una casa (para pagos realizados antes del sistema)
+   * El crédito se distribuye automáticamente en FIFO cubriendo períodos impagos
+   */
+  @Post('houses/:houseId/initial-balance')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Asignar crédito/saldo inicial a una casa',
+    description:
+      'Registra un crédito inicial para una casa cuyos pagos fueron realizados antes del sistema. El crédito se aplica automáticamente a períodos impagos en orden FIFO.',
+  })
+  @ApiParam({
+    name: 'houseId',
+    description: 'Número de casa (number_house)',
+    example: 42,
+  })
+  @ApiBody({ type: InitialBalanceDto })
+  @ApiResponse({ status: 200, description: 'Crédito aplicado exitosamente' })
+  @ApiResponse({ status: 404, description: 'Casa no encontrada' })
+  async setInitialBalance(
+    @Param('houseId', ParseIntPipe) houseId: number,
+    @Body() dto: InitialBalanceDto,
+  ) {
+    const house = await this.houseRepository.findByNumberHouse(houseId);
+    if (!house) {
+      throw new NotFoundException(`Casa con número ${houseId} no encontrada`);
+    }
+
+    // 1. Agregar crédito al balance de la casa
+    const balance = await this.houseBalanceRepository.addCreditBalance(
+      house.id,
+      dto.amount,
+    );
+
+    // 2. Distribuir crédito automáticamente a períodos impagos (FIFO)
+    const creditResult = await this.applyCreditToPeriodsUseCase.execute(
+      house.id,
+    );
+
+    return {
+      house_id: house.id,
+      house_number: house.number_house,
+      amount_added: dto.amount,
+      reason: dto.reason ?? 'Saldo inicial - pagos pre-sistema',
+      credit_distribution: creditResult,
+      balance_after: {
+        credit_balance: balance.credit_balance,
+      },
+    };
+  }
+
+  /**
+   * POST /payment-management/houses/:houseId/periods/:periodId/condone-penalty
+   * Condona (elimina) la penalidad de una casa en un período
+   */
+  @Post('houses/:houseId/periods/:periodId/condone-penalty')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Condonar penalidad',
+    description:
+      'Elimina la penalidad de una casa en un período específico. Solo si no ha sido pagada.',
+  })
+  @ApiParam({
+    name: 'houseId',
+    description: 'Número de casa (number_house)',
+    example: 42,
+  })
+  @ApiParam({
+    name: 'periodId',
+    description: 'ID del período',
+    example: 1,
+  })
+  @ApiResponse({ status: 200, description: 'Penalidad condonada' })
+  @ApiResponse({ status: 404, description: 'Casa o penalidad no encontrada' })
+  async condonePenalty(
+    @Param('houseId', ParseIntPipe) houseId: number,
+    @Param('periodId', ParseIntPipe) periodId: number,
+  ) {
+    const house = await this.houseRepository.findByNumberHouse(houseId);
+    if (!house) {
+      throw new NotFoundException(`Casa con número ${houseId} no encontrada`);
+    }
+
+    return this.condonePenaltyUseCase.execute(house.id, periodId);
+  }
+
+  /**
+   * PATCH /payment-management/charges/:chargeId/adjust
+   * Ajusta el monto de un cargo existente
+   */
+  @Patch('charges/:chargeId/adjust')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Ajustar monto de un cargo',
+    description:
+      'Modifica el monto esperado de un cargo. No permite bajar de lo ya pagado ni ajustar períodos de más de 3 meses atrás.',
+  })
+  @ApiParam({
+    name: 'chargeId',
+    description: 'ID del cargo a ajustar',
+    example: 100,
+  })
+  @ApiBody({ type: AdjustChargeDto })
+  @ApiResponse({ status: 200, description: 'Cargo ajustado' })
+  @ApiResponse({ status: 404, description: 'Cargo no encontrado' })
+  async adjustCharge(
+    @Param('chargeId', ParseIntPipe) chargeId: number,
+    @Body() dto: AdjustChargeDto,
+  ) {
+    return this.adjustHousePeriodChargeUseCase.execute(chargeId, dto.new_amount);
+  }
+
+  /**
+   * DELETE /payment-management/charges/:chargeId/reverse
+   * Reversa (elimina) un cargo que nunca fue pagado
+   */
+  @Delete('charges/:chargeId/reverse')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Reversar un cargo',
+    description:
+      'Elimina un cargo que fue creado erróneamente. Solo si no tiene pagos asignados ni es de más de 3 meses atrás.',
+  })
+  @ApiParam({
+    name: 'chargeId',
+    description: 'ID del cargo a reversar',
+    example: 100,
+  })
+  @ApiResponse({ status: 200, description: 'Cargo reversado' })
+  @ApiResponse({ status: 404, description: 'Cargo no encontrado' })
+  async reverseCharge(
+    @Param('chargeId', ParseIntPipe) chargeId: number,
+  ) {
+    return this.reverseHousePeriodChargeUseCase.execute(chargeId);
   }
 
   /**

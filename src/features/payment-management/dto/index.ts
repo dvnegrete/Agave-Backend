@@ -14,3 +14,4 @@ export * from './distribute-payment.dto';
 export * from './backfill-allocations.dto';
 export * from './batch-update-period-charges.dto';
 export * from './period-charges-summary.dto';
+export * from './admin-operations.dto';
