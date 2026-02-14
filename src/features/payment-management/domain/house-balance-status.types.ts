@@ -40,9 +40,11 @@ export interface EnrichedHouseBalance {
   accumulated_cents: number;
   unpaid_periods: PeriodPaymentDetail[];
   paid_periods: PeriodPaymentDetail[];
+  upcoming_periods: PeriodPaymentDetail[];
   current_period: PeriodPaymentDetail | null;
   next_due_date: string | null;
   deadline_message: string | null;
+  bank_coverage_date: string | null;
   total_unpaid_periods: number;
   summary: {
     total_expected: number;

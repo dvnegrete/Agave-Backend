@@ -13,6 +13,7 @@ import {
   IHousePeriodOverrideRepository,
   IHousePeriodChargeRepository,
 } from '../interfaces';
+import { LastTransactionBankRepository } from '@/shared/database/repositories/last-transaction-bank.repository';
 import { GeneratePenaltyUseCase } from './generate-penalty.use-case';
 import {
   EnrichedHouseBalance,
@@ -41,6 +42,7 @@ export class CalculateHouseBalanceStatusUseCase {
     private readonly housePeriodOverrideRepository: IHousePeriodOverrideRepository,
     @Inject('IHousePeriodChargeRepository')
     private readonly housePeriodChargeRepository: IHousePeriodChargeRepository,
+    private readonly lastTransactionBankRepository: LastTransactionBankRepository,
     private readonly generatePenaltyUseCase: GeneratePenaltyUseCase,
   ) {}
 
@@ -51,6 +53,12 @@ export class CalculateHouseBalanceStatusUseCase {
       return this.buildEmptyBalance(houseId, house.number_house);
     }
 
+    // Obtener fecha de cobertura bancaria (última transacción subida al sistema)
+    const lastTxRecord = await this.lastTransactionBankRepository.findLatest();
+    const bankCoverageDate: Date | null = lastTxRecord?.transactionBank?.date
+      ? new Date(lastTxRecord.transactionBank.date)
+      : null;
+
     // Ordenar ASC por año/mes
     const sortedPeriods = [...periods].sort((a, b) =>
       a.year !== b.year ? a.year - b.year : a.month - b.month,
@@ -59,11 +67,16 @@ export class CalculateHouseBalanceStatusUseCase {
     // Obtener balance actual
     const balance = await this.houseBalanceRepository.getOrCreate(houseId);
 
-    // Calcular detalle de cada período
+    // Calcular detalle de cada período (pasando bankCoverageDate)
     const periodDetails: PeriodPaymentDetail[] = [];
 
     for (const period of sortedPeriods) {
-      const detail = await this.calculatePeriodDetail(houseId, period);
+      const detail = await this.calculatePeriodDetail(
+        houseId,
+        period,
+        true,
+        bankCoverageDate,
+      );
       periodDetails.push(detail);
     }
 
@@ -72,11 +85,23 @@ export class CalculateHouseBalanceStatusUseCase {
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth() + 1;
 
-    const unpaidPeriods = periodDetails.filter(
-      (p) => p.status !== PeriodPaymentStatus.PAID,
-    );
+    // Función para determinar si un período es futuro
+    const isFuturePeriod = (p: PeriodPaymentDetail): boolean => {
+      return (
+        p.year > currentYear ||
+        (p.year === currentYear && p.month > currentMonth)
+      );
+    };
+
+    // Separar períodos en 3 buckets
     const paidPeriods = periodDetails.filter(
       (p) => p.status === PeriodPaymentStatus.PAID,
+    );
+    const upcomingPeriods = periodDetails.filter(
+      (p) => isFuturePeriod(p) && p.status !== PeriodPaymentStatus.PAID,
+    );
+    const unpaidPeriods = periodDetails.filter(
+      (p) => !isFuturePeriod(p) && p.status !== PeriodPaymentStatus.PAID,
     );
     const currentPeriod =
       periodDetails.find(
@@ -89,17 +114,18 @@ export class CalculateHouseBalanceStatusUseCase {
       balance.credit_balance,
     );
 
-    // Calcular totales
-    const totalExpected = periodDetails.reduce(
+    // Calcular totales (solo sobre períodos no-futuros)
+    const actionablePeriods = periodDetails.filter((p) => !isFuturePeriod(p));
+    const totalExpected = actionablePeriods.reduce(
       (sum, p) => sum + p.expected_total,
       0,
     );
-    const totalPaid = periodDetails.reduce((sum, p) => sum + p.paid_total, 0);
-    const totalPending = periodDetails.reduce(
+    const totalPaid = actionablePeriods.reduce((sum, p) => sum + p.paid_total, 0);
+    const totalPending = actionablePeriods.reduce(
       (sum, p) => sum + p.pending_total,
       0,
     );
-    const totalPenalties = periodDetails.reduce(
+    const totalPenalties = actionablePeriods.reduce(
       (sum, p) => sum + p.penalty_amount,
       0,
     );
@@ -124,9 +150,13 @@ export class CalculateHouseBalanceStatusUseCase {
       accumulated_cents: Math.round(balance.accumulated_cents * 100) / 100,
       unpaid_periods: unpaidPeriods,
       paid_periods: paidPeriods,
+      upcoming_periods: upcomingPeriods,
       current_period: currentPeriod,
       next_due_date: nextDueDate,
       deadline_message: deadlineMessage,
+      bank_coverage_date: bankCoverageDate
+        ? bankCoverageDate.toISOString().split('T')[0]
+        : null,
       total_unpaid_periods: unpaidPeriods.length,
       summary: {
         total_expected: Math.round(totalExpected * 100) / 100,
@@ -141,6 +171,7 @@ export class CalculateHouseBalanceStatusUseCase {
     houseId: number,
     period: Period,
     generatePenalties = true,
+    bankCoverageDate: Date | null = null,
   ): Promise<PeriodPaymentDetail> {
     // Obtener config activa para la fecha del período
     const periodStartDate =
@@ -259,11 +290,24 @@ export class CalculateHouseBalanceStatusUseCase {
 
     const pendingTotal = Math.max(0, expectedTotal - paidTotal);
 
-    // Determinar si está vencido
+    // Determinar si está vencido (con cobertura bancaria)
     const now = new Date();
     const dueDay = config?.payment_due_day ?? 15;
-    const periodEndForDue = new Date(period.year, period.month - 1, dueDay);
-    const isOverdue = now > periodEndForDue && pendingTotal > 0;
+    const periodDueDate = new Date(period.year, period.month - 1, dueDay);
+
+    let isOverdue = false;
+    if (now > periodDueDate && pendingTotal > 0) {
+      if (bankCoverageDate === null) {
+        // No hay datos bancarios, no podemos determinar morosidad
+        isOverdue = false;
+      } else if (bankCoverageDate >= periodDueDate) {
+        // Tenemos datos bancarios que cubren esta fecha y no hay pago
+        isOverdue = true;
+      } else {
+        // No hay datos bancarios que cubran este período aún
+        isOverdue = false;
+      }
+    }
 
     // Generar penalidad si periodo vencido e impago (solo para periodos pasados)
     let penaltyAmount = 0;
@@ -377,9 +421,11 @@ export class CalculateHouseBalanceStatusUseCase {
       accumulated_cents: 0,
       unpaid_periods: [],
       paid_periods: [],
+      upcoming_periods: [],
       current_period: null,
       next_due_date: null,
       deadline_message: 'Sin periodos registrados',
+      bank_coverage_date: null,
       total_unpaid_periods: 0,
       summary: {
         total_expected: 0,

@@ -59,6 +59,7 @@ import { HouseStatusSnapshotRepository } from './infrastructure/repositories/hou
 
 // Shared Repositories
 import { TransactionBankRepository } from '@/shared/database/repositories/transaction-bank.repository';
+import { LastTransactionBankRepository } from '@/shared/database/repositories/last-transaction-bank.repository';
 import { HouseRepository } from '@/shared/database/repositories/house.repository';
 import { VoucherRepository } from '@/shared/database/repositories/voucher.repository';
 
@@ -75,6 +76,7 @@ import {
   Voucher,
   CtaPenalties,
   HouseStatusSnapshot,
+  LastTransactionBank,
 } from '@/shared/database/entities';
 
 @Module({
@@ -94,6 +96,7 @@ import {
       Voucher,
       CtaPenalties,
       HouseStatusSnapshot,
+      LastTransactionBank,
     ]),
   ],
   controllers: [PaymentManagementController],
@@ -173,6 +176,7 @@ import {
     HousePeriodChargeRepository,
     HouseStatusSnapshotRepository,
     TransactionBankRepository,
+    LastTransactionBankRepository,
     HouseRepository,
     VoucherRepository,
   ],
