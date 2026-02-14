@@ -38,7 +38,7 @@ describe('LastTransactionBankRepository', () => {
 
   describe('create', () => {
     it('should create a new last transaction record', async () => {
-      const transactionId = 'bank_txn_123456';
+      const transactionId = 123456;
       const mockEntity = { transactions_bank_id: transactionId };
       const mockSavedEntity = { id: 1, ...mockEntity, created_at: new Date() };
 
@@ -85,7 +85,7 @@ describe('LastTransactionBankRepository', () => {
 
   describe('findByTransactionId', () => {
     it('should find record by transaction ID', async () => {
-      const transactionId = 'bank_txn_123456';
+      const transactionId = 123456;
       const mockEntity = {
         id: 1,
         transactions_bank_id: transactionId,

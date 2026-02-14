@@ -84,6 +84,7 @@ describe('AuthService (Firebase)', () => {
             get: jest.fn((key: string) => {
               const config: Record<string, any> = {
                 NODE_ENV: 'test',
+                FRONTEND_URL: 'http://localhost:3000',
               };
               return config[key];
             }),
@@ -137,7 +138,7 @@ describe('AuthService (Firebase)', () => {
         idToken: 'valid-id-token',
         firstName: 'John',
         lastName: 'Doe',
-        houseNumber: '5',
+        houseNumber: 5,
       });
 
       expect(result).toMatchObject({

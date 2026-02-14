@@ -76,15 +76,20 @@ describe('TransactionsBankController', () => {
       const uploadDto: UploadFileDto = { bankName: 'Santander' };
 
       service.processFile.mockResolvedValue({
-        processed: 10,
-        failed: 0,
-        skipped: 0,
+        success: true,
+        totalTransactions: 10,
+        validTransactions: 10,
+        invalidTransactions: 0,
+        previouslyProcessedTransactions: 0,
+        transactions: [],
+        errors: [],
+        processingTime: 100,
       });
 
       const result = await controller.uploadFile(mockFile, uploadDto);
 
       expect(result).toBeDefined();
-      expect(result.processed).toBe(10);
+      expect(result.validTransactions).toBe(10);
       expect(service.processFile).toHaveBeenCalled();
     });
 
@@ -120,9 +125,14 @@ describe('TransactionsBankController', () => {
       const uploadDto: UploadFileDto = { bankName: 'Default' };
 
       service.processFile.mockResolvedValue({
-        processed: 5,
-        failed: 0,
-        skipped: 0,
+        success: true,
+        totalTransactions: 5,
+        validTransactions: 5,
+        invalidTransactions: 0,
+        previouslyProcessedTransactions: 0,
+        transactions: [],
+        errors: [],
+        processingTime: 100,
       });
 
       const result = await controller.uploadFile(
@@ -189,9 +199,14 @@ describe('TransactionsBankController', () => {
   describe('getTransactionSummary', () => {
     it('should return transaction summary', async () => {
       const mockSummary = {
+        total: 10,
+        pending: 2,
+        processed: 8,
+        failed: 0,
+        reconciled: 0,
         totalAmount: 5000000,
-        totalTransactions: 10,
-        byStatus: { processed: 8, pending: 2 },
+        currencies: ['COP'],
+        concepts: ['Depósito'],
       };
 
       service.getTransactionSummary.mockResolvedValue(mockSummary);
@@ -205,13 +220,22 @@ describe('TransactionsBankController', () => {
 
   describe('getExpenses', () => {
     it('should return expenses for given month', async () => {
-      const mockExpenses = [mockTransaction];
+      const mockExpensesResponse = {
+        month: '2026-02',
+        expenses: [mockTransaction],
+        summary: {
+          totalExpenses: 500000,
+          count: 1,
+          currencies: ['COP'],
+          largestExpense: 500000,
+        },
+      };
 
-      service.getExpensesByMonth.mockResolvedValue(mockExpenses);
+      service.getExpensesByMonth.mockResolvedValue(mockExpensesResponse);
 
       const result = await controller.getExpenses('2026-02');
 
-      expect(result).toEqual(mockExpenses);
+      expect(result).toEqual(mockExpensesResponse);
       expect(service.getExpensesByMonth).toHaveBeenCalledWith('2026-02');
     });
 
@@ -418,20 +442,26 @@ describe('TransactionsBankController', () => {
   describe('reconcileTransactions', () => {
     it('should reconcile transactions successfully', async () => {
       const reconciliationDto: ReconciliationDto = {
-        transactionIds: ['id-1', 'id-2'],
-        periodYear: 2026,
-        periodMonth: 2,
+        accountNumber: '123456789',
+        bankName: 'Santander',
+        startDate: '2026-02-01',
+        endDate: '2026-02-28',
+        autoReconcile: true,
       };
 
       service.reconcileTransactions.mockResolvedValue({
-        reconciled: 2,
-        failed: 0,
+        success: true,
+        matchedTransactions: 2,
+        unmatchedTransactions: 0,
+        totalTransactions: 2,
+        reconciliationDate: new Date('2026-02-14'),
+        discrepancies: [],
       });
 
       const result = await controller.reconcileTransactions(reconciliationDto);
 
       expect(result).toBeDefined();
-      expect(result.reconciled).toBe(2);
+      expect(result.matchedTransactions).toBe(2);
       expect(service.reconcileTransactions).toHaveBeenCalledWith(
         reconciliationDto,
       );
@@ -439,9 +469,7 @@ describe('TransactionsBankController', () => {
 
     it('should handle reconciliation errors', async () => {
       const reconciliationDto: ReconciliationDto = {
-        transactionIds: ['invalid-id'],
-        periodYear: 2026,
-        periodMonth: 2,
+        accountNumber: 'invalid-account',
       };
 
       service.reconcileTransactions.mockRejectedValue(

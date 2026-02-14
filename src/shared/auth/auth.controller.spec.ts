@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { AuthGuard } from './guards/auth.guard';
 
 // Mock de Supabase
 jest.mock('../config/supabase.config', () => ({
@@ -30,11 +31,9 @@ describe('AuthController', () => {
   const mockAuthService = {
     signUp: jest.fn(),
     signIn: jest.fn(),
-    signInWithOAuth: jest.fn(),
     handleOAuthCallback: jest.fn(),
-    refreshToken: jest.fn(),
+    refreshTokens: jest.fn(),
     signOut: jest.fn(),
-    getCurrentUser: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -46,7 +45,10 @@ describe('AuthController', () => {
           useValue: mockAuthService,
         },
       ],
-    }).compile();
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<AuthController>(AuthController);
     authService = module.get<AuthService>(AuthService);
@@ -63,10 +65,10 @@ describe('AuthController', () => {
   describe('signUp', () => {
     it('should create a new user', async () => {
       const signUpDto = {
-        email: 'test@example.com',
-        password: 'password123',
+        idToken: 'firebase-id-token',
         firstName: 'John',
         lastName: 'Doe',
+        houseNumber: 5,
       };
 
       const expectedResult = {
@@ -78,6 +80,7 @@ describe('AuthController', () => {
           firstName: 'John',
           lastName: 'Doe',
         },
+        requiresEmailConfirmation: true,
       };
 
       mockAuthService.signUp.mockResolvedValue(expectedResult);
@@ -92,9 +95,12 @@ describe('AuthController', () => {
   describe('signIn', () => {
     it('should sign in user', async () => {
       const signInDto = {
-        email: 'test@example.com',
-        password: 'password123',
+        idToken: 'firebase-id-token',
       };
+
+      const mockResponse = {
+        cookie: jest.fn().mockReturnThis(),
+      } as any;
 
       const expectedResult = {
         accessToken: 'access-token',
@@ -104,40 +110,29 @@ describe('AuthController', () => {
           email: 'test@example.com',
           firstName: 'John',
           lastName: 'Doe',
+          emailVerified: true,
         },
       };
 
       mockAuthService.signIn.mockResolvedValue(expectedResult);
 
-      const result = await controller.signIn(signInDto);
+      const result = await controller.signIn(signInDto, mockResponse);
 
-      expect(authService.signIn).toHaveBeenCalledWith(signInDto);
-      expect(result).toEqual(expectedResult);
-    });
-  });
-
-  describe('signInWithOAuth', () => {
-    it('should return OAuth URL', async () => {
-      const oAuthDto = {
-        provider: 'google' as const,
-      };
-
-      const expectedResult = {
-        url: 'https://oauth-provider.com/auth',
-      };
-
-      mockAuthService.signInWithOAuth.mockResolvedValue(expectedResult);
-
-      const result = await controller.signInWithOAuth(oAuthDto);
-
-      expect(authService.signInWithOAuth).toHaveBeenCalledWith(oAuthDto);
+      expect(authService.signIn).toHaveBeenCalledWith(signInDto, mockResponse);
       expect(result).toEqual(expectedResult);
     });
   });
 
   describe('handleOAuthCallback', () => {
     it('should handle OAuth callback', async () => {
-      const code = 'oauth-code';
+      const oAuthCallbackDto = {
+        idToken: 'oauth-id-token',
+      };
+
+      const mockResponse = {
+        cookie: jest.fn().mockReturnThis(),
+      } as any;
+
       const expectedResult = {
         accessToken: 'access-token',
         refreshToken: 'refresh-token',
@@ -151,12 +146,13 @@ describe('AuthController', () => {
 
       mockAuthService.handleOAuthCallback.mockResolvedValue(expectedResult);
 
-      const result = await controller.handleOAuthCallback(code);
+      const result = await controller.handleOAuthCallback(oAuthCallbackDto, mockResponse);
 
-      expect(authService.handleOAuthCallback).toHaveBeenCalledWith(code);
+      expect(authService.handleOAuthCallback).toHaveBeenCalledWith(oAuthCallbackDto, mockResponse);
       expect(result).toEqual(expectedResult);
     });
   });
+
 
   describe('refreshToken', () => {
     it('should refresh token', async () => {
@@ -164,72 +160,32 @@ describe('AuthController', () => {
         refreshToken: 'refresh-token',
       };
 
+      const mockResponse = {
+        cookie: jest.fn().mockReturnThis(),
+      } as any;
+
       const expectedResult = {
-        accessToken: 'new-access-token',
-        refreshToken: 'new-refresh-token',
-        user: {
-          id: 'user-123',
-          email: 'test@example.com',
-          firstName: 'John',
-          lastName: 'Doe',
-        },
+        success: true,
       };
 
-      mockAuthService.refreshToken.mockResolvedValue(expectedResult);
+      mockAuthService.refreshTokens.mockResolvedValue(expectedResult);
 
-      const result = await controller.refreshToken(refreshTokenDto);
+      const result = await controller.refreshToken(refreshTokenDto, mockResponse);
 
-      expect(authService.refreshToken).toHaveBeenCalledWith(refreshTokenDto);
+      expect(authService.refreshTokens).toHaveBeenCalledWith('refresh-token', mockResponse);
       expect(result).toEqual(expectedResult);
     });
   });
 
   describe('signOut', () => {
     it('should sign out user', async () => {
-      const mockUser = {
-        id: 'user-123',
-        email: 'test@example.com',
-        app_metadata: {},
-        user_metadata: {},
-        aud: 'authenticated',
-        created_at: '2023-01-01T00:00:00Z',
-        updated_at: '2023-01-01T00:00:00Z',
-        role: 'authenticated',
-        email_confirmed_at: '2023-01-01T00:00:00Z',
-        last_sign_in_at: '2023-01-01T00:00:00Z',
-        phone: undefined,
-        confirmed_at: '2023-01-01T00:00:00Z',
-        email_change_confirm_status: 0,
-        banned_until: undefined,
-        reauthentication_sent_at: undefined,
-        recovery_sent_at: undefined,
-        email_change_sent_at: undefined,
-        phone_change: undefined,
-        phone_change_sent_at: undefined,
-        email_change: undefined,
-        reauthentication_confirm_status: 0,
-        factors: undefined,
-        identities: [],
-        created_at_utc: '2023-01-01T00:00:00Z',
-        updated_at_utc: '2023-01-01T00:00:00Z',
-        banned_until_utc: undefined,
-        reauthentication_sent_at_utc: undefined,
-        recovery_sent_at_utc: undefined,
-        email_change_sent_at_utc: undefined,
-        phone_change_sent_at_utc: undefined,
-        last_sign_in_at_utc: '2023-01-01T00:00:00Z',
-        email_confirmed_at_utc: '2023-01-01T00:00:00Z',
-        confirmed_at_utc: '2023-01-01T00:00:00Z',
-        phone_change_confirm_status: 0,
-        email_change_confirm_status_utc: 0,
-        reauthentication_confirm_status_utc: 0,
-        phone_change_confirm_status_utc: 0,
-      };
+      const mockResponse = {
+        clearCookie: jest.fn().mockReturnThis(),
+      } as any;
 
-      mockAuthService.signOut.mockResolvedValue(undefined);
+      const result = await controller.signOut(mockResponse);
 
-      const result = await controller.signOut(mockUser);
-
+      expect(mockResponse.clearCookie).toHaveBeenCalledWith('access_token');
       expect(result).toBeUndefined();
     });
   });
@@ -239,46 +195,16 @@ describe('AuthController', () => {
       const mockUser = {
         id: 'user-123',
         email: 'test@example.com',
-        firstName: 'John',
-        lastName: 'Doe',
-        app_metadata: {},
-        user_metadata: {},
-        aud: 'authenticated',
-        created_at: '2023-01-01T00:00:00Z',
-        updated_at: '2023-01-01T00:00:00Z',
-        role: 'authenticated',
-        email_confirmed_at: '2023-01-01T00:00:00Z',
-        last_sign_in_at: '2023-01-01T00:00:00Z',
-        phone: undefined,
-        confirmed_at: '2023-01-01T00:00:00Z',
-        email_change_confirm_status: 0,
-        banned_until: undefined,
-        reauthentication_sent_at: undefined,
-        recovery_sent_at: undefined,
-        email_change_sent_at: undefined,
-        phone_change: undefined,
-        phone_change_sent_at: undefined,
-        email_change: undefined,
-        reauthentication_confirm_status: 0,
-        factors: undefined,
-        identities: [],
-        created_at_utc: '2023-01-01T00:00:00Z',
-        updated_at_utc: '2023-01-01T00:00:00Z',
-        banned_until_utc: undefined,
-        reauthentication_sent_at_utc: undefined,
-        recovery_sent_at_utc: undefined,
-        email_change_sent_at_utc: undefined,
-        phone_change_sent_at_utc: undefined,
-        last_sign_in_at_utc: '2023-01-01T00:00:00Z',
-        email_confirmed_at_utc: '2023-01-01T00:00:00Z',
-        confirmed_at_utc: '2023-01-01T00:00:00Z',
-        phone_change_confirm_status: 0,
-        email_change_confirm_status_utc: 0,
-        reauthentication_confirm_status_utc: 0,
-        phone_change_confirm_status_utc: 0,
+        name: 'John Doe',
+        email_verified: true,
+        email_verified_at: new Date('2023-01-01'),
+        status: 'ACTIVE' as any,
+        role: 'TENANT' as any,
+        houses: [],
+        last_login: new Date('2023-01-01'),
       };
 
-      const result = await controller.getCurrentUser(mockUser);
+      const result = await controller.getCurrentUser(mockUser as any);
 
       expect(result).toEqual(mockUser);
     });

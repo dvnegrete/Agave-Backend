@@ -4,9 +4,9 @@ import { FirebaseAuthConfig } from './firebase-auth.config';
 import * as admin from 'firebase-admin';
 
 jest.mock('firebase-admin', () => ({
-  initializeApp: jest.fn(),
+  initializeApp: jest.fn().mockReturnValue({ name: 'mock-app' }),
   credential: {
-    cert: jest.fn(),
+    cert: jest.fn().mockReturnValue({ mock: 'credential' }),
   },
   auth: jest.fn(),
 }));
@@ -79,7 +79,7 @@ describe('FirebaseAuthConfig', () => {
       });
 
       expect(() => incompleteConfig.getAuth()).toThrow(
-        'Firebase not initialized',
+        'Firebase no inicializado',
       );
     });
   });

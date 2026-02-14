@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { RoleGuard } from './role.guard';
+import { RoleGuard } from './roles.guard';
 import { Role } from '../../database/entities/enums';
 import { Request } from 'express';
 
@@ -98,7 +98,6 @@ describe('RoleGuard', () => {
     it('should throw ForbiddenException when user does not have any required role', () => {
       const { mockContext } = createMockExecutionContext(Role.TENANT, [
         Role.ADMIN,
-        Role.MANAGER,
       ]);
 
       expect(() => guard.canActivate(mockContext)).toThrow(ForbiddenException);
