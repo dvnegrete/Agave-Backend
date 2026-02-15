@@ -18,10 +18,12 @@ export class LastTransactionBankRepository {
   }
 
   async findLatest(): Promise<LastTransactionBank | null> {
-    return this.lastTransactionBankRepository.findOne({
+    const results = await this.lastTransactionBankRepository.find({
       order: { created_at: 'DESC' },
       relations: ['transactionBank'],
+      take: 1,
     });
+    return results[0] ?? null;
   }
 
   async findRecent(limit: number = 7): Promise<LastTransactionBank[]> {
