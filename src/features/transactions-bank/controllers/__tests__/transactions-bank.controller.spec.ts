@@ -9,6 +9,7 @@ import {
 } from '../../dto/transaction-bank.dto';
 import { UploadFileDto } from '../../dto/upload-file.dto';
 import { ProcessedBankTransaction } from '../../interfaces/transaction-bank.interface';
+import { AuthGuard } from '@/shared/auth/guards/auth.guard';
 
 describe('TransactionsBankController', () => {
   let controller: TransactionsBankController;
@@ -49,7 +50,10 @@ describe('TransactionsBankController', () => {
           },
         },
       ],
-    }).compile();
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<TransactionsBankController>(
       TransactionsBankController,
@@ -357,7 +361,7 @@ describe('TransactionsBankController', () => {
         '550e8400-e29b-41d4-a716-446655440000',
       );
 
-      expect(result.message).toBe('Transacción eliminada exitosamente');
+      expect(result.message).toBe('Transacción bancaria eliminada exitosamente');
       expect(service.deleteTransaction).toHaveBeenCalledWith(
         '550e8400-e29b-41d4-a716-446655440000',
       );
