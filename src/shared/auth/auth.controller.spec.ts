@@ -3,27 +3,6 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AuthGuard } from './guards/auth.guard';
 
-// Mock de Supabase
-jest.mock('../config/supabase.config', () => ({
-  supabaseClient: {
-    auth: {
-      signUp: jest.fn(),
-      signInWithPassword: jest.fn(),
-      signInWithOAuth: jest.fn(),
-      refreshSession: jest.fn(),
-      signOut: jest.fn(),
-      getUser: jest.fn(),
-    },
-  },
-  supabaseAdminClient: {
-    auth: {
-      admin: {
-        getUserById: jest.fn(),
-      },
-    },
-  },
-}));
-
 describe('AuthController', () => {
   let controller: AuthController;
   let authService: AuthService;

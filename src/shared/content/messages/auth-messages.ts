@@ -86,68 +86,6 @@ export const SessionMessages = {
 };
 
 // ============================================================================
-// SUPABASE ERROR MAPPING
-// Maps Supabase error messages to Spanish user-friendly messages
-// ============================================================================
-
-export const SupabaseErrorMap: Record<string, string> = {
-  // User/Email errors
-  'User already registered': SignUpMessages.EMAIL_ALREADY_REGISTERED,
-  'Invalid login credentials': SignInMessages.INVALID_CREDENTIALS,
-  'Email not confirmed':
-    'Tu correo no ha sido confirmado. Revisa tu bandeja de entrada.',
-  'Invalid email': AuthValidationMessages.EMAIL_INVALID,
-
-  // Password errors
-  'Password too short': AuthValidationMessages.PASSWORD_TOO_SHORT,
-  'Password should be at least 8 characters':
-    'La contraseña debe tener al menos 8 caracteres.',
-  'Password should be at least 6 characters':
-    'La contraseña debe tener al menos 6 caracteres.',
-  'Password should contain at least one uppercase letter':
-    'La contraseña debe contener al menos una letra mayúscula.',
-  'Password should contain at least one number':
-    'La contraseña debe contener al menos un número.',
-  'Password should contain at least one special character':
-    'La contraseña debe contener al menos un carácter especial.',
-
-  // Token errors
-  'Token expired': SessionMessages.TOKEN_EXPIRED,
-  'Invalid token': SessionMessages.INVALID_TOKEN,
-  'Refresh token invalid': SessionMessages.REFRESH_FAILED,
-
-  // General errors
-  'User not found': SignInMessages.USER_NOT_FOUND,
-  'Access denied': 'Acceso denegado. Por favor intenta de nuevo.',
-  Unauthorized: 'No autorizado. Por favor inicia sesión nuevamente.',
-};
-
-/**
- * Maps Supabase error message to Spanish user-friendly message
- * @param errorMessage - Error message from Supabase
- * @returns Translated message or original if no match found
- */
-export function mapSupabaseErrorToSpanish(errorMessage: string): string {
-  // Check for exact match first
-  if (SupabaseErrorMap[errorMessage]) {
-    return SupabaseErrorMap[errorMessage];
-  }
-
-  // Check for partial matches
-  for (const [key, value] of Object.entries(SupabaseErrorMap)) {
-    if (errorMessage.toLowerCase().includes(key.toLowerCase())) {
-      return value;
-    }
-  }
-
-  // Default fallback
-  return (
-    errorMessage ||
-    'Ocurrió un error durante la autenticación. Por favor intenta nuevamente.'
-  );
-}
-
-// ============================================================================
 // GENERIC ERROR MESSAGES
 // ============================================================================
 
