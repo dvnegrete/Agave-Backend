@@ -63,19 +63,20 @@ describe('LastTransactionBankRepository', () => {
         created_at: new Date(),
       };
 
-      (mockRepository.findOne as jest.Mock).mockResolvedValue(mockEntity);
+      (mockRepository.find as jest.Mock).mockResolvedValue([mockEntity]);
 
       const result = await repository.findLatest();
 
-      expect(mockRepository.findOne).toHaveBeenCalledWith({
+      expect(mockRepository.find).toHaveBeenCalledWith({
         order: { created_at: 'DESC' },
         relations: ['transactionBank'],
+        take: 1,
       });
       expect(result).toEqual(mockEntity);
     });
 
     it('should return null if no records found', async () => {
-      (mockRepository.findOne as jest.Mock).mockResolvedValue(null);
+      (mockRepository.find as jest.Mock).mockResolvedValue([]);
 
       const result = await repository.findLatest();
 

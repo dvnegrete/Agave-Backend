@@ -18,6 +18,7 @@ import {
 } from '../../dto';
 import { Role, Status } from '@/shared/database/entities/enums';
 import { User, House } from '@/shared/database/entities';
+import { AuthGuard } from '@/shared/auth/guards/auth.guard';
 
 describe('UserManagementController', () => {
   let controller: UserManagementController;
@@ -110,7 +111,10 @@ describe('UserManagementController', () => {
           },
         },
       ],
-    }).compile();
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<UserManagementController>(
       UserManagementController,
