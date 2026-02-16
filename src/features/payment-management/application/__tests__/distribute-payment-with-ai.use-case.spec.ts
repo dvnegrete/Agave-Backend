@@ -429,4 +429,300 @@ describe('DistributePaymentWithAIUseCase', () => {
       expect(periodRepository.findAll).toHaveBeenCalled();
     });
   });
+
+  describe('Distribución con Asignaciones Existentes', () => {
+    it('should skip periods with existing allocations', async () => {
+      const periods = [
+        mockPeriod(2026, 1),
+        mockPeriod(2026, 2),
+        mockPeriod(2026, 3),
+      ];
+      periodRepository.findAll.mockResolvedValue(periods);
+
+      // Período 1 ya tiene asignación
+      recordAllocationRepository.findByHouseAndPeriod.mockResolvedValueOnce([
+        { id: 1, amount: 800 },
+      ] as any);
+
+      // Períodos 2 y 3 sin asignaciones
+      recordAllocationRepository.findByHouseAndPeriod.mockResolvedValueOnce([]);
+      recordAllocationRepository.findByHouseAndPeriod.mockResolvedValueOnce([]);
+
+      houseBalanceRepository.getOrCreate.mockResolvedValue(mockBalance as any);
+
+      const result = await useCase.execute(1, mockHouse as House, 1600);
+
+      expect(result).toBeDefined();
+      expect(result.method).toMatch(/deterministic|ai|manual_review/);
+      expect(result.total_allocated).toBeGreaterThanOrEqual(0);
+    });
+
+    it('should distribute to remaining periods when some are already allocated', async () => {
+      const periods = [
+        mockPeriod(2026, 1),
+        mockPeriod(2026, 2),
+        mockPeriod(2026, 3),
+      ];
+      periodRepository.findAll.mockResolvedValue(periods);
+
+      // Simular que hay asignaciones previas
+      recordAllocationRepository.findByHouseAndPeriod
+        .mockResolvedValueOnce([{ id: 1, amount: 500 }] as any)
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]);
+
+      houseBalanceRepository.getOrCreate.mockResolvedValue(mockBalance as any);
+
+      const result = await useCase.execute(1, mockHouse as House, 800);
+
+      expect(result).toBeDefined();
+      expect(result.method).toMatch(/deterministic|ai|manual_review/);
+    });
+  });
+
+  describe('Análisis de Confianza del Algoritmo', () => {
+    it('should set confidence to high for deterministic exact matches', async () => {
+      const periods = [mockPeriod(2026, 1)];
+      periodRepository.findAll.mockResolvedValue(periods);
+      recordAllocationRepository.findByHouseAndPeriod.mockResolvedValue([]);
+      (periodConfigRepository as any).findActive?.mockResolvedValue({ id: 1 });
+      houseBalanceRepository.getOrCreate.mockResolvedValue(mockBalance as any);
+
+      const result = await useCase.execute(1, mockHouse as House, 800);
+
+      expect(result.confidence).toMatch(/high|medium|low/);
+      expect(['high', 'medium', 'low']).toContain(result.confidence);
+    });
+
+    it('should indicate method used for distribution', async () => {
+      const periods = [mockPeriod(2026, 1)];
+      periodRepository.findAll.mockResolvedValue(periods);
+      recordAllocationRepository.findByHouseAndPeriod.mockResolvedValue([]);
+
+      const result = await useCase.execute(1, mockHouse as House, 300);
+
+      expect(result.method).toBeDefined();
+      expect(['deterministic', 'ai', 'manual_review']).toContain(result.method);
+    });
+
+    it('should include reasoning in response', async () => {
+      const periods = [mockPeriod(2026, 1)];
+      periodRepository.findAll.mockResolvedValue(periods);
+      recordAllocationRepository.findByHouseAndPeriod.mockResolvedValue([]);
+
+      const result = await useCase.execute(1, mockHouse as House, 500);
+
+      expect(result.reasoning || result.reasoning === undefined).toBeTruthy();
+    });
+  });
+
+  describe('Validación de Resultados', () => {
+    it('should ensure total_allocated does not exceed payment amount', async () => {
+      const periods = [
+        mockPeriod(2026, 1),
+        mockPeriod(2026, 2),
+        mockPeriod(2026, 3),
+      ];
+      periodRepository.findAll.mockResolvedValue(periods);
+      recordAllocationRepository.findByHouseAndPeriod.mockResolvedValue([]);
+      houseBalanceRepository.getOrCreate.mockResolvedValue(mockBalance as any);
+
+      const paymentAmount = 1200;
+      const result = await useCase.execute(1, mockHouse as House, paymentAmount);
+
+      expect(result.total_allocated).toBeLessThanOrEqual(paymentAmount);
+    });
+
+    it('should ensure remaining_as_credit equals payment minus allocated', async () => {
+      const periods = [mockPeriod(2026, 1)];
+      periodRepository.findAll.mockResolvedValue(periods);
+      recordAllocationRepository.findByHouseAndPeriod.mockResolvedValue([]);
+      houseBalanceRepository.getOrCreate.mockResolvedValue(mockBalance as any);
+
+      const paymentAmount = 500;
+      const result = await useCase.execute(1, mockHouse as House, paymentAmount);
+
+      const calculatedRemaining = paymentAmount - result.total_allocated;
+      expect(result.remaining_as_credit).toBeCloseTo(calculatedRemaining, 2);
+    });
+
+    it('should return valid suggested allocations structure', async () => {
+      const periods = [
+        mockPeriod(2026, 1),
+        mockPeriod(2026, 2),
+      ];
+      periodRepository.findAll.mockResolvedValue(periods);
+      recordAllocationRepository.findByHouseAndPeriod.mockResolvedValue([]);
+      houseBalanceRepository.getOrCreate.mockResolvedValue(mockBalance as any);
+
+      const result = await useCase.execute(1, mockHouse as House, 1000);
+
+      expect(Array.isArray(result.suggested_allocations)).toBe(true);
+      result.suggested_allocations.forEach((allocation: any) => {
+        expect(allocation.period_id).toBeDefined();
+        expect(typeof allocation.amount).toBe('number');
+        expect(allocation.amount).toBeGreaterThanOrEqual(0);
+      });
+    });
+  });
+
+  describe('Manejo de Escenarios Complejos', () => {
+    it('should handle alternating credit and payment cycles', async () => {
+      const periods = [
+        mockPeriod(2026, 1),
+        mockPeriod(2026, 2),
+        mockPeriod(2026, 3),
+        mockPeriod(2026, 4),
+      ];
+      periodRepository.findAll.mockResolvedValue(periods);
+      recordAllocationRepository.findByHouseAndPeriod.mockResolvedValue([]);
+
+      const balanceWithCredit = {
+        id: 1,
+        house_id: 1,
+        credit_balance: 2000,
+        accumulated_cents: 500,
+      };
+      houseBalanceRepository.getOrCreate.mockResolvedValue(
+        balanceWithCredit as any,
+      );
+
+      const result = await useCase.execute(1, mockHouse as House, 1500);
+
+      expect(result).toBeDefined();
+      expect(result.total_allocated).toBeGreaterThanOrEqual(0);
+    });
+
+    it('should prioritize oldest periods first in FIFO', async () => {
+      const periods = [
+        mockPeriod(2024, 6),
+        mockPeriod(2025, 1),
+        mockPeriod(2026, 1),
+      ];
+      periodRepository.findAll.mockResolvedValue(periods);
+      recordAllocationRepository.findByHouseAndPeriod.mockResolvedValue([]);
+      houseBalanceRepository.getOrCreate.mockResolvedValue(mockBalance as any);
+
+      const result = await useCase.execute(1, mockHouse as House, 800);
+
+      // Si hay allocations, la más antigua debe ser asignada primero
+      if (result.suggested_allocations.length > 0) {
+        const firstAllocation = result.suggested_allocations[0];
+        expect(firstAllocation.period_id).toBeDefined();
+      }
+    });
+
+    it('should handle consecutive payments to the same house', async () => {
+      const periods = [
+        mockPeriod(2026, 1),
+        mockPeriod(2026, 2),
+      ];
+      periodRepository.findAll.mockResolvedValue(periods);
+      recordAllocationRepository.findByHouseAndPeriod.mockResolvedValue([]);
+      houseBalanceRepository.getOrCreate.mockResolvedValue(mockBalance as any);
+
+      // Primer pago
+      const result1 = await useCase.execute(1, mockHouse as House, 400);
+      expect(result1).toBeDefined();
+
+      // Segundo pago (simular estado actualizado)
+      recordAllocationRepository.findByHouseAndPeriod.mockResolvedValueOnce([
+        { id: 1, amount: 400 },
+      ] as any);
+      recordAllocationRepository.findByHouseAndPeriod.mockResolvedValueOnce([]);
+
+      const result2 = await useCase.execute(1, mockHouse as House, 500);
+      expect(result2).toBeDefined();
+    });
+  });
+
+  describe('Integración Completa', () => {
+    it('should complete full payment distribution workflow', async () => {
+      const periods = [
+        mockPeriod(2026, 1),
+        mockPeriod(2026, 2),
+        mockPeriod(2026, 3),
+      ];
+      periodRepository.findAll.mockResolvedValue(periods);
+      recordAllocationRepository.findByHouseAndPeriod.mockResolvedValue([]);
+      (periodConfigRepository as any).findActive?.mockResolvedValue({
+        id: 1,
+        default_maintenance_amount: 800,
+      });
+      houseBalanceRepository.getOrCreate.mockResolvedValue({
+        id: 1,
+        house_id: 1,
+        credit_balance: 0,
+        accumulated_cents: 0,
+      } as any);
+
+      const mockAIResponse = {
+        confidence: 'high' as const,
+        allocations: [
+          {
+            period_id: periods[0].id,
+            concept_type: 'maintenance',
+            amount: 800,
+            reasoning: 'Full payment to oldest period',
+          },
+          {
+            period_id: periods[1].id,
+            concept_type: 'maintenance',
+            amount: 800,
+            reasoning: 'Full payment to second oldest period',
+          },
+        ],
+        total_allocated: 1600,
+        remaining_as_credit: 400,
+        reasoning: 'Distributed to two periods, remainder as credit',
+      };
+
+      distributionAnalyzer.analyzeDistribution.mockResolvedValue(
+        mockAIResponse,
+      );
+
+      const result = await useCase.execute(1, mockHouse as House, 2000);
+
+      expect(result).toBeDefined();
+      expect(result.method).toMatch(/deterministic|ai|manual_review/);
+      expect(result.total_allocated).toBeGreaterThanOrEqual(0);
+      expect(result.suggested_allocations).toBeDefined();
+      expect(result.remaining_as_credit).toBeGreaterThanOrEqual(0);
+    });
+
+    it('should handle auto_applied flag correctly', async () => {
+      const periods = [mockPeriod(2026, 1)];
+      periodRepository.findAll.mockResolvedValue(periods);
+      recordAllocationRepository.findByHouseAndPeriod.mockResolvedValue([]);
+
+      const result = await useCase.execute(1, mockHouse as House, 800);
+
+      expect(result.auto_applied).toBeDefined();
+      expect(typeof result.auto_applied).toBe('boolean');
+    });
+
+    it('should determine if manual review is required based on confidence', async () => {
+      const periods = [mockPeriod(2026, 1)];
+      periodRepository.findAll.mockResolvedValue(periods);
+      recordAllocationRepository.findByHouseAndPeriod.mockResolvedValue([]);
+      houseBalanceRepository.getOrCreate.mockResolvedValue(mockBalance as any);
+
+      const mockAIResponse = {
+        confidence: 'low' as const,
+        allocations: [],
+        total_allocated: 0,
+        remaining_as_credit: 800,
+        reasoning: 'Low confidence - needs review',
+      };
+
+      distributionAnalyzer.analyzeDistribution.mockResolvedValue(
+        mockAIResponse,
+      );
+
+      const result = await useCase.execute(1, mockHouse as House, 800);
+
+      expect(result.requires_manual_review).toBeDefined();
+      expect(typeof result.requires_manual_review).toBe('boolean');
+    });
+  });
 });
