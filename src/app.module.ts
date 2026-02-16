@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
-import { AppService } from './app.service';
 import { AuthModule } from './shared/auth/auth.module';
 import { VouchersModule } from './features/vouchers/vouchers.module';
 import { TransactionsBankModule } from './features/transactions-bank/transactions-bank.module';
@@ -39,6 +38,6 @@ import { BootstrapModule } from './shared/bootstrap/bootstrap.module';
     UserManagementModule,
   ],
   controllers: [AppController],
-  providers: [AppService, AppConfigService],
+  providers: [AppConfigService],
 })
 export class AppModule {}
