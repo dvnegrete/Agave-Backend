@@ -44,6 +44,7 @@ import {
   ApiDeleteTransaction,
   ApiReconcileTransactionsLegacy,
   ApiGetExpenses,
+  ApiGetLastProcessedTransaction,
 } from '../decorators/swagger.decorators';
 
 @ApiTags('transactions-bank')
@@ -142,6 +143,15 @@ export class TransactionsBankController {
   @ApiGetTransactionSummary()
   async getTransactionSummary() {
     return await this.transactionsBankService.getTransactionSummary();
+  }
+
+  @Get('last-processed')
+  @UseGuards(AuthGuard)
+  @ApiGetLastProcessedTransaction()
+  async getLastProcessedTransaction() {
+    const lastTransaction =
+      await this.transactionsBankService.getLastProcessedTransaction();
+    return { lastTransaction };
   }
 
   @Get('expenses')

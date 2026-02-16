@@ -421,7 +421,7 @@ export class TransactionsBankService {
     }
   }
 
-  private async getLastProcessedTransaction(): Promise<any | null> {
+  async getLastProcessedTransaction(): Promise<any | null> {
     try {
       const lastRecord = await this.lastTransactionBankRepository.findLatest();
       if (!lastRecord || !lastRecord.transactionBank) {

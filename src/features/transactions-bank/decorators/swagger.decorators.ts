@@ -323,6 +323,47 @@ export function ApiReconcileTransactionsLegacy() {
 }
 
 /**
+ * Decorador de Swagger para el endpoint de última transacción procesada
+ */
+export function ApiGetLastProcessedTransaction() {
+  return applyDecorators(
+    ApiOperation({
+      summary: 'Obtener última transacción procesada',
+      description:
+        'Retorna la última transacción bancaria registrada en el sistema durante el proceso de upload.',
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'Última transacción procesada',
+      schema: {
+        example: {
+          lastTransaction: {
+            id: '12345',
+            date: '2025-01-31',
+            time: '23:59:00',
+            concept: 'PAGO TRANSFERENCIA',
+            amount: 1500.0,
+            is_deposit: true,
+            currency: 'MXN',
+            bank_name: 'Santander',
+            status: 'processed',
+          },
+        },
+      },
+    }),
+    ApiResponse({
+      status: 200,
+      description: 'No hay transacciones procesadas',
+      schema: {
+        example: {
+          lastTransaction: null,
+        },
+      },
+    }),
+  );
+}
+
+/**
  * Decorador de Swagger para el endpoint de gastos por mes
  */
 export function ApiGetExpenses() {
