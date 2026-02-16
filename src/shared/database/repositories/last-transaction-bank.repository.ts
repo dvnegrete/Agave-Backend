@@ -18,27 +18,32 @@ export class LastTransactionBankRepository {
   }
 
   async findLatest(): Promise<LastTransactionBank | null> {
-    const results = await this.lastTransactionBankRepository.find({
-      order: { created_at: 'DESC' },
-      relations: ['transactionBank'],
-      take: 1,
-    });
-    return results[0] ?? null;
+    return this.lastTransactionBankRepository
+      .createQueryBuilder('ltb')
+      .leftJoinAndSelect('ltb.transactionBank', 'tb')
+      .orderBy('ltb.id', 'DESC')
+      .addOrderBy('ltb.created_at', 'DESC')
+      .take(1)
+      .getOne();
   }
 
   async findRecent(limit: number = 7): Promise<LastTransactionBank[]> {
-    return this.lastTransactionBankRepository.find({
-      order: { created_at: 'DESC' },
-      relations: ['transactionBank'],
-      take: limit,
-    });
+    return this.lastTransactionBankRepository
+      .createQueryBuilder('ltb')
+      .leftJoinAndSelect('ltb.transactionBank', 'tb')
+      .orderBy('ltb.id', 'DESC')
+      .addOrderBy('ltb.created_at', 'DESC')
+      .take(limit)
+      .getMany();
   }
 
   async findAll(): Promise<LastTransactionBank[]> {
-    return this.lastTransactionBankRepository.find({
-      order: { created_at: 'DESC' },
-      relations: ['transactionBank'],
-    });
+    return this.lastTransactionBankRepository
+      .createQueryBuilder('ltb')
+      .leftJoinAndSelect('ltb.transactionBank', 'tb')
+      .orderBy('ltb.id', 'DESC')
+      .addOrderBy('ltb.created_at', 'DESC')
+      .getMany();
   }
 
   async deleteAll(): Promise<void> {
