@@ -12,6 +12,7 @@ import { LastTransactionBankRepository } from '@/shared/database/repositories/la
 import { GeneratePenaltyUseCase } from '../generate-penalty.use-case';
 import { HouseStatus, PeriodPaymentStatus } from '../../domain/house-balance-status.types';
 import { House } from '@/shared/database/entities';
+import { AllocationConceptType } from '@/shared/database/entities/enums';
 
 describe('CalculateHouseBalanceStatusUseCase', () => {
   let useCase: CalculateHouseBalanceStatusUseCase;
@@ -202,7 +203,9 @@ describe('CalculateHouseBalanceStatusUseCase', () => {
       expect(housePeriodOverrideRepository.getApplicableAmount).toHaveBeenCalled();
       expect(result.unpaid_periods[0].expected_total).toBe(800);
       expect(result.unpaid_periods[0].concepts).toHaveLength(1);
-      expect(result.unpaid_periods[0].concepts[0].concept_type).toBe('MAINTENANCE');
+      expect(result.unpaid_periods[0].concepts[0].concept_type).toBe(
+        AllocationConceptType.MAINTENANCE,
+      );
     });
 
     it('should determine status as MOROSA when period is overdue', async () => {

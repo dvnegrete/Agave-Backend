@@ -82,7 +82,7 @@ describe('BackfillAllocationsUseCase', () => {
       dataSource.query.mockResolvedValue(mockOrphanRecords);
       recordAllocationRepository.findByRecordId.mockResolvedValue([]);
       ensurePeriodExistsUseCase.execute.mockResolvedValue({ id: 1 } as any);
-      allocatePaymentUseCase.execute.mockResolvedValue(undefined);
+      allocatePaymentUseCase.execute.mockResolvedValue({} as any);
 
       const result = await useCase.execute();
 
@@ -100,7 +100,7 @@ describe('BackfillAllocationsUseCase', () => {
         .mockResolvedValueOnce([{ id: 1 } as any])
         .mockResolvedValueOnce([]);
       ensurePeriodExistsUseCase.execute.mockResolvedValue({ id: 1 } as any);
-      allocatePaymentUseCase.execute.mockResolvedValue(undefined);
+      allocatePaymentUseCase.execute.mockResolvedValue({} as any);
 
       const result = await useCase.execute();
 
@@ -113,7 +113,7 @@ describe('BackfillAllocationsUseCase', () => {
       dataSource.query.mockResolvedValue([mockOrphanRecords[0]]);
       recordAllocationRepository.findByRecordId.mockResolvedValue([]);
       ensurePeriodExistsUseCase.execute.mockResolvedValue({ id: 1 } as any);
-      allocatePaymentUseCase.execute.mockResolvedValue(undefined);
+      allocatePaymentUseCase.execute.mockResolvedValue({} as any);
 
       const result = await useCase.execute(42);
 
@@ -144,7 +144,7 @@ describe('BackfillAllocationsUseCase', () => {
       dataSource.query.mockResolvedValue([mockOrphanRecords[0]]);
       recordAllocationRepository.findByRecordId.mockResolvedValue([]);
       ensurePeriodExistsUseCase.execute.mockResolvedValue({ id: 1 } as any);
-      allocatePaymentUseCase.execute.mockResolvedValue(undefined);
+      allocatePaymentUseCase.execute.mockResolvedValue({} as any);
 
       await useCase.execute();
 
@@ -167,7 +167,7 @@ describe('BackfillAllocationsUseCase', () => {
       dataSource.query.mockResolvedValue([mockOrphanRecords[0]]);
       recordAllocationRepository.findByRecordId.mockResolvedValue([]);
       ensurePeriodExistsUseCase.execute.mockResolvedValue({ id: 1 } as any);
-      allocatePaymentUseCase.execute.mockResolvedValue(undefined);
+      allocatePaymentUseCase.execute.mockResolvedValue({} as any);
 
       await useCase.execute();
 
@@ -183,7 +183,7 @@ describe('BackfillAllocationsUseCase', () => {
       dataSource.query.mockResolvedValue(unorderedRecords);
       recordAllocationRepository.findByRecordId.mockResolvedValue([]);
       ensurePeriodExistsUseCase.execute.mockResolvedValue({ id: 1 } as any);
-      allocatePaymentUseCase.execute.mockResolvedValue(undefined);
+      allocatePaymentUseCase.execute.mockResolvedValue({} as any);
 
       await useCase.execute();
 
