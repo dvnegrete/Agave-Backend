@@ -7,13 +7,28 @@ import { LastTransactionBank } from '../entities/last-transaction-bank.entity';
 describe('LastTransactionBankRepository', () => {
   let repository: LastTransactionBankRepository;
   let mockRepository: Partial<Repository<LastTransactionBank>>;
+  let mockQueryBuilder: {
+    leftJoinAndSelect: jest.Mock;
+    orderBy: jest.Mock;
+    addOrderBy: jest.Mock;
+    take: jest.Mock;
+    getOne: jest.Mock;
+  };
 
   beforeEach(async () => {
+    mockQueryBuilder = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getOne: jest.fn(),
+    };
+
     mockRepository = {
       create: jest.fn(),
       save: jest.fn(),
       findOne: jest.fn(),
-      find: jest.fn(),
+      createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
       clear: jest.fn(),
     };
 
@@ -63,20 +78,26 @@ describe('LastTransactionBankRepository', () => {
         created_at: new Date(),
       };
 
-      (mockRepository.find as jest.Mock).mockResolvedValue([mockEntity]);
+      mockQueryBuilder.getOne.mockResolvedValue(mockEntity);
 
       const result = await repository.findLatest();
 
-      expect(mockRepository.find).toHaveBeenCalledWith({
-        order: { created_at: 'DESC' },
-        relations: ['transactionBank'],
-        take: 1,
-      });
+      expect(mockRepository.createQueryBuilder).toHaveBeenCalledWith('ltb');
+      expect(mockQueryBuilder.leftJoinAndSelect).toHaveBeenCalledWith(
+        'ltb.transactionBank',
+        'tb',
+      );
+      expect(mockQueryBuilder.orderBy).toHaveBeenCalledWith('ltb.id', 'DESC');
+      expect(mockQueryBuilder.addOrderBy).toHaveBeenCalledWith(
+        'ltb.created_at',
+        'DESC',
+      );
+      expect(mockQueryBuilder.take).toHaveBeenCalledWith(1);
       expect(result).toEqual(mockEntity);
     });
 
     it('should return null if no records found', async () => {
-      (mockRepository.find as jest.Mock).mockResolvedValue([]);
+      mockQueryBuilder.getOne.mockResolvedValue(null);
 
       const result = await repository.findLatest();
 
