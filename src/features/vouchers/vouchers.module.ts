@@ -15,10 +15,6 @@ import { WhatsAppMediaService } from './infrastructure/whatsapp/whatsapp-media.s
 import { WhatsAppApiService } from './infrastructure/whatsapp/whatsapp-api.service';
 import { WhatsAppMessagingService } from './infrastructure/whatsapp/whatsapp-messaging.service';
 import { WhatsAppDeduplicationService } from './infrastructure/whatsapp/whatsapp-deduplication.service';
-// Infrastructure - Telegram
-import { TelegramApiService } from './infrastructure/telegram/telegram-api.service';
-import { TelegramMediaService } from './infrastructure/telegram/telegram-media.service';
-import { TelegramMessagingService } from './infrastructure/telegram/telegram-messaging.service';
 // External Modules
 import { GoogleCloudModule } from '@/shared/libs/google-cloud';
 import { VertexAIModule } from '@/shared/libs/vertex-ai/vertex-ai.module';
@@ -31,7 +27,6 @@ import { HandleWhatsAppWebhookUseCase } from './application/handle-whatsapp-webh
 import { HandleMissingDataUseCase } from './application/handle-missing-data.use-case';
 import { HandleHouseNumberUseCase } from './application/handle-house-number.use-case';
 import { CorrectVoucherDataUseCase } from './application/correct-voucher-data.use-case';
-import { HandleTelegramWebhookUseCase } from './application/handle-telegram-webhook.use-case';
 // Use Cases - Frontend HTTP
 import { UploadVoucherFrontendUseCase } from './application/upload-voucher-frontend.use-case';
 import { ConfirmVoucherFrontendUseCase } from './application/confirm-voucher-frontend.use-case';
@@ -54,11 +49,7 @@ import { ConfirmVoucherFrontendUseCase } from './application/confirm-voucher-fro
     WhatsAppApiService,
     WhatsAppMessagingService,
     WhatsAppDeduplicationService,
-    // Infrastructure - Telegram
-    TelegramApiService,
-    TelegramMediaService,
-    TelegramMessagingService,
-    // Use Cases - WhatsApp/Telegram
+    // Use Cases - WhatsApp
     ProcessVoucherUseCase,
     ConfirmVoucherUseCase,
     HandleWhatsAppMessageUseCase,
@@ -66,7 +57,6 @@ import { ConfirmVoucherFrontendUseCase } from './application/confirm-voucher-fro
     HandleMissingDataUseCase,
     HandleHouseNumberUseCase,
     CorrectVoucherDataUseCase,
-    HandleTelegramWebhookUseCase,
     // Use Cases - Frontend HTTP
     UploadVoucherFrontendUseCase,
     ConfirmVoucherFrontendUseCase,
