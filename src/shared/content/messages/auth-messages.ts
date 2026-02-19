@@ -86,6 +86,20 @@ export const SessionMessages = {
 };
 
 // ============================================================================
+// PASSWORD RESET MESSAGES
+// ============================================================================
+
+export const PasswordResetMessages = {
+  RESET_EMAIL_SENT:
+    'Si el correo está registrado, recibirás un enlace de recuperación.',
+  PASSWORD_CHANGED: 'Contraseña actualizada exitosamente.',
+  USER_NOT_FOUND:
+    'Si el correo está registrado, recibirás un enlace de recuperación.',
+  CHANGE_FAILED:
+    'No fue posible actualizar la contraseña. Por favor intenta nuevamente.',
+};
+
+// ============================================================================
 // GENERIC ERROR MESSAGES
 // ============================================================================
 

@@ -22,6 +22,7 @@ import {
   OAuthMessages,
   SessionMessages,
   GenericErrorMessages,
+  PasswordResetMessages,
 } from '@/shared/content/messages';
 
 @Injectable()
@@ -471,6 +472,13 @@ export class AuthService {
       );
 
       if (!dbUser) {
+        // Guardar número de casa en custom claims si fue proporcionado
+        if (callbackDto.houseNumber) {
+          await auth.setCustomUserClaims(firebaseUser.uid, {
+            claimedHouseNumber: callbackDto.houseNumber,
+          });
+        }
+
         // Crear nuevo usuario si no existe (auto-registro OAuth, con reintentos)
         // OAuth ya ha verificado el email, así que marcamos como verificado
         dbUser = await this.userRepository.create({
@@ -481,9 +489,15 @@ export class AuthService {
           role: Role.TENANT,
           email_verified: true, // OAuth ya verificó el email
           email_verified_at: new Date(),
+          observations: callbackDto.houseNumber
+            ? `Casa reclamada durante registro: ${callbackDto.houseNumber}`
+            : undefined,
         });
         this.logger.log(
-          `Nuevo usuario creado desde OAuth: ${firebaseUser.email}`,
+          `Nuevo usuario creado desde OAuth: ${firebaseUser.email}` +
+            (callbackDto.houseNumber
+              ? ` (casa: ${callbackDto.houseNumber})`
+              : ''),
         );
       } else {
         // Actualizar last_login y marcar email como verificado (con reintentos)
@@ -688,6 +702,49 @@ export class AuthService {
    * Nota: El cliente (Firebase) maneja el envío automático del email
    * Este endpoint es solo para validación/confirmación
    */
+  /**
+   * Registra la solicitud de recuperación de contraseña.
+   * El email de recuperación es enviado por el Firebase Client SDK en el frontend.
+   * Este endpoint solo sirve como auditoría/anti-enumeración.
+   */
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    this.ensureEnabled();
+    // Buscar usuario para loguear la solicitud (respuesta siempre es la misma — anti-enumeración)
+    const dbUser = await this.userRepository.findByEmail(email);
+
+    if (dbUser) {
+      this.logger.log(`Solicitud de recuperación de contraseña para: ${email}`);
+    } else {
+      this.logger.log(
+        `Solicitud de recuperación para email no registrado: ${email}`,
+      );
+    }
+
+    return { message: PasswordResetMessages.RESET_EMAIL_SENT };
+  }
+
+  /**
+   * Actualiza la contraseña del usuario en Firebase vía Admin SDK.
+   * El Firebase Client SDK del frontend ya cambió la contraseña; esto sincroniza el cambio.
+   */
+  async changePassword(
+    uid: string,
+    newPassword: string,
+  ): Promise<{ message: string }> {
+    this.ensureEnabled();
+    try {
+      const auth = this.firebaseConfig.getAuth();
+      await auth.updateUser(uid, { password: newPassword });
+      this.logger.log(`Contraseña actualizada para uid: ${uid}`);
+      return { message: PasswordResetMessages.PASSWORD_CHANGED };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : PasswordResetMessages.CHANGE_FAILED;
+      this.logger.error(`Error al cambiar contraseña para uid ${uid}:`, errorMessage);
+      throw new BadRequestException(PasswordResetMessages.CHANGE_FAILED);
+    }
+  }
+
   async resendVerificationEmail(email: string): Promise<{ message: string }> {
     this.ensureEnabled();
     try {
