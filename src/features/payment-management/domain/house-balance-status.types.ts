@@ -31,6 +31,12 @@ export interface PeriodPaymentDetail {
   is_overdue: boolean;
 }
 
+export interface MorosidadReason {
+  period_display_name: string;
+  concept_type: string;
+  pending_amount: number;
+}
+
 export interface EnrichedHouseBalance {
   house_id: number;
   house_number: number;
@@ -46,6 +52,12 @@ export interface EnrichedHouseBalance {
   deadline_message: string | null;
   bank_coverage_date: string | null;
   total_unpaid_periods: number;
+  /**
+   * Lista explícita de conceptos vencidos e impagos.
+   * Solo incluye conceptos de períodos con is_overdue=true y pending_amount > 0.
+   * Vacío si la casa está al día.
+   */
+  morosidad_reasons: MorosidadReason[];
   summary: {
     total_expected: number;
     total_paid: number;

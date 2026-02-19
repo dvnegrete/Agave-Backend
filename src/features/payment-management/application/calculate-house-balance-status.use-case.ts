@@ -18,6 +18,7 @@ import { GeneratePenaltyUseCase } from './generate-penalty.use-case';
 import {
   EnrichedHouseBalance,
   HouseStatus,
+  MorosidadReason,
   PeriodPaymentDetail,
   PeriodPaymentStatus,
   ConceptBreakdown,
@@ -141,6 +142,19 @@ export class CalculateHouseBalanceStatusUseCase {
       nextDueDate,
     );
 
+    // Razones explícitas de morosidad: conceptos vencidos con saldo pendiente
+    const morosidadReasons: MorosidadReason[] = unpaidPeriods
+      .filter((p) => p.is_overdue)
+      .flatMap((p) =>
+        p.concepts
+          .filter((c) => c.pending_amount > 0)
+          .map((c) => ({
+            period_display_name: p.display_name,
+            concept_type: c.concept_type,
+            pending_amount: c.pending_amount,
+          })),
+      );
+
     return {
       house_id: houseId,
       house_number: house.number_house,
@@ -158,6 +172,7 @@ export class CalculateHouseBalanceStatusUseCase {
         ? bankCoverageDate.toISOString().split('T')[0]
         : null,
       total_unpaid_periods: unpaidPeriods.length,
+      morosidad_reasons: morosidadReasons,
       summary: {
         total_expected: Math.round(totalExpected * 100) / 100,
         total_paid: Math.round(totalPaid * 100) / 100,
@@ -427,6 +442,7 @@ export class CalculateHouseBalanceStatusUseCase {
       deadline_message: 'Sin periodos registrados',
       bank_coverage_date: null,
       total_unpaid_periods: 0,
+      morosidad_reasons: [],
       summary: {
         total_expected: 0,
         total_paid: 0,
