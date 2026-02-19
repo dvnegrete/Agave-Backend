@@ -76,11 +76,12 @@ export class BackfillAllocationsUseCase {
         // Asegurar que existe el periodo (para que tenga sus house_period_charges)
         await this.ensurePeriodExistsUseCase.execute(year, month);
 
-        // Ejecutar allocation con FIFO automático (sin period_id)
+        // Ejecutar allocation period-aware (fecha de transacción)
         await this.allocatePaymentUseCase.execute({
           record_id: record.record_id,
           house_id: record.house_id,
           amount_to_distribute: record.amount,
+          transaction_date: txDate,
         });
 
         processed++;

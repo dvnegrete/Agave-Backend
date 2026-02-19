@@ -160,11 +160,14 @@ export class ReconciliationPersistenceService implements OnModuleInit {
           );
         }
 
-        // Asignar el pago a conceptos con distribución FIFO (sin period_id)
+        // Asignar el pago a conceptos con distribución period-aware
         const allocationResult = await this.allocatePaymentUseCase.execute({
           record_id: recordId,
           house_id: house.id,
           amount_to_distribute: transactionBank?.amount ?? 0,
+          transaction_date: transactionBank?.date
+            ? new Date(transactionBank.date)
+            : undefined,
         });
 
         this.logger.log(

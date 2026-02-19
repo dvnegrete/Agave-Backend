@@ -99,6 +99,17 @@ export class AllocatePaymentUseCase {
       );
       allocations = result.allocations;
       integerRemaining = result.amountRemaining;
+    } else if (request.transaction_date) {
+      // Modo period-aware: primero cubre el periodo de la fecha, luego FIFO hacia atrás
+      const result = await this.allocatePeriodAware(
+        request.record_id,
+        request.house_id,
+        integerAmount,
+        periodConfig,
+        request.transaction_date,
+      );
+      allocations = result.allocations;
+      integerRemaining = result.amountRemaining;
     } else {
       // Modo FIFO: distribuir automáticamente
       const result = await this.allocateFIFO(
@@ -178,6 +189,79 @@ export class AllocatePaymentUseCase {
     }
 
     return { allocations, amountRemaining };
+  }
+
+  /**
+   * Distribución period-aware: primero cubre los cargos del período correspondiente
+   * a la fecha de la transacción, luego aplica FIFO hacia períodos anteriores con deuda.
+   * Si no existe período para esa fecha, hace fallback a FIFO puro.
+   */
+  private async allocatePeriodAware(
+    recordId: number,
+    houseId: number,
+    amount: number,
+    periodConfig: any,
+    txDate: Date,
+  ): Promise<{
+    allocations: RecordAllocation[];
+    amountRemaining: number;
+  }> {
+    const txYear = txDate.getFullYear();
+    const txMonth = txDate.getMonth() + 1;
+
+    const currentPeriod = await this.periodRepository.findByYearAndMonth(
+      txYear,
+      txMonth,
+    );
+
+    // Fallback graceful: si no existe período para la fecha, usar FIFO puro
+    if (!currentPeriod) {
+      this.logger.warn(
+        `No se encontró período para ${txYear}-${txMonth}. Fallback a FIFO puro.`,
+      );
+      return this.allocateFIFO(recordId, houseId, amount, periodConfig);
+    }
+
+    const allocations: RecordAllocation[] = [];
+
+    // 1. Asignar al período corriente
+    const currentResult = await this.allocateToCharges(
+      recordId,
+      houseId,
+      currentPeriod.id,
+      amount,
+      periodConfig,
+    );
+    allocations.push(...currentResult.allocations);
+    let remaining = currentResult.amountRemaining;
+
+    // 2. Con el sobrante, FIFO hacia períodos anteriores
+    if (remaining > 0) {
+      const allPeriods = await this.periodRepository.findAll();
+      const priorPeriods = allPeriods
+        .filter(
+          (p) =>
+            p.year < txYear || (p.year === txYear && p.month < txMonth),
+        )
+        .sort((a, b) =>
+          a.year !== b.year ? a.year - b.year : a.month - b.month,
+        );
+
+      for (const period of priorPeriods) {
+        if (remaining <= 0) break;
+        const r = await this.allocateToCharges(
+          recordId,
+          houseId,
+          period.id,
+          remaining,
+          periodConfig,
+        );
+        allocations.push(...r.allocations);
+        remaining = r.amountRemaining;
+      }
+    }
+
+    return { allocations, amountRemaining: remaining };
   }
 
   /**

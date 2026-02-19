@@ -378,6 +378,9 @@ export class MatchSuggestionsService {
           record_id: recordId,
           house_id: house.id,
           amount_to_distribute: transactionBank.amount,
+          transaction_date: transactionBank.date
+            ? new Date(transactionBank.date)
+            : undefined,
         });
         this.logger.log(
           `Pago asignado para cross-match: Depósito ${transactionBankId}`,

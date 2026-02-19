@@ -46,6 +46,14 @@ export class PaymentDistributionRequestDTO {
    * Usar solo para asignación manual (ej: confirmación de distribución AI).
    */
   period_id?: number;
+  /**
+   * Fecha de la transacción bancaria.
+   * Si se proporciona (sin period_id), activa la asignación period-aware:
+   *   1. Primero cubre los cargos del período correspondiente a esta fecha
+   *   2. Con el sobrante aplica FIFO hacia períodos anteriores con deuda
+   * Si se omite, usa FIFO puro (comportamiento anterior).
+   */
+  transaction_date?: Date;
 }
 
 /**

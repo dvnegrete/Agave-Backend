@@ -332,6 +332,9 @@ export class UnclaimedDepositsService {
           record_id: recordId,
           house_id: house.id,
           amount_to_distribute: transaction.amount,
+          transaction_date: transaction.date
+            ? new Date(transaction.date)
+            : undefined,
         });
 
         paymentAllocation = {
