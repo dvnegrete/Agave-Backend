@@ -48,6 +48,7 @@ import {
   AdjustHousePeriodChargeUseCase,
   ReverseHousePeriodChargeUseCase,
   ApplyCreditToPeriodsUseCase,
+  SetInitialDebtUseCase,
 } from '../application';
 import {
   CreatePeriodDto,
@@ -69,6 +70,7 @@ import {
   ReprocessResultDto,
   InitialBalanceDto,
   AdjustChargeDto,
+  InitialDebtDto,
 } from '../dto';
 import { HouseRepository } from '@/shared/database/repositories/house.repository';
 import { IPeriodConfigRepository } from '../interfaces';
@@ -105,6 +107,7 @@ export class PaymentManagementController {
     private readonly reverseHousePeriodChargeUseCase: ReverseHousePeriodChargeUseCase,
     private readonly applyCreditToPeriodsUseCase: ApplyCreditToPeriodsUseCase,
     private readonly houseBalanceRepository: HouseBalanceRepository,
+    private readonly setInitialDebtUseCase: SetInitialDebtUseCase,
   ) {}
 
   /**
@@ -809,6 +812,40 @@ export class PaymentManagementController {
         credit_balance: balance.credit_balance,
       },
     };
+  }
+
+  /**
+   * POST /payment-management/houses/:houseId/initial-debt
+   * Registra deuda inicial para una casa en un período/concepto específico.
+   * Hace upsert de house_period_charge con source='manual' para el trío
+   * (house_id, period_id, concept_type). El cargo aparece como deuda en GET /status.
+   */
+  @Post('houses/:houseId/initial-debt')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Registrar deuda inicial a una casa',
+    description:
+      'Crea o actualiza un cargo (house_period_charge) con source=manual para registrar deuda previa al sistema. El cargo se mostrará en morosidad_reasons del GET /status.',
+  })
+  @ApiParam({
+    name: 'houseId',
+    description: 'Número de casa (number_house)',
+    example: 47,
+  })
+  @ApiBody({ type: InitialDebtDto })
+  @ApiResponse({ status: 200, description: 'Deuda registrada o actualizada' })
+  @ApiResponse({ status: 404, description: 'Casa o período no encontrado' })
+  async setInitialDebt(
+    @Param('houseId', ParseIntPipe) houseId: number,
+    @Body() dto: InitialDebtDto,
+  ) {
+    const house = await this.houseRepository.findByNumberHouse(houseId);
+    if (!house) {
+      throw new NotFoundException(`Casa con número ${houseId} no encontrada`);
+    }
+
+    return this.setInitialDebtUseCase.execute(house.id, dto);
   }
 
   /**

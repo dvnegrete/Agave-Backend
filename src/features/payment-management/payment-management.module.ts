@@ -35,6 +35,7 @@ import {
   GetPeriodChargesSummaryUseCase,
   BatchUpdatePeriodChargesUseCase,
   ReprocessAllAllocationsUseCase,
+  SetInitialDebtUseCase,
 } from './application';
 
 // Infrastructure - Services
@@ -116,6 +117,7 @@ import {
     GetPeriodChargesSummaryUseCase,
     BatchUpdatePeriodChargesUseCase,
     ReprocessAllAllocationsUseCase,
+    SetInitialDebtUseCase,
     AllocatePaymentUseCase,
     GetPaymentHistoryUseCase,
     GetHouseBalanceUseCase,
