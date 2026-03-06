@@ -122,6 +122,7 @@ export class UserManagementController {
       observations: user.observations,
       created_at: user.created_at,
       updated_at: user.updated_at,
+      auth_provider: null,
     };
   }
 
@@ -172,6 +173,7 @@ export class UserManagementController {
       observations: user.observations,
       created_at: user.created_at,
       updated_at: user.updated_at,
+      auth_provider: null,
     };
   }
 
@@ -222,6 +224,7 @@ export class UserManagementController {
       observations: user.observations,
       created_at: user.created_at,
       updated_at: user.updated_at,
+      auth_provider: null,
     };
   }
 

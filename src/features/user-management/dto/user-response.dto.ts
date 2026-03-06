@@ -78,4 +78,12 @@ export class UserResponseDto {
     description: 'Fecha de última actualización del usuario',
   })
   updated_at: Date;
+
+  @ApiProperty({
+    type: 'string',
+    nullable: true,
+    description: 'Proveedor de autenticación del usuario (google, password)',
+    example: 'google',
+  })
+  auth_provider: string | null;
 }
