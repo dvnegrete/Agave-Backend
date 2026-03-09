@@ -98,6 +98,7 @@ export class UnclaimedDeposit {
     public readonly reason: string,
     public readonly requiresManualReview: boolean,
     public readonly houseNumber?: number,
+    public readonly concept?: string,
   ) {}
 
   static fromTransaction(
@@ -113,6 +114,7 @@ export class UnclaimedDeposit {
       reason,
       requiresManualReview,
       houseNumber,
+      transaction.concept ?? undefined,
     );
   }
 }
