@@ -112,7 +112,7 @@ export class UnclaimedDepositsService {
     if (houseNumber !== undefined) {
       // Filtrar por casa sugerida (centavos)
       query = query.andWhere(
-        'CAST(FLOOR((tb.amount % 1) * 100) AS INT) = :houseNumber',
+        'CAST(FLOOR((tb.amount::numeric % 1) * 100) AS INT) = :houseNumber',
         { houseNumber },
       );
     }
@@ -149,7 +149,7 @@ export class UnclaimedDepositsService {
 
     if (houseNumber !== undefined) {
       countQuery.andWhere(
-        'CAST(FLOOR((tb.amount % 1) * 100) AS INT) = :houseNumber',
+        'CAST(FLOOR((tb.amount::numeric % 1) * 100) AS INT) = :houseNumber',
         { houseNumber },
       );
     }

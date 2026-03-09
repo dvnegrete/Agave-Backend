@@ -87,7 +87,7 @@ export class ManualValidationService {
     if (houseNumber !== undefined) {
       // Los centavos del monto indican la casa
       query = query.andWhere(
-        'CAST(FLOOR((tb.amount % 1) * 100) AS INT) = :houseNumber',
+        'CAST(FLOOR((tb.amount::numeric % 1) * 100) AS INT) = :houseNumber',
         { houseNumber },
       );
     }
@@ -422,11 +422,11 @@ export class ManualValidationService {
     const distributionQuery = `
       SELECT
         CASE
-          WHEN CAST(FLOOR((tb.amount % 1) * 100) AS INT) BETWEEN 1 AND 10 THEN '1-10'
-          WHEN CAST(FLOOR((tb.amount % 1) * 100) AS INT) BETWEEN 11 AND 20 THEN '11-20'
-          WHEN CAST(FLOOR((tb.amount % 1) * 100) AS INT) BETWEEN 21 AND 30 THEN '21-30'
-          WHEN CAST(FLOOR((tb.amount % 1) * 100) AS INT) BETWEEN 31 AND 40 THEN '31-40'
-          WHEN CAST(FLOOR((tb.amount % 1) * 100) AS INT) BETWEEN 41 AND 66 THEN '41-66'
+          WHEN CAST(FLOOR((tb.amount::numeric % 1) * 100) AS INT) BETWEEN 1 AND 10 THEN '1-10'
+          WHEN CAST(FLOOR((tb.amount::numeric % 1) * 100) AS INT) BETWEEN 11 AND 20 THEN '11-20'
+          WHEN CAST(FLOOR((tb.amount::numeric % 1) * 100) AS INT) BETWEEN 21 AND 30 THEN '21-30'
+          WHEN CAST(FLOOR((tb.amount::numeric % 1) * 100) AS INT) BETWEEN 31 AND 40 THEN '31-40'
+          WHEN CAST(FLOOR((tb.amount::numeric % 1) * 100) AS INT) BETWEEN 41 AND 66 THEN '41-66'
           ELSE 'unknown'
         END as house_range,
         COUNT(*) as count

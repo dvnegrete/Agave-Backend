@@ -404,8 +404,12 @@ export class ReconciliationPersistenceService implements OnModuleInit {
         queryRunner,
       );
 
+      // NOTA: confirmation_status se mantiene FALSE intencionalmente.
+      // El depósito queda pendiente de asignación manual (assign-house).
+      // La protección contra reprocesamiento la provee getProcessedTransactionIds()
+      // que excluye transacciones que ya tienen un TransactionStatus registrado.
       // Marcar transaccion como procesada para evitar reprocesamiento
-      await this.updateTransactionBankStatus(transactionBankId, queryRunner);
+      //await this.updateTransactionBankStatus(transactionBankId, queryRunner);
 
       await queryRunner.commitTransaction();
       this.logger.log(
