@@ -71,6 +71,7 @@ export class UnclaimedDepositsService {
       .createQueryBuilder('tb')
       .leftJoin(TransactionStatus, 'ts', 'ts.transactions_bank_id = tb.id')
       .where('tb.is_deposit = :isDeposit', { isDeposit: true })
+      .andWhere('tb.confirmation_status = :notConfirmed', { notConfirmed: false })
       .distinctOn(['tb.id'])
       .select([
         'tb.id',
@@ -122,7 +123,8 @@ export class UnclaimedDepositsService {
       .getRepository(TransactionBank)
       .createQueryBuilder('tb')
       .leftJoin(TransactionStatus, 'ts', 'ts.transactions_bank_id = tb.id')
-      .where('tb.is_deposit = :isDeposit', { isDeposit: true });
+      .where('tb.is_deposit = :isDeposit', { isDeposit: true })
+      .andWhere('tb.confirmation_status = :notConfirmed', { notConfirmed: false });
 
     // Aplicar los mismos filtros al query de conteo
     if (validationStatus && validationStatus !== 'all') {
