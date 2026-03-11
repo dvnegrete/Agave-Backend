@@ -157,11 +157,9 @@ export class SeedHousePeriodChargesService {
       );
       if (!periodConfig) continue;
 
-      const dueDate = new Date(
-        period.year,
-        period.month - 1,
-        periodConfig.payment_due_day,
-      );
+      // Jerarquía: override del período > PeriodConfig
+      const dueDay = period.payment_due_day ?? periodConfig.payment_due_day;
+      const dueDate = new Date(period.year, period.month - 1, dueDay);
 
       // Solo aplica penalidad si el período ya venció
       if (now <= dueDate) continue;

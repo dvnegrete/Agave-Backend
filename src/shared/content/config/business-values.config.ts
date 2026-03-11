@@ -164,6 +164,11 @@ export const BusinessValues = {
     defaultLatePenaltyAmount: 100,
 
     /**
+     * Día límite de pago por defecto (si no hay PeriodConfig ni override en el período)
+     */
+    defaultPaymentDueDay: 15,
+
+    /**
      * Habilitar distribución de pagos con AI
      */
     enableAiPaymentDistribution: true,

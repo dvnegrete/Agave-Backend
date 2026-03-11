@@ -32,7 +32,8 @@ export class UpdatePeriodConceptsUseCase {
 
     if (
       dto.water_active === undefined &&
-      dto.extraordinary_fee_active === undefined
+      dto.extraordinary_fee_active === undefined &&
+      dto.payment_due_day === undefined
     ) {
       throw new BadRequestException(
         'Debe proporcionar al menos un campo para actualizar',
@@ -45,6 +46,10 @@ export class UpdatePeriodConceptsUseCase {
     }
     if (dto.extraordinary_fee_active !== undefined) {
       updateData.extraordinary_fee_active = dto.extraordinary_fee_active;
+    }
+    if (dto.payment_due_day !== undefined) {
+      // null = volver a usar el del PeriodConfig
+      updateData.payment_due_day = dto.payment_due_day;
     }
 
     await this.periodEntityRepository.update(periodId, updateData);

@@ -10,6 +10,8 @@ export class PeriodResponseDto {
   end_date: string;
   period_config_id?: number;
   display_name: string;
+  /** Día límite de pago para este período. null = usar el del PeriodConfig activo. */
+  payment_due_day: number | null;
   created_at: Date;
   updated_at: Date;
 }

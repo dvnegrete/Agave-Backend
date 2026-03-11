@@ -134,7 +134,8 @@ export class CalculateHouseBalanceStatusUseCase {
     // Calcular siguiente fecha de vencimiento
     const activeConfig =
       await this.periodConfigRepository.findActiveForDate(now);
-    const dueDay = activeConfig?.payment_due_day ?? 15;
+    const dueDay =
+      activeConfig?.payment_due_day ?? BusinessValues.payments.defaultPaymentDueDay;
     const nextDueDate = this.calculateNextDueDate(dueDay);
     const deadlineMessage = this.buildDeadlineMessage(
       status,
@@ -307,7 +308,11 @@ export class CalculateHouseBalanceStatusUseCase {
 
     // Determinar si está vencido (con cobertura bancaria)
     const now = new Date();
-    const dueDay = config?.payment_due_day ?? 15;
+    // Jerarquía: override del período > PeriodConfig > default global
+    const dueDay =
+      period.payment_due_day ??
+      config?.payment_due_day ??
+      BusinessValues.payments.defaultPaymentDueDay;
     const periodDueDate = new Date(period.year, period.month - 1, dueDay);
 
     // Pendiente excluyendo penalidades (para disparar la penalidad solo cuando hay
