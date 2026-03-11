@@ -1,0 +1,46 @@
+name: 🗄️ Run Migrations on Deploy
+
+on:
+  push:
+    branches: [main, development]
+
+jobs:
+  migrate:
+    name: Run Database Migrations
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Wake up database (Railway serverless)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          echo "Waiting for database to become available..."
+          for i in {1..6}; do
+            node -e "
+              const { Client } = require('pg');
+              const client = new Client({ connectionString: process.env.DATABASE_URL });
+              client.connect()
+                .then(() => client.end())
+                .then(() => { console.log('Database is ready!'); process.exit(0); })
+                .catch((err) => { console.error('Attempt failed:', err.message); process.exit(1); });
+            " && break
+            echo "Attempt $i/6 failed. Retrying in 10s..."
+            sleep 10
+          done
+
+      - name: Run migrations against production
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          NODE_ENV: production
+        run: npm run db:deploy

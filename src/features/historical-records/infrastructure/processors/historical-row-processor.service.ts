@@ -7,7 +7,10 @@ import { RecordRepository } from '@/shared/database/repositories/record.reposito
 import { HouseRecordRepository } from '@/shared/database/repositories/house-record.repository';
 import { TransactionBankRepository } from '@/shared/database/repositories/transaction-bank.repository';
 import { TransactionStatusRepository } from '@/shared/database/repositories/transaction-status.repository';
-import { EnsureHouseExistsService, TransactionalRetryService } from '@/shared/database/services';
+import {
+  EnsureHouseExistsService,
+  TransactionalRetryService,
+} from '@/shared/database/services';
 import { TransactionBank } from '@/shared/database/entities/transaction-bank.entity';
 import { ValidationStatus } from '@/shared/database/entities/enums';
 import { RowErrorDto } from '../../dto/row-error.dto';
@@ -102,21 +105,22 @@ export class HistoricalRowProcessorService {
           // Use NOT_FOUND for unidentified payments (casa = 0) so they appear in unclaimed-deposits
           // Use CONFIRMED for identified payments (casa > 0)
           const isIdentified = row.isIdentifiedPayment();
-          const transactionStatus = await this.transactionStatusRepository.create(
-            {
-              transactions_bank_id: Number(savedTransactionBank.id),
-              vouchers_id: null,
-              validation_status: isIdentified
-                ? ValidationStatus.CONFIRMED
-                : ValidationStatus.NOT_FOUND,
-              identified_house_number: isIdentified ? row.casa : undefined,
-              processed_at: row.fecha,
-              reason: isIdentified
-                ? 'Registro histórico importado - Con casa asignada'
-                : 'Registro histórico importado - Sin casa (será conciliado manualmente)',
-            },
-            queryRunner,
-          );
+          const transactionStatus =
+            await this.transactionStatusRepository.create(
+              {
+                transactions_bank_id: Number(savedTransactionBank.id),
+                vouchers_id: null,
+                validation_status: isIdentified
+                  ? ValidationStatus.CONFIRMED
+                  : ValidationStatus.NOT_FOUND,
+                identified_house_number: isIdentified ? row.casa : undefined,
+                processed_at: row.fecha,
+                reason: isIdentified
+                  ? 'Registro histórico importado - Con casa asignada'
+                  : 'Registro histórico importado - Sin casa (será conciliado manualmente)',
+              },
+              queryRunner,
+            );
 
           // Step 2: Create cta_* records (within transaction)
           const ctaIds = await this.ctaRecordCreatorService.createCtaRecords(
@@ -174,13 +178,15 @@ export class HistoricalRowProcessorService {
           // Return recordId (will be committed by TransactionalRetryService)
           return resultRecordId;
         },
-        3,    // maxAttempts
+        3, // maxAttempts
         2000, // delayMs
       );
 
       // Si llegamos aquí, la transacción fue commitida exitosamente
       if (recordId) {
-        this.logger.log(`Row ${row.rowNumber} processed successfully (Record ID: ${recordId})`);
+        this.logger.log(
+          `Row ${row.rowNumber} processed successfully (Record ID: ${recordId})`,
+        );
       } else {
         this.logger.log(
           `Row ${row.rowNumber} processed successfully (No Record created - Casa = 0, pending unclaimed-deposits)`,
@@ -193,7 +199,10 @@ export class HistoricalRowProcessorService {
       };
     } catch (error: any) {
       // TransactionalRetryService ya hizo rollback internamente
-      const errorMsg = error instanceof Error ? error.message : 'Error desconocido al procesar la fila';
+      const errorMsg =
+        error instanceof Error
+          ? error.message
+          : 'Error desconocido al procesar la fila';
       this.logger.error(
         `Row ${row.rowNumber} processing failed: ${errorMsg}`,
         error instanceof Error ? error.stack : undefined,

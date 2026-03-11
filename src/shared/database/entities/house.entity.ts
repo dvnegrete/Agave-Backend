@@ -14,6 +14,7 @@ import { HouseRecord } from './house-record.entity';
 import { HouseBalance } from './house-balance.entity';
 import { HousePeriodOverride } from './house-period-override.entity';
 import { RecordAllocation } from './record-allocation.entity';
+import { HouseStatusSnapshot } from './house-status-snapshot.entity';
 
 @Entity('houses')
 export class House {
@@ -47,15 +48,14 @@ export class House {
   })
   houseBalance: HouseBalance;
 
-  @OneToMany(
-    () => HousePeriodOverride,
-    (override) => override.house,
-  )
+  @OneToMany(() => HousePeriodOverride, (override) => override.house)
   housePeriodOverrides: HousePeriodOverride[];
 
-  @OneToMany(
-    () => RecordAllocation,
-    (allocation) => allocation.house,
-  )
+  @OneToMany(() => RecordAllocation, (allocation) => allocation.house)
   recordAllocations: RecordAllocation[];
+
+  @OneToOne(() => HouseStatusSnapshot, (snapshot) => snapshot.house, {
+    nullable: true,
+  })
+  statusSnapshot: HouseStatusSnapshot;
 }

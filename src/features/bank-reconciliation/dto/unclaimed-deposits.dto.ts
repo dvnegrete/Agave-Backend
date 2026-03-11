@@ -224,7 +224,7 @@ export class PaymentAllocationDetailDto {
 
   @ApiProperty({
     description: 'Monto asignado a este concepto',
-    example: 2000.00,
+    example: 2000.0,
   })
   allocatedAmount: number;
 

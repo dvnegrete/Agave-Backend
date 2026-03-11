@@ -57,10 +57,7 @@ export class GetHouseTransactionsUseCase {
     }
 
     // Calcular estadísticas
-    const totalAmount = allTransactions.reduce(
-      (sum, t) => sum + t.amount,
-      0,
-    );
+    const totalAmount = allTransactions.reduce((sum, t) => sum + t.amount, 0);
     const confirmedTransactions = allTransactions.filter(
       (t) => t.confirmation_status,
     ).length;
@@ -93,5 +90,4 @@ export class GetHouseTransactionsUseCase {
       source: 'bank',
     };
   }
-
 }

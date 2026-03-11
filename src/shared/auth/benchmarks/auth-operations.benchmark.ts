@@ -3,7 +3,10 @@
  * Ejecuta pruebas de rendimiento para cada operación crítica
  */
 
-import { AuthPerformanceBenchmark, PERFORMANCE_TARGETS } from './auth-performance.benchmark';
+import {
+  AuthPerformanceBenchmark,
+  PERFORMANCE_TARGETS,
+} from './auth-performance.benchmark';
 
 /**
  * Simulación de operaciones (como si estuvieran en base de datos)
@@ -207,9 +210,15 @@ class MockAuthOperations {
  * Run all benchmarks
  */
 async function runAllBenchmarks(): Promise<void> {
-  console.log('\n╔════════════════════════════════════════════════════════════════════╗');
-  console.log('║           AUTHENTICATION OPERATIONS PERFORMANCE BENCHMARKS          ║');
-  console.log('╚════════════════════════════════════════════════════════════════════╝\n');
+  console.log(
+    '\n╔════════════════════════════════════════════════════════════════════╗',
+  );
+  console.log(
+    '║           AUTHENTICATION OPERATIONS PERFORMANCE BENCHMARKS          ║',
+  );
+  console.log(
+    '╚════════════════════════════════════════════════════════════════════╝\n',
+  );
 
   const benchmark = new AuthPerformanceBenchmark();
   const operations = new MockAuthOperations();

@@ -24,9 +24,10 @@ function extractCentavosLogic(montoStr: string): number | null {
   const minCasas = MIN_HOUSE_NUMBER;
 
   // Normalizar: si tiene un solo dígito, multiplicar por 10
-  const normalizedCentavos = centavosStr.length === 1
-    ? parseInt(centavosStr, 10) * 10
-    : parseInt(centavosStr, 10);
+  const normalizedCentavos =
+    centavosStr.length === 1
+      ? parseInt(centavosStr, 10) * 10
+      : parseInt(centavosStr, 10);
 
   if (
     isNaN(normalizedCentavos) ||
@@ -221,7 +222,9 @@ describe('extractCentavosLogic - Nueva Regla de Negocio', () => {
 
     for (let i = 1; i <= 66; i++) {
       test(`.${String(i).padStart(2, '0')} debe ser ${i}`, () => {
-        expect(extractCentavosLogic(`100.${String(i).padStart(2, '0')}`)).toBe(i);
+        expect(extractCentavosLogic(`100.${String(i).padStart(2, '0')}`)).toBe(
+          i,
+        );
       });
     }
   });

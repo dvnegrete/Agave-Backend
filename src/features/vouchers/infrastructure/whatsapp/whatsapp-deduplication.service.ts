@@ -67,7 +67,6 @@ export class WhatsAppDeduplicationService {
         deletedCount++;
       }
     }
-
   }
 
   /**

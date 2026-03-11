@@ -22,7 +22,8 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * Problema P2-2: Índice parcial no en bd_initial.sql
  */
 export class AddPartialIndexTransactionBank1706900000000
-  implements MigrationInterface {
+  implements MigrationInterface
+{
   name = 'AddPartialIndexTransactionBank1706900000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

@@ -314,10 +314,7 @@ export class VoucherRepository {
   async findUnreconciledByHouseNumber(numberHouse: number): Promise<Voucher[]> {
     return this.voucherRepository
       .createQueryBuilder('v')
-      .leftJoinAndSelect(
-        'v.transactionStatuses',
-        'ts',
-      )
+      .leftJoinAndSelect('v.transactionStatuses', 'ts')
       .where('v.confirmation_status = :confirmationStatus', {
         confirmationStatus: false,
       })

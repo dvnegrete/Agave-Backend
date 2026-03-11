@@ -30,8 +30,6 @@ import {
   ApplyMatchSuggestionResponseDto,
 } from '../../dto';
 import { AllocatePaymentUseCase } from '@/features/payment-management/application';
-import { PeriodRepository } from '@/features/payment-management/infrastructure/repositories/period.repository';
-import { EnsurePeriodExistsUseCase } from '@/features/payment-management/application';
 
 interface DepositRow {
   tb_id: string;
@@ -66,8 +64,6 @@ export class MatchSuggestionsService {
     private readonly recordRepository: RecordRepository,
     private readonly houseRecordRepository: HouseRecordRepository,
     private readonly allocatePaymentUseCase: AllocatePaymentUseCase,
-    private readonly periodRepository: PeriodRepository,
-    private readonly ensurePeriodExistsUseCase: EnsurePeriodExistsUseCase,
   ) {}
 
   /**
@@ -373,9 +369,8 @@ export class MatchSuggestionsService {
       await queryRunner.release();
     }
 
-    // Fuera de transacción: asignar pago
+    // Fuera de transacción: asignar pago (FIFO automático)
     try {
-      const period = await this.getOrCreateCurrentPeriod();
       const house = await this.houseRepository.findByNumberHouse(houseNumber);
 
       if (house) {
@@ -383,7 +378,9 @@ export class MatchSuggestionsService {
           record_id: recordId,
           house_id: house.id,
           amount_to_distribute: transactionBank.amount,
-          period_id: period.id,
+          transaction_date: transactionBank.date
+            ? new Date(transactionBank.date)
+            : undefined,
         });
         this.logger.log(
           `Pago asignado para cross-match: Depósito ${transactionBankId}`,
@@ -456,11 +453,7 @@ export class MatchSuggestionsService {
       )
       .where('v.confirmation_status = :status', { status: false })
       .andWhere('ts.id IS NULL')
-      .select([
-        'v.id AS v_id',
-        'v.amount AS v_amount',
-        'v.date AS v_date',
-      ])
+      .select(['v.id AS v_id', 'v.amount AS v_amount', 'v.date AS v_date'])
       .orderBy('v.date', 'ASC')
       .getRawMany();
   }
@@ -527,23 +520,4 @@ export class MatchSuggestionsService {
     return `${year}-${month}-${day}`;
   }
 
-  /**
-   * Obtiene o crea el período actual
-   */
-  private async getOrCreateCurrentPeriod() {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth() + 1;
-
-    const existingPeriod = await this.periodRepository.findByYearAndMonth(
-      year,
-      month,
-    );
-
-    if (existingPeriod) {
-      return existingPeriod;
-    }
-
-    return await this.ensurePeriodExistsUseCase.execute(year, month);
-  }
 }

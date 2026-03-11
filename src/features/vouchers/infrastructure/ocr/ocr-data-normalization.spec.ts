@@ -38,13 +38,10 @@ function normalizeStructuredData(data: any): any {
             'pregunta',
           ].includes(key),
       )
-      .reduce(
-        (acc, key) => {
-          acc[key] = data[key];
-          return acc;
-        },
-        {} as any,
-      ),
+      .reduce((acc, key) => {
+        acc[key] = data[key];
+        return acc;
+      }, {} as any),
   };
 }
 

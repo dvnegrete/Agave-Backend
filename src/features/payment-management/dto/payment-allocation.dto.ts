@@ -40,7 +40,20 @@ export class PaymentDistributionRequestDTO {
   record_id: number;
   house_id: number;
   amount_to_distribute: number;
-  period_id?: number; // Si no se proporciona, usar el período actual
+  /**
+   * ID del periodo al que asignar el pago.
+   * Si se omite, se usa distribución FIFO automática (periodos más antiguos primero).
+   * Usar solo para asignación manual (ej: confirmación de distribución AI).
+   */
+  period_id?: number;
+  /**
+   * Fecha de la transacción bancaria.
+   * Si se proporciona (sin period_id), activa la asignación period-aware:
+   *   1. Primero cubre los cargos del período correspondiente a esta fecha
+   *   2. Con el sobrante aplica FIFO hacia períodos anteriores con deuda
+   * Si se omite, usa FIFO puro (comportamiento anterior).
+   */
+  transaction_date?: Date;
 }
 
 /**

@@ -161,10 +161,11 @@ export class CorrectVoucherDataUseCase {
 
     // Eliminar archivo GCS si existe
     if (savedData?.gcsFilename) {
-      const deleteResult = await this.gcsCleanupService.deleteTemporaryProcessingFile(
-        savedData.gcsFilename,
-        'cancelacion-usuario',
-      );
+      const deleteResult =
+        await this.gcsCleanupService.deleteTemporaryProcessingFile(
+          savedData.gcsFilename,
+          'cancelacion-usuario',
+        );
     }
 
     await this.sendWhatsAppMessage(phoneNumber, ConfirmationMessages.cancelled);

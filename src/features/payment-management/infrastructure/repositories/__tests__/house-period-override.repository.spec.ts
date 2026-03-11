@@ -163,12 +163,16 @@ describe('HousePeriodOverrideRepository', () => {
       const updatedOverride = { ...mockOverride, custom_amount: 60000 };
 
       jest.spyOn(typeormRepository, 'update').mockResolvedValue({} as any);
-      jest.spyOn(typeormRepository, 'findOne').mockResolvedValue(updatedOverride);
+      jest
+        .spyOn(typeormRepository, 'findOne')
+        .mockResolvedValue(updatedOverride);
 
       const result = await repository.update(1, { custom_amount: 60000 });
 
       expect(result.custom_amount).toBe(60000);
-      expect(typeormRepository.update).toHaveBeenCalledWith(1, { custom_amount: 60000 });
+      expect(typeormRepository.update).toHaveBeenCalledWith(1, {
+        custom_amount: 60000,
+      });
     });
 
     it('should throw error if override not found', async () => {

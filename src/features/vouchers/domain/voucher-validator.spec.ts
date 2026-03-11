@@ -210,21 +210,31 @@ describe('VoucherValidator', () => {
     });
 
     it('should return null for zero cents', () => {
-      expect(VoucherValidator.extractHouseNumberFromAmount('500.00')).toBeNull();
+      expect(
+        VoucherValidator.extractHouseNumberFromAmount('500.00'),
+      ).toBeNull();
     });
 
     it('should return null for cents exceeding max house number', () => {
-      expect(VoucherValidator.extractHouseNumberFromAmount('500.67')).toBeNull(); // Default max is 66
-      expect(VoucherValidator.extractHouseNumberFromAmount('500.99')).toBeNull();
+      expect(
+        VoucherValidator.extractHouseNumberFromAmount('500.67'),
+      ).toBeNull(); // Default max is 66
+      expect(
+        VoucherValidator.extractHouseNumberFromAmount('500.99'),
+      ).toBeNull();
     });
 
     it('should return null for invalid cents', () => {
-      expect(VoucherValidator.extractHouseNumberFromAmount('500.XX')).toBeNull();
+      expect(
+        VoucherValidator.extractHouseNumberFromAmount('500.XX'),
+      ).toBeNull();
     });
 
     it('should return null for empty or null amount', () => {
       expect(VoucherValidator.extractHouseNumberFromAmount('')).toBeNull();
-      expect(VoucherValidator.extractHouseNumberFromAmount(null as any)).toBeNull();
+      expect(
+        VoucherValidator.extractHouseNumberFromAmount(null as any),
+      ).toBeNull();
     });
 
     it('should respect custom min and max casa values', () => {
@@ -272,7 +282,9 @@ describe('VoucherValidator', () => {
 
     it('should return null for amounts with more than 2 decimal places', () => {
       // parseInt('154', 10) = 154, which exceeds max casa (66), so returns null
-      expect(VoucherValidator.extractHouseNumberFromAmount('500.154')).toBeNull();
+      expect(
+        VoucherValidator.extractHouseNumberFromAmount('500.154'),
+      ).toBeNull();
     });
   });
 
@@ -305,10 +317,14 @@ describe('VoucherValidator', () => {
 
   describe('edge cases', () => {
     it('should handle boundary values for casa extraction', () => {
-      expect(VoucherValidator.extractHouseNumberFromAmount('500.00')).toBeNull(); // Zero
+      expect(
+        VoucherValidator.extractHouseNumberFromAmount('500.00'),
+      ).toBeNull(); // Zero
       expect(VoucherValidator.extractHouseNumberFromAmount('500.01')).toBe(1); // Min valid
       expect(VoucherValidator.extractHouseNumberFromAmount('500.66')).toBe(66); // Max valid
-      expect(VoucherValidator.extractHouseNumberFromAmount('500.67')).toBeNull(); // Above max
+      expect(
+        VoucherValidator.extractHouseNumberFromAmount('500.67'),
+      ).toBeNull(); // Above max
     });
 
     it('should handle missing fields with special characters', () => {

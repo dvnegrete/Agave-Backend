@@ -21,16 +21,11 @@ export class HouseBalance {
   @Column({ type: 'int', unique: true })
   house_id: number;
 
-  // TODO: Implementar lógica de cuando y cómo aplicar centavos acumulados
-  // Actualmente se acumulan pero falta definir:
-  // - ¿Se aplican automáticamente al final del año?
-  // - ¿Se aplican solo a mantenimiento o a todos los conceptos?
-  // - ¿Requiere aprobación manual?
   @Column({
     type: 'float',
     default: 0,
     comment:
-      'Centavos acumulados de pagos (solo decimales, 0.00 - 0.99). Pendiente definir aplicación automática.',
+      'Centavos acumulados de pagos. Se convierten a crédito al alcanzar cents_credit_threshold de PeriodConfig.',
   })
   accumulated_cents: number;
 

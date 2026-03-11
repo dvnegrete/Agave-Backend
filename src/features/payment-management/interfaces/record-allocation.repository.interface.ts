@@ -93,4 +93,9 @@ export interface IRecordAllocationRepository {
     houseId: number,
     periodId: number,
   ): Promise<number>;
+
+  /**
+   * Elimina todas las asignaciones de pago
+   */
+  deleteAll(): Promise<number>;
 }

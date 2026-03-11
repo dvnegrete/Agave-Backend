@@ -149,4 +149,11 @@ export class RecordAllocationRepository implements IRecordAllocationRepository {
 
     return result?.total ? parseFloat(result.total) : 0;
   }
+
+  async deleteAll(): Promise<number> {
+    const result = await this.repository.query(
+      'DELETE FROM record_allocations',
+    );
+    return result?.[1] ?? 0;
+  }
 }

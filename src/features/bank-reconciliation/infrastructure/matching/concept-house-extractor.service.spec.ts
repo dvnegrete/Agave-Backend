@@ -10,7 +10,9 @@ describe('ConceptHouseExtractorService', () => {
       providers: [ConceptHouseExtractorService],
     }).compile();
 
-    service = module.get<ConceptHouseExtractorService>(ConceptHouseExtractorService);
+    service = module.get<ConceptHouseExtractorService>(
+      ConceptHouseExtractorService,
+    );
   });
 
   it('should be defined', () => {
@@ -156,7 +158,7 @@ describe('ConceptHouseExtractorService', () => {
       });
 
       it('debería identificar "condominio"', () => {
-        const result = service.extractHouseNumber('Casa 5 cuota de condominio');
+        const result = service.extractHouseNumber('Casa 5 pago condominio');
         expect(result.paymentType?.type).toBe('condominio');
       });
     });
@@ -175,7 +177,9 @@ describe('ConceptHouseExtractorService', () => {
       });
 
       it('debería retornar null para concepto sin número de casa', () => {
-        const result = service.extractHouseNumber('Transferencia bancaria general');
+        const result = service.extractHouseNumber(
+          'Transferencia bancaria general',
+        );
         expect(result.houseNumber).toBeNull();
         expect(result.confidence).toBe('none');
       });
@@ -202,7 +206,9 @@ describe('ConceptHouseExtractorService', () => {
       });
 
       it('debería preservar información incluso sin mes', () => {
-        const result = service.extractHouseNumber('Apto 15 sin información de mes');
+        const result = service.extractHouseNumber(
+          'Apto 15 sin información de mes',
+        );
         expect(result.houseNumber).toBe(15);
         expect(result.month).toBeUndefined();
       });

@@ -18,7 +18,10 @@ import {
  * Item individual de sugerencia de cross-matching
  */
 export class MatchSuggestionItemDto {
-  @ApiProperty({ description: 'ID de la transacción bancaria (depósito)', example: '12345' })
+  @ApiProperty({
+    description: 'ID de la transacción bancaria (depósito)',
+    example: '12345',
+  })
   transactionBankId: string;
 
   @ApiProperty({ description: 'ID del voucher sugerido', example: 101 })
@@ -30,13 +33,19 @@ export class MatchSuggestionItemDto {
   @ApiProperty({ description: 'Fecha del depósito', example: '2025-11-14' })
   depositDate: string;
 
-  @ApiPropertyOptional({ description: 'Hora del depósito', example: '10:30:00' })
+  @ApiPropertyOptional({
+    description: 'Hora del depósito',
+    example: '10:30:00',
+  })
   depositTime: string | null;
 
   @ApiProperty({ description: 'Fecha del voucher', example: '2025-11-14' })
   voucherDate: string;
 
-  @ApiPropertyOptional({ description: 'Número de casa del voucher (si disponible)', example: 15 })
+  @ApiPropertyOptional({
+    description: 'Número de casa del voucher (si disponible)',
+    example: 15,
+  })
   houseNumber: number | null;
 
   @ApiProperty({
@@ -46,7 +55,10 @@ export class MatchSuggestionItemDto {
   })
   confidence: 'high' | 'medium';
 
-  @ApiProperty({ description: 'Razón del match', example: 'Mismo monto y fecha, misma cantidad de deposits/vouchers' })
+  @ApiProperty({
+    description: 'Razón del match',
+    example: 'Mismo monto y fecha, misma cantidad de deposits/vouchers',
+  })
   reason: string;
 }
 
@@ -57,13 +69,22 @@ export class MatchSuggestionsResponseDto {
   @ApiProperty({ description: 'Total de sugerencias encontradas', example: 4 })
   totalSuggestions: number;
 
-  @ApiProperty({ description: 'Cantidad de sugerencias de alta confianza', example: 2 })
+  @ApiProperty({
+    description: 'Cantidad de sugerencias de alta confianza',
+    example: 2,
+  })
   highConfidence: number;
 
-  @ApiProperty({ description: 'Cantidad de sugerencias de confianza media', example: 2 })
+  @ApiProperty({
+    description: 'Cantidad de sugerencias de confianza media',
+    example: 2,
+  })
   mediumConfidence: number;
 
-  @ApiProperty({ description: 'Lista de sugerencias', type: [MatchSuggestionItemDto] })
+  @ApiProperty({
+    description: 'Lista de sugerencias',
+    type: [MatchSuggestionItemDto],
+  })
   suggestions: MatchSuggestionItemDto[];
 }
 
@@ -71,7 +92,10 @@ export class MatchSuggestionsResponseDto {
  * Request para POST /match-suggestions/apply
  */
 export class ApplyMatchSuggestionDto {
-  @ApiProperty({ description: 'ID de la transacción bancaria', example: '12345' })
+  @ApiProperty({
+    description: 'ID de la transacción bancaria',
+    example: '12345',
+  })
   @IsString()
   transactionBankId: string;
 
@@ -97,7 +121,10 @@ export class ApplyMatchSuggestionDto {
  * Request para POST /match-suggestions/apply-batch
  */
 export class ApplyBatchMatchSuggestionsDto {
-  @ApiProperty({ description: 'Lista de sugerencias a aplicar', type: [ApplyMatchSuggestionDto] })
+  @ApiProperty({
+    description: 'Lista de sugerencias a aplicar',
+    type: [ApplyMatchSuggestionDto],
+  })
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => ApplyMatchSuggestionDto)
@@ -113,7 +140,12 @@ export class ApplyMatchSuggestionResponseDto {
 
   @ApiProperty({
     description: 'Detalles de la conciliación',
-    example: { transactionBankId: '12345', voucherId: 101, houseNumber: 15, status: 'confirmed' },
+    example: {
+      transactionBankId: '12345',
+      voucherId: 101,
+      houseNumber: 15,
+      status: 'confirmed',
+    },
   })
   reconciliation: {
     transactionBankId: string;
@@ -140,12 +172,18 @@ export class BatchResultItemDto {
  * Response para POST /match-suggestions/apply-batch
  */
 export class ApplyBatchResponseDto {
-  @ApiProperty({ description: 'Total de sugerencias aplicadas exitosamente', example: 2 })
+  @ApiProperty({
+    description: 'Total de sugerencias aplicadas exitosamente',
+    example: 2,
+  })
   totalApplied: number;
 
   @ApiProperty({ description: 'Total de sugerencias fallidas', example: 0 })
   totalFailed: number;
 
-  @ApiProperty({ description: 'Resultados individuales', type: [BatchResultItemDto] })
+  @ApiProperty({
+    description: 'Resultados individuales',
+    type: [BatchResultItemDto],
+  })
   results: BatchResultItemDto[];
 }

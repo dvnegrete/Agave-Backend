@@ -46,6 +46,12 @@ export class Period {
   @Column({ type: 'int', nullable: true })
   period_config_id: number;
 
+  @Column({ type: 'boolean', default: false })
+  water_active: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  extraordinary_fee_active: boolean;
+
   @CreateDateColumn()
   created_at: Date;
 
@@ -68,15 +74,9 @@ export class Period {
   @OneToMany(() => CtaWater, (water) => water.period)
   waters: CtaWater[];
 
-  @OneToMany(
-    () => RecordAllocation,
-    (allocation) => allocation.period,
-  )
+  @OneToMany(() => RecordAllocation, (allocation) => allocation.period)
   recordAllocations: RecordAllocation[];
 
-  @OneToMany(
-    () => HousePeriodOverride,
-    (override) => override.period,
-  )
+  @OneToMany(() => HousePeriodOverride, (override) => override.period)
   housePeriodOverrides: HousePeriodOverride[];
 }

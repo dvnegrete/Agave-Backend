@@ -6,8 +6,11 @@ import {
   IHouseBalanceRepository,
   IHousePeriodOverrideRepository,
   IPeriodRepository,
+  IHousePeriodChargeRepository,
 } from '../../interfaces';
 import { PeriodConfigRepository } from '../../infrastructure/repositories/period-config.repository';
+import { ApplyCreditToPeriodsUseCase } from '../apply-credit-to-periods.use-case';
+import { HouseStatusSnapshotService } from '../../infrastructure/services/house-status-snapshot.service';
 import {
   AllocationConceptType,
   PaymentStatus,
@@ -20,6 +23,7 @@ describe('AllocatePaymentUseCase', () => {
   let houseBalanceRepository: jest.Mocked<IHouseBalanceRepository>;
   let housePeriodOverrideRepository: jest.Mocked<IHousePeriodOverrideRepository>;
   let periodRepository: jest.Mocked<IPeriodRepository>;
+  let housePeriodChargeRepository: jest.Mocked<IHousePeriodChargeRepository>;
   let periodConfigRepository: jest.Mocked<PeriodConfigRepository>;
 
   const mockPeriod = {
@@ -89,9 +93,27 @@ describe('AllocatePaymentUseCase', () => {
           },
         },
         {
+          provide: 'IHousePeriodChargeRepository',
+          useValue: {
+            findByHouseAndPeriod: jest.fn(),
+          },
+        },
+        {
           provide: PeriodConfigRepository,
           useValue: {
             findActiveForDate: jest.fn(),
+          },
+        },
+        {
+          provide: ApplyCreditToPeriodsUseCase,
+          useValue: {
+            execute: jest.fn(),
+          },
+        },
+        {
+          provide: HouseStatusSnapshotService,
+          useValue: {
+            invalidateByHouseId: jest.fn(),
           },
         },
       ],
@@ -100,8 +122,11 @@ describe('AllocatePaymentUseCase', () => {
     useCase = module.get<AllocatePaymentUseCase>(AllocatePaymentUseCase);
     recordAllocationRepository = module.get('IRecordAllocationRepository');
     houseBalanceRepository = module.get('IHouseBalanceRepository');
-    housePeriodOverrideRepository = module.get('IHousePeriodOverrideRepository');
+    housePeriodOverrideRepository = module.get(
+      'IHousePeriodOverrideRepository',
+    );
     periodRepository = module.get('IPeriodRepository');
+    housePeriodChargeRepository = module.get('IHousePeriodChargeRepository');
     periodConfigRepository = module.get(PeriodConfigRepository);
   });
 
@@ -115,16 +140,28 @@ describe('AllocatePaymentUseCase', () => {
       };
 
       jest.spyOn(periodRepository, 'findById').mockResolvedValue(mockPeriod);
-      jest.spyOn(houseBalanceRepository, 'getOrCreate').mockResolvedValue(mockHouseBalance);
-      jest.spyOn(periodConfigRepository, 'findActiveForDate').mockResolvedValue(mockPeriodConfig);
+      jest
+        .spyOn(houseBalanceRepository, 'getOrCreate')
+        .mockResolvedValue(mockHouseBalance);
+      jest
+        .spyOn(periodConfigRepository, 'findActiveForDate')
+        .mockResolvedValue(mockPeriodConfig);
+      jest
+        .spyOn(housePeriodChargeRepository, 'findByHouseAndPeriod')
+        .mockResolvedValue([]);
+      jest
+        .spyOn(recordAllocationRepository, 'findByHouseAndPeriod')
+        .mockResolvedValue([]);
 
       // Mock sequential calls to getApplicableAmount for maintenance, water, and extraordinary fee
-      jest.spyOn(housePeriodOverrideRepository, 'getApplicableAmount')
+      jest
+        .spyOn(housePeriodOverrideRepository, 'getApplicableAmount')
         .mockResolvedValueOnce(100000) // maintenance
-        .mockResolvedValueOnce(50000)  // water
+        .mockResolvedValueOnce(50000) // water
         .mockResolvedValueOnce(25000); // extraordinary fee
 
-      jest.spyOn(recordAllocationRepository, 'create')
+      jest
+        .spyOn(recordAllocationRepository, 'create')
         .mockResolvedValueOnce({
           id: 1,
           record_id: 1,
@@ -165,7 +202,7 @@ describe('AllocatePaymentUseCase', () => {
       jest.spyOn(houseBalanceRepository, 'update').mockResolvedValue({
         ...mockHouseBalance,
         credit_balance: 0,
-      } as any);
+      });
 
       const result = await useCase.execute(request);
 
@@ -184,7 +221,9 @@ describe('AllocatePaymentUseCase', () => {
         amount_to_distribute: 0,
       };
 
-      await expect(useCase.execute(request)).rejects.toThrow(BadRequestException);
+      await expect(useCase.execute(request)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw error for negative amount', async () => {
@@ -194,7 +233,9 @@ describe('AllocatePaymentUseCase', () => {
         amount_to_distribute: -100,
       };
 
-      await expect(useCase.execute(request)).rejects.toThrow(BadRequestException);
+      await expect(useCase.execute(request)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw error when period not found', async () => {
@@ -219,9 +260,21 @@ describe('AllocatePaymentUseCase', () => {
       };
 
       jest.spyOn(periodRepository, 'findById').mockResolvedValue(mockPeriod);
-      jest.spyOn(houseBalanceRepository, 'getOrCreate').mockResolvedValue(mockHouseBalance);
-      jest.spyOn(periodConfigRepository, 'findActiveForDate').mockResolvedValue(mockPeriodConfig);
-      jest.spyOn(housePeriodOverrideRepository, 'getApplicableAmount').mockResolvedValue(100000);
+      jest
+        .spyOn(houseBalanceRepository, 'getOrCreate')
+        .mockResolvedValue(mockHouseBalance);
+      jest
+        .spyOn(periodConfigRepository, 'findActiveForDate')
+        .mockResolvedValue(mockPeriodConfig);
+      jest
+        .spyOn(housePeriodChargeRepository, 'findByHouseAndPeriod')
+        .mockResolvedValue([]);
+      jest
+        .spyOn(recordAllocationRepository, 'findByHouseAndPeriod')
+        .mockResolvedValue([]);
+      jest
+        .spyOn(housePeriodOverrideRepository, 'getApplicableAmount')
+        .mockResolvedValue(100000);
 
       jest.spyOn(recordAllocationRepository, 'create').mockResolvedValue({
         id: 1,
@@ -236,7 +289,9 @@ describe('AllocatePaymentUseCase', () => {
         created_at: new Date(),
       } as any);
 
-      jest.spyOn(houseBalanceRepository, 'update').mockResolvedValue(mockHouseBalance as any);
+      jest
+        .spyOn(houseBalanceRepository, 'update')
+        .mockResolvedValue(mockHouseBalance);
 
       const result = await useCase.execute(request);
 
@@ -253,16 +308,28 @@ describe('AllocatePaymentUseCase', () => {
       };
 
       jest.spyOn(periodRepository, 'findById').mockResolvedValue(mockPeriod);
-      jest.spyOn(houseBalanceRepository, 'getOrCreate').mockResolvedValue(mockHouseBalance);
-      jest.spyOn(periodConfigRepository, 'findActiveForDate').mockResolvedValue(mockPeriodConfig);
+      jest
+        .spyOn(houseBalanceRepository, 'getOrCreate')
+        .mockResolvedValue(mockHouseBalance);
+      jest
+        .spyOn(periodConfigRepository, 'findActiveForDate')
+        .mockResolvedValue(mockPeriodConfig);
+      jest
+        .spyOn(housePeriodChargeRepository, 'findByHouseAndPeriod')
+        .mockResolvedValue([]);
+      jest
+        .spyOn(recordAllocationRepository, 'findByHouseAndPeriod')
+        .mockResolvedValue([]);
 
       // Mock sequential calls for maintenance, water, and extraordinary fee
-      jest.spyOn(housePeriodOverrideRepository, 'getApplicableAmount')
+      jest
+        .spyOn(housePeriodOverrideRepository, 'getApplicableAmount')
         .mockResolvedValueOnce(100000) // maintenance
-        .mockResolvedValueOnce(50000)  // water
+        .mockResolvedValueOnce(50000) // water
         .mockResolvedValueOnce(25000); // extraordinary fee
 
-      jest.spyOn(recordAllocationRepository, 'create')
+      jest
+        .spyOn(recordAllocationRepository, 'create')
         .mockResolvedValueOnce({
           id: 1,
           record_id: 1,
@@ -305,7 +372,9 @@ describe('AllocatePaymentUseCase', () => {
         credit_balance: 25000, // remaining from 200000 - 100000 - 50000 - 25000
       };
 
-      jest.spyOn(houseBalanceRepository, 'update').mockResolvedValue(updatedBalance as any);
+      jest
+        .spyOn(houseBalanceRepository, 'update')
+        .mockResolvedValue(updatedBalance);
 
       const result = await useCase.execute(request);
 

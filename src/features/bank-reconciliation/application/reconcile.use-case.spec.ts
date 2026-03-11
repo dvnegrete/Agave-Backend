@@ -3,6 +3,7 @@ import { ReconcileUseCase } from './reconcile.use-case';
 import { MatchingService } from '../infrastructure/matching/matching.service';
 import { ReconciliationPersistenceService } from '../infrastructure/persistence/reconciliation-persistence.service';
 import { ReconciliationDataService } from '../infrastructure/persistence/reconciliation-data.service';
+import { MatchSuggestionsService } from '../infrastructure/persistence/match-suggestions.service';
 import { TransactionBank } from '@/shared/database/entities/transaction-bank.entity';
 import { Voucher } from '@/shared/database/entities/voucher.entity';
 import {
@@ -35,6 +36,11 @@ describe('ReconcileUseCase', () => {
       persistManualValidationCase: jest.fn().mockResolvedValue(undefined),
     };
 
+    const mockMatchSuggestionsService = {
+      findMatchSuggestions: jest.fn().mockResolvedValue({ suggestions: [] }),
+      applyMatchSuggestion: jest.fn().mockResolvedValue(undefined),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ReconcileUseCase,
@@ -49,6 +55,10 @@ describe('ReconcileUseCase', () => {
         {
           provide: ReconciliationPersistenceService,
           useValue: mockPersistenceService,
+        },
+        {
+          provide: MatchSuggestionsService,
+          useValue: mockMatchSuggestionsService,
         },
       ],
     }).compile();
@@ -158,8 +168,8 @@ describe('ReconcileUseCase', () => {
       );
 
       expect(result.conciliados).toHaveLength(2);
-      expect(result.pendientes).toHaveLength(0);
-      expect(result.sobrantes).toHaveLength(0);
+      expect(result.unclaimedDeposits).toHaveLength(0);
+      expect(result.unfundedVouchers).toHaveLength(0);
       expect(result.manualValidationRequired).toHaveLength(0);
 
       expect(result.summary.totalProcessed).toBe(2);
@@ -189,11 +199,12 @@ describe('ReconcileUseCase', () => {
       const result = await useCase.execute({});
 
       expect(result.conciliados).toHaveLength(0);
-      expect(result.sobrantes).toHaveLength(1);
-      expect(result.sobrantes[0].transactionBankId).toBe('tx1');
-      expect(result.sobrantes[0].houseNumber).toBe(15);
+      expect(result.unfundedVouchers).toHaveLength(0);
+      expect(result.unclaimedDeposits).toHaveLength(1);
+      expect(result.unclaimedDeposits[0].transactionBankId).toBe('tx1');
+      expect(result.unclaimedDeposits[0].houseNumber).toBe(15);
 
-      expect(result.summary.sobrantes).toBe(1);
+      expect(result.summary.unclaimedDeposits).toBe(1);
       expect(result.summary.getSuccessRate()).toBe(0);
     });
 
@@ -207,13 +218,13 @@ describe('ReconcileUseCase', () => {
       const result = await useCase.execute({});
 
       expect(result.conciliados).toHaveLength(0);
-      expect(result.pendientes).toHaveLength(1);
-      expect(result.pendientes[0].voucherId).toBe(1);
-      expect(result.pendientes[0].reason).toBe(
+      expect(result.unfundedVouchers).toHaveLength(1);
+      expect(result.unfundedVouchers[0].voucherId).toBe(1);
+      expect(result.unfundedVouchers[0].reason).toBe(
         'No matching bank transaction found',
       );
 
-      expect(result.summary.pendientes).toBe(1);
+      expect(result.summary.unfundedVouchers).toBe(1);
     });
 
     it('should handle manual validation cases', async () => {
@@ -289,8 +300,8 @@ describe('ReconcileUseCase', () => {
       const result = await useCase.execute({});
 
       expect(result.conciliados).toHaveLength(0); // Not added due to error
-      expect(result.sobrantes).toHaveLength(1); // Converted to surplus
-      expect(result.sobrantes[0].reason).toContain(
+      expect(result.unclaimedDeposits).toHaveLength(1); // Converted to surplus
+      expect(result.unclaimedDeposits[0].reason).toContain(
         'Error durante persistencia',
       );
     });
@@ -357,7 +368,7 @@ describe('ReconcileUseCase', () => {
       const result = await useCase.execute({});
 
       expect(result.conciliados).toHaveLength(1);
-      expect(result.sobrantes).toHaveLength(1);
+      expect(result.unclaimedDeposits).toHaveLength(1);
 
       // Verify processedVoucherIds was maintained correctly
       const secondCall = matchingService.matchTransaction.mock.calls[1];
@@ -429,14 +440,14 @@ describe('ReconcileUseCase', () => {
       const result = await useCase.execute({});
 
       expect(result.conciliados).toHaveLength(1);
-      expect(result.sobrantes).toHaveLength(1);
+      expect(result.unclaimedDeposits).toHaveLength(1);
       expect(result.manualValidationRequired).toHaveLength(1);
-      expect(result.pendientes).toHaveLength(3); // Vouchers 2, 3, 4 not processed
+      expect(result.unfundedVouchers).toHaveLength(1); // Only voucher 4, not matched
 
       expect(result.summary.totalProcessed).toBe(3);
       expect(result.summary.conciliados).toBe(1);
-      expect(result.summary.sobrantes).toBe(1);
-      expect(result.summary.pendientes).toBe(3);
+      expect(result.summary.unclaimedDeposits).toBe(1);
+      expect(result.summary.unfundedVouchers).toBe(1);
       expect(result.summary.requiresManualValidation).toBe(1);
       expect(result.summary.getSuccessRate()).toBe(33); // 1/3 * 100 = 33.33... → rounded to 33
     });
@@ -448,8 +459,8 @@ describe('ReconcileUseCase', () => {
       const result = await useCase.execute({});
 
       expect(result.conciliados).toHaveLength(0);
-      expect(result.pendientes).toHaveLength(0);
-      expect(result.sobrantes).toHaveLength(0);
+      expect(result.unclaimedDeposits).toHaveLength(0);
+      expect(result.unfundedVouchers).toHaveLength(0);
       expect(result.manualValidationRequired).toHaveLength(0);
 
       expect(result.summary.totalProcessed).toBe(0);
@@ -569,9 +580,9 @@ describe('ReconcileUseCase', () => {
         endDate: new Date(),
       });
 
-      // El sobrante debe estar en el response aunque falló la persistencia
-      expect(result.sobrantes.length).toBe(1);
-      expect(result.sobrantes[0].transactionBankId).toBe(mockTransaction.id);
+      // El depósito no reclamado debe estar en el response aunque falló la persistencia
+      expect(result.unclaimedDeposits.length).toBe(1);
+      expect(result.unclaimedDeposits[0].transactionBankId).toBe(mockTransaction.id);
     });
 
     it('should continue processing even if persistManualValidationCase fails', async () => {

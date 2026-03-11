@@ -166,12 +166,7 @@ describe('VouchersFrontendController', () => {
 
       mockUploadUseCase.execute.mockResolvedValue(mockResponse);
 
-      await controller.uploadVoucher(
-        mockFile,
-        {},
-        undefined,
-        'queryUser123',
-      );
+      await controller.uploadVoucher(mockFile, {}, undefined, 'queryUser123');
 
       expect(mockUploadUseCase.execute).toHaveBeenCalledWith(
         expect.objectContaining({

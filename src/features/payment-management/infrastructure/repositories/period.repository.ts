@@ -61,4 +61,16 @@ export class PeriodRepository implements IPeriodRepository {
     const result = await this.repository.delete(id);
     return (result.affected ?? 0) > 0;
   }
+
+  async findFromDate(year: number, month: number): Promise<Period[]> {
+    return this.repository
+      .createQueryBuilder('p')
+      .where('(p.year > :year OR (p.year = :year AND p.month >= :month))', {
+        year,
+        month,
+      })
+      .orderBy('p.year', 'ASC')
+      .addOrderBy('p.month', 'ASC')
+      .getMany();
+  }
 }

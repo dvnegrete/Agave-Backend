@@ -14,7 +14,8 @@ export class UploadHistoricalFileDto {
   description?: string;
 
   @ApiPropertyOptional({
-    description: 'Solo validar sin insertar registros en la base de datos (modo seco/dry-run)',
+    description:
+      'Solo validar sin insertar registros en la base de datos (modo seco/dry-run)',
     default: false,
   })
   @IsOptional()

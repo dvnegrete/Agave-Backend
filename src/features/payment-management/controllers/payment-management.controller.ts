@@ -2,10 +2,15 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
+  Delete,
   Body,
   Param,
+  Query,
+  Inject,
   ParseIntPipe,
   NotFoundException,
+  BadRequestException,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -20,26 +25,57 @@ import { RoleGuard } from '@/shared/auth/guards/roles.guard';
 import { HouseOwnershipGuard } from '@/shared/auth/guards/house-ownership.guard';
 import { Roles } from '@/shared/auth/decorators/roles.decorator';
 import { Role } from '@/shared/database/entities/enums';
+import { formatMonthName } from '@/shared/common/utils/date';
 import {
   CreatePeriodUseCase,
   EnsurePeriodExistsUseCase,
   GetPeriodsUseCase,
   CreatePeriodConfigUseCase,
+  UpdatePeriodConfigUseCase,
   AllocatePaymentUseCase,
   GetPaymentHistoryUseCase,
   GetHouseBalanceUseCase,
   GetHouseTransactionsUseCase,
   GetHouseUnreconciledVouchersUseCase,
+  CalculateHouseBalanceStatusUseCase,
+  UpdatePeriodConceptsUseCase,
+  DistributePaymentWithAIUseCase,
+  BackfillAllocationsUseCase,
+  GetPeriodChargesSummaryUseCase,
+  BatchUpdatePeriodChargesUseCase,
+  ReprocessAllAllocationsUseCase,
+  CondonePenaltyUseCase,
+  AdjustHousePeriodChargeUseCase,
+  ReverseHousePeriodChargeUseCase,
+  ApplyCreditToPeriodsUseCase,
+  SetInitialDebtUseCase,
 } from '../application';
 import {
   CreatePeriodDto,
   CreatePeriodConfigDto,
+  UpdatePeriodConfigDto,
   PeriodResponseDto,
   PeriodConfigResponseDto,
   HouseBalanceDTO,
   HouseTransactionsResponseDto,
+  EnrichedHouseBalanceDto,
+  HousesSummaryDto,
+  UpdatePeriodConceptsDto,
+  DistributePaymentRequestDto,
+  ConfirmDistributionRequestDto,
+  BackfillAllocationsResponseDto,
+  BatchUpdatePeriodChargesDto,
+  PeriodChargeSummaryDto,
+  BatchUpdateResultDto,
+  ReprocessResultDto,
+  InitialBalanceDto,
+  AdjustChargeDto,
+  InitialDebtDto,
 } from '../dto';
 import { HouseRepository } from '@/shared/database/repositories/house.repository';
+import { IPeriodConfigRepository } from '../interfaces';
+import { HouseStatusSnapshotService } from '../infrastructure/services/house-status-snapshot.service';
+import { HouseBalanceRepository } from '../infrastructure/repositories/house-balance.repository';
 
 @ApiTags('Payment Management')
 @Controller('payment-management')
@@ -49,12 +85,29 @@ export class PaymentManagementController {
     private readonly ensurePeriodExistsUseCase: EnsurePeriodExistsUseCase,
     private readonly getPeriodsUseCase: GetPeriodsUseCase,
     private readonly createPeriodConfigUseCase: CreatePeriodConfigUseCase,
+    private readonly updatePeriodConfigUseCase: UpdatePeriodConfigUseCase,
     private readonly allocatePaymentUseCase: AllocatePaymentUseCase,
     private readonly getPaymentHistoryUseCase: GetPaymentHistoryUseCase,
     private readonly getHouseBalanceUseCase: GetHouseBalanceUseCase,
     private readonly getHouseTransactionsUseCase: GetHouseTransactionsUseCase,
     private readonly getHouseUnreconciledVouchersUseCase: GetHouseUnreconciledVouchersUseCase,
     private readonly houseRepository: HouseRepository,
+    @Inject('IPeriodConfigRepository')
+    private readonly periodConfigRepository: IPeriodConfigRepository,
+    private readonly calculateHouseBalanceStatusUseCase: CalculateHouseBalanceStatusUseCase,
+    private readonly snapshotService: HouseStatusSnapshotService,
+    private readonly updatePeriodConceptsUseCase: UpdatePeriodConceptsUseCase,
+    private readonly distributePaymentWithAIUseCase: DistributePaymentWithAIUseCase,
+    private readonly backfillAllocationsUseCase: BackfillAllocationsUseCase,
+    private readonly getPeriodChargesSummaryUseCase: GetPeriodChargesSummaryUseCase,
+    private readonly batchUpdatePeriodChargesUseCase: BatchUpdatePeriodChargesUseCase,
+    private readonly reprocessAllAllocationsUseCase: ReprocessAllAllocationsUseCase,
+    private readonly condonePenaltyUseCase: CondonePenaltyUseCase,
+    private readonly adjustHousePeriodChargeUseCase: AdjustHousePeriodChargeUseCase,
+    private readonly reverseHousePeriodChargeUseCase: ReverseHousePeriodChargeUseCase,
+    private readonly applyCreditToPeriodsUseCase: ApplyCreditToPeriodsUseCase,
+    private readonly houseBalanceRepository: HouseBalanceRepository,
+    private readonly setInitialDebtUseCase: SetInitialDebtUseCase,
   ) {}
 
   /**
@@ -201,15 +254,125 @@ export class PaymentManagementController {
     };
   }
 
-  // TODO: Implementar endpoint para actualizar montos de un período específico
-  // PATCH /payment-management/periods/:id/amounts
-  // Body: UpdatePeriodAmountsDto
+  /**
+   * GET /payment-management/config
+   * Obtiene todas las configuraciones de período
+   */
+  @Get('config')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Listar configuraciones de período',
+    description:
+      'Retorna todas las configuraciones de período ordenadas por fecha',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de configuraciones obtenida',
+    type: [PeriodConfigResponseDto],
+  })
+  async getConfigs(): Promise<PeriodConfigResponseDto[]> {
+    const configs = await this.periodConfigRepository.findAll();
+    return configs.map((config) => ({
+      id: config.id,
+      default_maintenance_amount: config.default_maintenance_amount,
+      default_water_amount: config.default_water_amount ?? undefined,
+      default_extraordinary_fee_amount:
+        config.default_extraordinary_fee_amount ?? undefined,
+      payment_due_day: config.payment_due_day,
+      late_payment_penalty_amount: config.late_payment_penalty_amount,
+      effective_from: config.effective_from,
+      effective_until: config.effective_until ?? undefined,
+      is_active: config.is_active,
+      created_at: config.created_at,
+      updated_at: config.updated_at,
+    }));
+  }
 
-  // TODO: Implementar endpoint para obtener configuración activa
-  // GET /payment-management/config/active?date=YYYY-MM-DD
+  /**
+   * GET /payment-management/config/active
+   * Obtiene la configuración activa para una fecha dada
+   */
+  @Get('config/active')
+  @UseGuards(AuthGuard)
+  @ApiOperation({
+    summary: 'Obtener configuración activa',
+    description:
+      'Retorna la configuración de período activa para la fecha especificada (o hoy si no se indica)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Configuración activa obtenida',
+    type: PeriodConfigResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'No hay configuración activa' })
+  async getActiveConfig(
+    @Query('date') dateStr?: string,
+  ): Promise<PeriodConfigResponseDto> {
+    const date = dateStr ? new Date(dateStr) : new Date();
+    const config = await this.periodConfigRepository.findActiveForDate(date);
 
-  // TODO: Implementar endpoint para actualizar configuración
-  // PATCH /payment-management/config/:id
+    if (!config) {
+      throw new NotFoundException(
+        `No hay configuración activa para la fecha ${date.toISOString().split('T')[0]}`,
+      );
+    }
+
+    return {
+      id: config.id,
+      default_maintenance_amount: config.default_maintenance_amount,
+      default_water_amount: config.default_water_amount ?? undefined,
+      default_extraordinary_fee_amount:
+        config.default_extraordinary_fee_amount ?? undefined,
+      payment_due_day: config.payment_due_day,
+      late_payment_penalty_amount: config.late_payment_penalty_amount,
+      effective_from: config.effective_from,
+      effective_until: config.effective_until ?? undefined,
+      is_active: config.is_active,
+      created_at: config.created_at,
+      updated_at: config.updated_at,
+    };
+  }
+
+  /**
+   * PATCH /payment-management/config/:id
+   * Actualiza una configuración de período
+   */
+  @Patch('config/:id')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Actualizar configuración de período',
+    description: 'Actualiza campos de una configuración existente',
+  })
+  @ApiParam({ name: 'id', description: 'ID de la configuración' })
+  @ApiBody({ type: UpdatePeriodConfigDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Configuración actualizada',
+    type: PeriodConfigResponseDto,
+  })
+  async updateConfig(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdatePeriodConfigDto,
+  ): Promise<PeriodConfigResponseDto> {
+    const config = await this.updatePeriodConfigUseCase.execute(id, dto);
+
+    return {
+      id: config.id,
+      default_maintenance_amount: config.defaultMaintenanceAmount,
+      default_water_amount: config.defaultWaterAmount ?? undefined,
+      default_extraordinary_fee_amount:
+        config.defaultExtraordinaryFeeAmount ?? undefined,
+      payment_due_day: config.paymentDueDay,
+      late_payment_penalty_amount: config.latePaymentPenaltyAmount,
+      effective_from: config.effectiveFrom,
+      effective_until: config.effectiveUntil ?? undefined,
+      is_active: config.isActive,
+      created_at: new Date(),
+      updated_at: new Date(),
+    };
+  }
 
   /**
    * GET /payment-management/houses/:houseId/payments
@@ -294,6 +457,483 @@ export class PaymentManagementController {
     }
 
     return this.getHouseBalanceUseCase.execute(house.id, house);
+  }
+
+  /**
+   * PATCH /payment-management/periods/:id/concepts
+   * Activar/desactivar conceptos opcionales de un período
+   */
+  @Patch('periods/:id/concepts')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Activar/desactivar conceptos de un período',
+    description:
+      'Permite activar o desactivar agua y cuota extraordinaria para un período específico',
+  })
+  @ApiParam({ name: 'id', description: 'ID del período' })
+  @ApiBody({ type: UpdatePeriodConceptsDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Conceptos actualizados',
+    type: PeriodResponseDto,
+  })
+  async updatePeriodConcepts(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdatePeriodConceptsDto,
+  ): Promise<PeriodResponseDto> {
+    const period = await this.updatePeriodConceptsUseCase.execute(id, dto);
+
+    return {
+      id: period.id,
+      year: period.year,
+      month: period.month,
+      start_date: this.formatDateToISO(period.start_date),
+      end_date: this.formatDateToISO(period.end_date),
+      period_config_id: period.period_config_id,
+      display_name: formatMonthName(period.month, period.year),
+      created_at: period.created_at,
+      updated_at: period.updated_at,
+    };
+  }
+
+  /**
+   * GET /payment-management/houses/:houseId/status
+   * Obtiene el estado enriquecido de una casa (balance + periodos + morosidad)
+   */
+  @Get('houses/:houseId/status')
+  @UseGuards(AuthGuard, RoleGuard, HouseOwnershipGuard)
+  @Roles(Role.ADMIN, Role.OWNER, Role.TENANT)
+  @ApiOperation({
+    summary: 'Obtener estado enriquecido de casa',
+    description:
+      'Retorna estado completo: clasificación (morosa/al_dia/saldo_a_favor), desglose por periodo, deuda total',
+  })
+  @ApiParam({
+    name: 'houseId',
+    description: 'Número de casa (number_house)',
+    example: 42,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Estado enriquecido obtenido',
+    type: EnrichedHouseBalanceDto,
+  })
+  @ApiResponse({ status: 404, description: 'Casa no encontrada' })
+  async getHouseStatus(
+    @Param('houseId', ParseIntPipe) houseId: number,
+  ): Promise<EnrichedHouseBalanceDto> {
+    const house = await this.houseRepository.findByNumberHouse(houseId);
+
+    if (!house) {
+      throw new NotFoundException(`Casa con número ${houseId} no encontrada`);
+    }
+
+    return this.snapshotService.getOrCalculate(
+      house.id,
+      house,
+    ) as Promise<EnrichedHouseBalanceDto>;
+  }
+
+  /**
+   * GET /payment-management/summary
+   * Resumen de todas las casas (ADMIN only)
+   */
+  @Get('summary')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Resumen de estado de todas las casas',
+    description:
+      'Retorna resumen general: casas morosas, al día, con saldo a favor, deuda/crédito total',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Resumen obtenido',
+    type: HousesSummaryDto,
+  })
+  async getSummary(): Promise<HousesSummaryDto> {
+    const houses = await this.houseRepository.findAll();
+    const results = (await this.snapshotService.getAllForSummary(
+      houses,
+    )) as EnrichedHouseBalanceDto[];
+
+    const morosas = results.filter((r) => r.status === 'morosa').length;
+    const alDia = results.filter((r) => r.status === 'al_dia').length;
+    const saldoAFavor = results.filter(
+      (r) => r.status === 'saldo_a_favor',
+    ).length;
+
+    return {
+      total_houses: results.length,
+      morosas,
+      al_dia: alDia,
+      saldo_a_favor: saldoAFavor,
+      total_debt: results.reduce((sum, r) => sum + r.total_debt, 0),
+      total_credit: results.reduce((sum, r) => sum + r.credit_balance, 0),
+      houses: results,
+    };
+  }
+
+  /**
+   * POST /payment-management/houses/:houseId/distribute-payment
+   * Analiza y sugiere distribución de un pago (determinístico o AI)
+   */
+  @Post('houses/:houseId/distribute-payment')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Distribuir pago con AI',
+    description:
+      'Analiza un pago y sugiere cómo distribuirlo entre periodos impagos. Usa lógica determinística primero, luego AI.',
+  })
+  @ApiParam({
+    name: 'houseId',
+    description: 'Número de casa (number_house)',
+    example: 42,
+  })
+  @ApiBody({ type: DistributePaymentRequestDto })
+  async distributePayment(
+    @Param('houseId', ParseIntPipe) houseId: number,
+    @Body() dto: DistributePaymentRequestDto,
+  ) {
+    const house = await this.houseRepository.findByNumberHouse(houseId);
+    if (!house) {
+      throw new NotFoundException(`Casa con número ${houseId} no encontrada`);
+    }
+
+    return this.distributePaymentWithAIUseCase.execute(
+      house.id,
+      house,
+      dto.amount,
+    );
+  }
+
+  /**
+   * POST /payment-management/houses/:houseId/confirm-distribution
+   * Confirma y aplica una distribución sugerida
+   */
+  @Post('houses/:houseId/confirm-distribution')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Confirmar distribución de pago',
+    description:
+      'Aplica una distribución de pago previamente sugerida por el sistema AI',
+  })
+  @ApiParam({
+    name: 'houseId',
+    description: 'Número de casa (number_house)',
+    example: 42,
+  })
+  @ApiBody({ type: ConfirmDistributionRequestDto })
+  async confirmDistribution(
+    @Param('houseId', ParseIntPipe) houseId: number,
+    @Body() dto: ConfirmDistributionRequestDto,
+  ) {
+    const house = await this.houseRepository.findByNumberHouse(houseId);
+    if (!house) {
+      throw new NotFoundException(`Casa con número ${houseId} no encontrada`);
+    }
+
+    // Aplicar cada allocation confirmada
+    const results: any[] = [];
+    for (const allocation of dto.allocations) {
+      const result = await this.allocatePaymentUseCase.execute({
+        record_id: dto.record_id ?? 0,
+        house_id: house.id,
+        amount_to_distribute: allocation.amount,
+        period_id: allocation.period_id,
+      });
+      results.push(result);
+    }
+
+    return {
+      house_id: house.id,
+      house_number: house.number_house,
+      allocations_applied: results.length,
+      results,
+    };
+  }
+
+  /**
+   * POST /payment-management/backfill-allocations
+   * Backfill de record_allocations para records confirmados sin allocations
+   * Usado para corregir records procesados antes del Balance Engine
+   */
+  @Post('backfill-allocations')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Backfill record allocations',
+    description:
+      'Encuentra records confirmados sin allocations y ejecuta AllocatePayment para cada uno. Idempotente.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Backfill completado',
+    type: BackfillAllocationsResponseDto,
+  })
+  async backfillAllocations(
+    @Query('houseNumber') houseNumberStr?: string,
+  ): Promise<BackfillAllocationsResponseDto> {
+    let houseNumber: number | undefined;
+
+    if (houseNumberStr) {
+      houseNumber = parseInt(houseNumberStr, 10);
+      if (isNaN(houseNumber) || houseNumber < 1 || houseNumber > 66) {
+        throw new BadRequestException(
+          'houseNumber debe ser un número entre 1 y 66',
+        );
+      }
+    }
+
+    return this.backfillAllocationsUseCase.execute(houseNumber);
+  }
+
+  /**
+   * GET /payment-management/period-charges
+   * Obtiene resumen de cargos por período
+   */
+  @Get('period-charges')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Obtener resumen de cargos por período',
+    description:
+      'Retorna todos los períodos con sus montos de mantenimiento, agua y cuota extraordinaria',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Resumen de cargos obtenido',
+    type: [PeriodChargeSummaryDto],
+  })
+  async getPeriodCharges(): Promise<PeriodChargeSummaryDto[]> {
+    return this.getPeriodChargesSummaryUseCase.execute();
+  }
+
+  /**
+   * POST /payment-management/period-charges/batch-update
+   * Actualiza cargos en batch para un rango de períodos
+   */
+  @Post('period-charges/batch-update')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Actualizar cargos en batch',
+    description:
+      'Actualiza los montos esperados de mantenimiento, agua y cuota extraordinaria para un rango de períodos × 66 casas',
+  })
+  @ApiBody({ type: BatchUpdatePeriodChargesDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Cargos actualizados',
+    type: BatchUpdateResultDto,
+  })
+  async batchUpdateCharges(
+    @Body() dto: BatchUpdatePeriodChargesDto,
+  ): Promise<BatchUpdateResultDto> {
+    return this.batchUpdatePeriodChargesUseCase.execute(dto);
+  }
+
+  /**
+   * POST /payment-management/reprocess-allocations
+   * Reprocesa todas las asignaciones de pago (nuclear)
+   */
+  @Post('reprocess-allocations')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Reprocesar todas las asignaciones',
+    description:
+      'Borra todas las allocations, resetea balances y re-ejecuta backfill FIFO para todo',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Reprocesamiento completado',
+    type: ReprocessResultDto,
+  })
+  async reprocessAllocations(): Promise<ReprocessResultDto> {
+    return this.reprocessAllAllocationsUseCase.execute();
+  }
+
+  // ──────────────────────────────────────────────
+  // ADMIN: Operaciones de ajuste y crédito inicial
+  // ──────────────────────────────────────────────
+
+  /**
+   * POST /payment-management/houses/:houseId/initial-balance
+   * Asigna crédito inicial a una casa (para pagos realizados antes del sistema)
+   * El crédito se distribuye automáticamente en FIFO cubriendo períodos impagos
+   */
+  @Post('houses/:houseId/initial-balance')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Asignar crédito/saldo inicial a una casa',
+    description:
+      'Registra un crédito inicial para una casa cuyos pagos fueron realizados antes del sistema. El crédito se aplica automáticamente a períodos impagos en orden FIFO.',
+  })
+  @ApiParam({
+    name: 'houseId',
+    description: 'Número de casa (number_house)',
+    example: 42,
+  })
+  @ApiBody({ type: InitialBalanceDto })
+  @ApiResponse({ status: 200, description: 'Crédito aplicado exitosamente' })
+  @ApiResponse({ status: 404, description: 'Casa no encontrada' })
+  async setInitialBalance(
+    @Param('houseId', ParseIntPipe) houseId: number,
+    @Body() dto: InitialBalanceDto,
+  ) {
+    const house = await this.houseRepository.findByNumberHouse(houseId);
+    if (!house) {
+      throw new NotFoundException(`Casa con número ${houseId} no encontrada`);
+    }
+
+    // 1. Agregar crédito al balance de la casa
+    const balance = await this.houseBalanceRepository.addCreditBalance(
+      house.id,
+      dto.amount,
+    );
+
+    // 2. Distribuir crédito automáticamente a períodos impagos (FIFO)
+    const creditResult = await this.applyCreditToPeriodsUseCase.execute(
+      house.id,
+    );
+
+    return {
+      house_id: house.id,
+      house_number: house.number_house,
+      amount_added: dto.amount,
+      reason: dto.reason ?? 'Saldo inicial - pagos pre-sistema',
+      credit_distribution: creditResult,
+      balance_after: {
+        credit_balance: balance.credit_balance,
+      },
+    };
+  }
+
+  /**
+   * POST /payment-management/houses/:houseId/initial-debt
+   * Registra deuda inicial para una casa en un período/concepto específico.
+   * Hace upsert de house_period_charge con source='manual' para el trío
+   * (house_id, period_id, concept_type). El cargo aparece como deuda en GET /status.
+   */
+  @Post('houses/:houseId/initial-debt')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Registrar deuda inicial a una casa',
+    description:
+      'Crea o actualiza un cargo (house_period_charge) con source=manual para registrar deuda previa al sistema. El cargo se mostrará en morosidad_reasons del GET /status.',
+  })
+  @ApiParam({
+    name: 'houseId',
+    description: 'Número de casa (number_house)',
+    example: 47,
+  })
+  @ApiBody({ type: InitialDebtDto })
+  @ApiResponse({ status: 200, description: 'Deuda registrada o actualizada' })
+  @ApiResponse({ status: 404, description: 'Casa o período no encontrado' })
+  async setInitialDebt(
+    @Param('houseId', ParseIntPipe) houseId: number,
+    @Body() dto: InitialDebtDto,
+  ) {
+    const house = await this.houseRepository.findByNumberHouse(houseId);
+    if (!house) {
+      throw new NotFoundException(`Casa con número ${houseId} no encontrada`);
+    }
+
+    return this.setInitialDebtUseCase.execute(house.id, dto);
+  }
+
+  /**
+   * POST /payment-management/houses/:houseId/periods/:periodId/condone-penalty
+   * Condona (elimina) la penalidad de una casa en un período
+   */
+  @Post('houses/:houseId/periods/:periodId/condone-penalty')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Condonar penalidad',
+    description:
+      'Elimina la penalidad de una casa en un período específico. Solo si no ha sido pagada.',
+  })
+  @ApiParam({
+    name: 'houseId',
+    description: 'Número de casa (number_house)',
+    example: 42,
+  })
+  @ApiParam({
+    name: 'periodId',
+    description: 'ID del período',
+    example: 1,
+  })
+  @ApiResponse({ status: 200, description: 'Penalidad condonada' })
+  @ApiResponse({ status: 404, description: 'Casa o penalidad no encontrada' })
+  async condonePenalty(
+    @Param('houseId', ParseIntPipe) houseId: number,
+    @Param('periodId', ParseIntPipe) periodId: number,
+  ) {
+    const house = await this.houseRepository.findByNumberHouse(houseId);
+    if (!house) {
+      throw new NotFoundException(`Casa con número ${houseId} no encontrada`);
+    }
+
+    return this.condonePenaltyUseCase.execute(house.id, periodId);
+  }
+
+  /**
+   * PATCH /payment-management/charges/:chargeId/adjust
+   * Ajusta el monto de un cargo existente
+   */
+  @Patch('charges/:chargeId/adjust')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Ajustar monto de un cargo',
+    description:
+      'Modifica el monto esperado de un cargo. No permite bajar de lo ya pagado ni ajustar períodos de más de 3 meses atrás.',
+  })
+  @ApiParam({
+    name: 'chargeId',
+    description: 'ID del cargo a ajustar',
+    example: 100,
+  })
+  @ApiBody({ type: AdjustChargeDto })
+  @ApiResponse({ status: 200, description: 'Cargo ajustado' })
+  @ApiResponse({ status: 404, description: 'Cargo no encontrado' })
+  async adjustCharge(
+    @Param('chargeId', ParseIntPipe) chargeId: number,
+    @Body() dto: AdjustChargeDto,
+  ) {
+    return this.adjustHousePeriodChargeUseCase.execute(chargeId, dto.new_amount);
+  }
+
+  /**
+   * DELETE /payment-management/charges/:chargeId/reverse
+   * Reversa (elimina) un cargo que nunca fue pagado
+   */
+  @Delete('charges/:chargeId/reverse')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Reversar un cargo',
+    description:
+      'Elimina un cargo que fue creado erróneamente. Solo si no tiene pagos asignados ni es de más de 3 meses atrás.',
+  })
+  @ApiParam({
+    name: 'chargeId',
+    description: 'ID del cargo a reversar',
+    example: 100,
+  })
+  @ApiResponse({ status: 200, description: 'Cargo reversado' })
+  @ApiResponse({ status: 404, description: 'Cargo no encontrado' })
+  async reverseCharge(
+    @Param('chargeId', ParseIntPipe) chargeId: number,
+  ) {
+    return this.reverseHousePeriodChargeUseCase.execute(chargeId);
   }
 
   /**

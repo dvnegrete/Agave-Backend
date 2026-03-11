@@ -137,12 +137,16 @@ export class HistoricalRecordRow {
 
     // Validate deposito is positive
     if (this.deposito <= 0) {
-      errors.push(`Row ${this.rowNumber}: DEPOSITO must be positive, got ${this.deposito}`);
+      errors.push(
+        `Row ${this.rowNumber}: DEPOSITO must be positive, got ${this.deposito}`,
+      );
     }
 
     // Validate casa is not negative
     if (this.casa < 0) {
-      errors.push(`Row ${this.rowNumber}: Casa cannot be negative, got ${this.casa}`);
+      errors.push(
+        `Row ${this.rowNumber}: Casa cannot be negative, got ${this.casa}`,
+      );
     }
 
     // Validate concepto is not empty

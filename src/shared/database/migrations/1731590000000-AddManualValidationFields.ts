@@ -18,7 +18,9 @@ export class AddManualValidationFields1731590000000
 {
   public async up(queryRunner: QueryRunner): Promise<void> {
     // 1. Verificar si la tabla ya existe (idempotente)
-    const tableExists = await queryRunner.hasTable('manual_validation_approvals');
+    const tableExists = await queryRunner.hasTable(
+      'manual_validation_approvals',
+    );
 
     if (!tableExists) {
       // Crear tabla manual_validation_approvals

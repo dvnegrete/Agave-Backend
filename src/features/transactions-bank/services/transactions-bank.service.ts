@@ -282,9 +282,7 @@ export class TransactionsBankService {
     return await this.bankTransactionRepository.getTransactionSummary();
   }
 
-  async getExpensesByMonth(
-    date: string | Date,
-  ): Promise<{
+  async getExpensesByMonth(date: string | Date): Promise<{
     month: string;
     expenses: ProcessedBankTransaction[];
     summary: {
@@ -310,7 +308,9 @@ export class TransactionsBankService {
       (sum, t) => sum + t.amount,
       0,
     );
-    const currencies = [...new Set(processedTransactions.map((t) => t.currency))];
+    const currencies = [
+      ...new Set(processedTransactions.map((t) => t.currency)),
+    ];
     const largestExpense =
       processedTransactions.length > 0
         ? Math.max(...processedTransactions.map((t) => t.amount))
@@ -421,7 +421,7 @@ export class TransactionsBankService {
     }
   }
 
-  private async getLastProcessedTransaction(): Promise<any | null> {
+  async getLastProcessedTransaction(): Promise<any | null> {
     try {
       const lastRecord = await this.lastTransactionBankRepository.findLatest();
       if (!lastRecord || !lastRecord.transactionBank) {

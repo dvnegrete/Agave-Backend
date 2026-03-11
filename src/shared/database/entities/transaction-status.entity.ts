@@ -16,7 +16,8 @@ import { Record } from './record.entity';
 
 @Entity('transactions_status')
 @Index('idx_transaction_status_validation_status', ['validation_status'], {
-  where: '"validation_status" IN (\'requires-manual\', \'not-found\', \'conflict\')',
+  where:
+    "\"validation_status\" IN ('requires-manual', 'not-found', 'conflict')",
 })
 @Index('idx_transaction_status_created_at', ['created_at'])
 export class TransactionStatus {
@@ -26,6 +27,7 @@ export class TransactionStatus {
   @Column({
     type: 'enum',
     enum: ValidationStatus,
+    enumName: 'validation_status_t',
     default: ValidationStatus.PENDING,
   })
   validation_status: ValidationStatus;

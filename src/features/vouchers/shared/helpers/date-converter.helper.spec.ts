@@ -54,21 +54,21 @@ describe('DateConverterHelper', () => {
       const options = generateRecentDates();
 
       expect(options[0].title).toBe('Hoy 15');
-      expect(options[0].description).toBe('15 de enero 2025');
+      expect(options[0].description).toBe('15 de Enero 2025');
     });
 
     it('should generate correct title for yesterday', () => {
       const options = generateRecentDates();
 
       expect(options[1].title).toBe('Ayer 14');
-      expect(options[1].description).toBe('14 de enero 2025');
+      expect(options[1].description).toBe('14 de Enero 2025');
     });
 
     it('should generate correct title for day before yesterday', () => {
       const options = generateRecentDates();
 
       expect(options[2].title).toBe('Antier 13');
-      expect(options[2].description).toBe('13 de enero 2025');
+      expect(options[2].description).toBe('13 de Enero 2025');
     });
 
     it('should include manual date entry option', () => {
@@ -84,9 +84,9 @@ describe('DateConverterHelper', () => {
       jest.setSystemTime(new Date('2025-02-01T12:00:00Z'));
       const options = generateRecentDates();
 
-      expect(options[0].description).toBe('1 de febrero 2025');
-      expect(options[1].description).toBe('31 de enero 2025');
-      expect(options[2].description).toBe('30 de enero 2025');
+      expect(options[0].description).toBe('1 de Febrero 2025');
+      expect(options[1].description).toBe('31 de Enero 2025');
+      expect(options[2].description).toBe('30 de Enero 2025');
     });
 
     it('should handle year boundaries correctly', () => {
@@ -94,9 +94,9 @@ describe('DateConverterHelper', () => {
       jest.setSystemTime(new Date('2025-01-01T12:00:00Z'));
       const options = generateRecentDates();
 
-      expect(options[0].description).toBe('1 de enero 2025');
-      expect(options[1].description).toBe('31 de diciembre 2024');
-      expect(options[2].description).toBe('30 de diciembre 2024');
+      expect(options[0].description).toBe('1 de Enero 2025');
+      expect(options[1].description).toBe('31 de Diciembre 2024');
+      expect(options[2].description).toBe('30 de Diciembre 2024');
     });
 
     it('should return all required properties for each option', () => {

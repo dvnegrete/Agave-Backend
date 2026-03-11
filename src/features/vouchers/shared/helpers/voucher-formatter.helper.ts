@@ -24,9 +24,7 @@ export function formatVoucherField(
  * @param monto - Monto a formatear
  * @returns Monto formateado como "$X.XX" o "No disponible"
  */
-export function formatMonto(
-  monto: string | number | null | undefined,
-): string {
+export function formatMonto(monto: string | number | null | undefined): string {
   if (monto === null || monto === undefined || monto === '') {
     return 'No disponible';
   }
@@ -38,9 +36,7 @@ export function formatMonto(
  * @param casa - Número de casa
  * @returns Casa formateada o "No disponible"
  */
-export function formatCasa(
-  casa: number | null | undefined,
-): string {
+export function formatCasa(casa: number | null | undefined): string {
   if (casa === null || casa === undefined) {
     return 'No disponible';
   }

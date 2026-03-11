@@ -1,7 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { GetPaymentHistoryUseCase } from '../get-payment-history.use-case';
 import { IRecordAllocationRepository } from '../../interfaces';
-import { AllocationConceptType, PaymentStatus } from '@/shared/database/entities/enums';
+import {
+  AllocationConceptType,
+  PaymentStatus,
+} from '@/shared/database/entities/enums';
 import { House } from '@/shared/database/entities';
 
 describe('GetPaymentHistoryUseCase', () => {
@@ -57,7 +60,9 @@ describe('GetPaymentHistoryUseCase', () => {
   describe('execute', () => {
     it('should get full payment history for a house', async () => {
       const allocations = [mockAllocation];
-      jest.spyOn(recordAllocationRepository, 'findByHouseId').mockResolvedValue(allocations);
+      jest
+        .spyOn(recordAllocationRepository, 'findByHouseId')
+        .mockResolvedValue(allocations);
 
       const result = await useCase.execute(42, mockHouse);
 
@@ -71,7 +76,9 @@ describe('GetPaymentHistoryUseCase', () => {
     });
 
     it('should return empty history when no allocations exist', async () => {
-      jest.spyOn(recordAllocationRepository, 'findByHouseId').mockResolvedValue([]);
+      jest
+        .spyOn(recordAllocationRepository, 'findByHouseId')
+        .mockResolvedValue([]);
 
       const result = await useCase.execute(42, mockHouse);
 
@@ -94,7 +101,9 @@ describe('GetPaymentHistoryUseCase', () => {
         },
       ];
 
-      jest.spyOn(recordAllocationRepository, 'findByHouseId').mockResolvedValue(allocations);
+      jest
+        .spyOn(recordAllocationRepository, 'findByHouseId')
+        .mockResolvedValue(allocations);
 
       const result = await useCase.execute(42, mockHouse);
 
@@ -111,9 +120,9 @@ describe('GetPaymentHistoryUseCase', () => {
         payment_status: PaymentStatus.PARTIAL,
       };
 
-      jest.spyOn(recordAllocationRepository, 'findByHouseId').mockResolvedValue([
-        partialAllocation,
-      ]);
+      jest
+        .spyOn(recordAllocationRepository, 'findByHouseId')
+        .mockResolvedValue([partialAllocation]);
 
       const result = await useCase.execute(42, mockHouse);
 
@@ -130,9 +139,9 @@ describe('GetPaymentHistoryUseCase', () => {
         payment_status: PaymentStatus.OVERPAID,
       };
 
-      jest.spyOn(recordAllocationRepository, 'findByHouseId').mockResolvedValue([
-        overpaidAllocation,
-      ]);
+      jest
+        .spyOn(recordAllocationRepository, 'findByHouseId')
+        .mockResolvedValue([overpaidAllocation]);
 
       const result = await useCase.execute(42, mockHouse);
 
@@ -144,19 +153,23 @@ describe('GetPaymentHistoryUseCase', () => {
   describe('executeByPeriod', () => {
     it('should get payment history for a specific period', async () => {
       const allocations = [mockAllocation];
-      jest.spyOn(recordAllocationRepository, 'findByHouseAndPeriod').mockResolvedValue(
-        allocations,
-      );
+      jest
+        .spyOn(recordAllocationRepository, 'findByHouseAndPeriod')
+        .mockResolvedValue(allocations);
 
       const result = await useCase.executeByPeriod(42, 1, mockHouse);
 
       expect(result.house_id).toBe(42);
       expect(result.total_payments).toBe(1);
-      expect(recordAllocationRepository.findByHouseAndPeriod).toHaveBeenCalledWith(42, 1);
+      expect(
+        recordAllocationRepository.findByHouseAndPeriod,
+      ).toHaveBeenCalledWith(42, 1);
     });
 
     it('should return empty history for period with no payments', async () => {
-      jest.spyOn(recordAllocationRepository, 'findByHouseAndPeriod').mockResolvedValue([]);
+      jest
+        .spyOn(recordAllocationRepository, 'findByHouseAndPeriod')
+        .mockResolvedValue([]);
 
       const result = await useCase.executeByPeriod(42, 1, mockHouse);
 
@@ -165,9 +178,9 @@ describe('GetPaymentHistoryUseCase', () => {
     });
 
     it('should calculate correct period year and month', async () => {
-      jest.spyOn(recordAllocationRepository, 'findByHouseAndPeriod').mockResolvedValue([
-        mockAllocation,
-      ]);
+      jest
+        .spyOn(recordAllocationRepository, 'findByHouseAndPeriod')
+        .mockResolvedValue([mockAllocation]);
 
       const result = await useCase.executeByPeriod(42, 1, mockHouse);
 
@@ -187,7 +200,9 @@ describe('GetPaymentHistoryUseCase', () => {
 
       const result = await useCase.executeByPeriod(42, 1, mockHouse);
 
-      expect(result.payments[0].payment_date).toEqual(new Date('2024-11-20T10:30:00Z'));
+      expect(result.payments[0].payment_date).toEqual(
+        new Date('2024-11-20T10:30:00Z'),
+      );
     });
   });
 });
