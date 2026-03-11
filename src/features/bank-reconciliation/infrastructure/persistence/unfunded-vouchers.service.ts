@@ -140,7 +140,8 @@ export class UnfundedVouchersService {
     }
 
     // 2. Validar que la transacción bancaria existe y no está conciliada
-    const transactionBank = await this.transactionBankRepository.findById(transactionBankId);
+    const transactionBank =
+      await this.transactionBankRepository.findById(transactionBankId);
 
     if (!transactionBank) {
       throw new NotFoundException(
@@ -162,7 +163,8 @@ export class UnfundedVouchersService {
         houseNumber,
       );
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(
         `Error al conciliar voucher ${voucherId} con depósito ${transactionBankId}: ${errorMessage}`,
       );

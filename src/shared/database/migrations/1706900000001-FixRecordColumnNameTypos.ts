@@ -22,25 +22,26 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * Problema P3-1: Typos en nombres de columnas
  */
 export class FixRecordColumnNameTypos1706900000001
-  implements MigrationInterface {
+  implements MigrationInterface
+{
   name = 'FixRecordColumnNameTypos1706900000001';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // PASO 1: Verificar si la columna antigua existe (migraciones idempotente)
     const hasOldMaintenceColumn = await queryRunner.hasColumn(
       'records',
-      'cta_maintence_id'
+      'cta_maintence_id',
     );
     const hasOldPenaltiesColumn = await queryRunner.hasColumn(
       'records',
-      'cta_penalities_id'
+      'cta_penalities_id',
     );
 
     // Si las columnas antiguas NO existen, significa que ya fueron renombradas
     // o la BD fue creada con los nombres correctos. No hacer nada.
     if (!hasOldMaintenceColumn && !hasOldPenaltiesColumn) {
       console.log(
-        'Migration: Columns already renamed or DB created with correct names. Skipping.'
+        'Migration: Columns already renamed or DB created with correct names. Skipping.',
       );
       return;
     }

@@ -5,7 +5,9 @@ export class UpdateUserObservationsDto {
   @IsOptional()
   @ValidateIf((o) => o.observations !== null)
   @IsString()
-  @MaxLength(500, { message: 'Las observaciones no pueden exceder 500 caracteres' })
+  @MaxLength(500, {
+    message: 'Las observaciones no pueden exceder 500 caracteres',
+  })
   @ApiProperty({
     type: 'string',
     nullable: true,

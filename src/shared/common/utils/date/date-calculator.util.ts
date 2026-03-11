@@ -82,7 +82,7 @@ export function getDateDifferenceInHours(
  *
  * @example
  * extractHouseNumberFromCents(500.15) // returns 15 (✅ válido si está en rango)
- * extractHouseNumberFromCents(500.00) // returns 0 (❌ inválido - requiere validación) 
+ * extractHouseNumberFromCents(500.00) // returns 0 (❌ inválido - requiere validación)
  * @see isValidHouseNumber() - usar para validar el resultado
  */
 export function extractHouseNumberFromCents(amount: number): number {

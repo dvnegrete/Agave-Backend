@@ -84,11 +84,11 @@ export class JwtAuthService {
   }
 
   async verifyAccessToken(token: string): Promise<JwtAccessPayload> {
-    return this.jwtService.verify(token) as JwtAccessPayload;
+    return this.jwtService.verify(token);
   }
 
   async verifyRefreshToken(token: string): Promise<JwtRefreshPayload> {
-    return this.jwtService.verify(token) as JwtRefreshPayload;
+    return this.jwtService.verify(token);
   }
 
   private async getUserHouseIds(userId: string): Promise<number[]> {

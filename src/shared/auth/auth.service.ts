@@ -22,6 +22,7 @@ import {
   OAuthMessages,
   SessionMessages,
   GenericErrorMessages,
+  PasswordResetMessages,
 } from '@/shared/content/messages';
 
 @Injectable()
@@ -33,7 +34,7 @@ export class AuthService {
     private userRepository: UserRepository,
     private jwtAuthService: JwtAuthService,
     private firebaseConfig: FirebaseAuthConfig,
-  ) { }
+  ) {}
 
   private ensureEnabled() {
     if (!this.firebaseConfig.isEnabled()) {
@@ -70,7 +71,7 @@ export class AuthService {
 
       this.logger.error(errorMsg);
       throw new Error(
-        'FRONTEND_URL environment variable is required for cookie security configuration'
+        'FRONTEND_URL environment variable is required for cookie security configuration',
       );
     }
 
@@ -79,7 +80,7 @@ export class AuthService {
 
     this.logger.log(
       `🔐 Cookie Security Config: secure=${isSecure} ` +
-      `(FRONTEND_URL=${frontendUrl.replace(/\//g, '')})`
+        `(FRONTEND_URL=${frontendUrl.replace(/\//g, '')})`,
     );
 
     return isSecure;
@@ -127,8 +128,8 @@ export class AuthService {
     // COOKIE_DOMAIN debe configurarse en ambiente para compartir entre subdominos
     this.logger.warn(
       `COOKIE_DOMAIN not configured. Cookies will only work for same domain. ` +
-      `To share cookies between frontend (${domainWithPort}) and backend, ` +
-      `configure COOKIE_DOMAIN environment variable (e.g., COOKIE_DOMAIN=.up.railway.app)`
+        `To share cookies between frontend (${domainWithPort}) and backend, ` +
+        `configure COOKIE_DOMAIN environment variable (e.g., COOKIE_DOMAIN=.up.railway.app)`,
     );
     return undefined;
   }
@@ -161,13 +162,18 @@ export class AuthService {
     // Si no hay BACKEND_URL, asumir que no comparten dominio (staging)
     if (!backendUrl) {
       // Localhost siempre usa lax
-      if (frontendHostname === 'localhost' || frontendHostname === '127.0.0.1') {
+      if (
+        frontendHostname === 'localhost' ||
+        frontendHostname === '127.0.0.1'
+      ) {
         this.logger.log(`🍪 Cookie sameSite: lax (localhost)`);
         return 'lax';
       }
 
       // Otros casos: asumir cross-domain (staging Railway)
-      this.logger.log(`🍪 Cookie sameSite: none (cross-domain, BACKEND_URL not set)`);
+      this.logger.log(
+        `🍪 Cookie sameSite: none (cross-domain, BACKEND_URL not set)`,
+      );
       return 'none';
     }
 
@@ -183,7 +189,7 @@ export class AuthService {
 
     this.logger.log(
       `🍪 Cookie sameSite: ${isSameDomain ? 'lax' : 'none'} ` +
-      `(Frontend: ${frontendHostname}, Backend: ${backendHostname})`
+        `(Frontend: ${frontendHostname}, Backend: ${backendHostname})`,
     );
 
     return isSameDomain ? 'lax' : 'none';
@@ -199,7 +205,11 @@ export class AuthService {
 
     // Tomar los últimos 2 segmentos (dominio.tld)
     // Para dominios como .com.mx, tomar los últimos 3
-    if (parts[parts.length - 1] === 'mx' || parts[parts.length - 1] === 'uk' || parts[parts.length - 1] === 'br') {
+    if (
+      parts[parts.length - 1] === 'mx' ||
+      parts[parts.length - 1] === 'uk' ||
+      parts[parts.length - 1] === 'br'
+    ) {
       return parts.slice(-3).join('.');
     }
 
@@ -238,16 +248,15 @@ export class AuthService {
         this.logger.log(
           `Intento de signup con email ya registrado en DB: ${email}`,
         );
-        throw new BadRequestException(
-          SignUpMessages.EMAIL_ALREADY_REGISTERED,
-        );
+        throw new BadRequestException(SignUpMessages.EMAIL_ALREADY_REGISTERED);
       }
 
       // 4. Actualizar displayName en Firebase si es necesario
       if (signUpDto.firstName || signUpDto.lastName) {
-        const displayName = signUpDto.firstName && signUpDto.lastName
-          ? `${signUpDto.firstName} ${signUpDto.lastName}`
-          : undefined;
+        const displayName =
+          signUpDto.firstName && signUpDto.lastName
+            ? `${signUpDto.firstName} ${signUpDto.lastName}`
+            : undefined;
 
         if (displayName) {
           await auth.updateUser(firebaseUser.uid, { displayName });
@@ -267,9 +276,10 @@ export class AuthService {
       const dbUser = await this.userRepository.create({
         id: firebaseUser.uid,
         email,
-        name: signUpDto.firstName && signUpDto.lastName
-          ? `${signUpDto.firstName} ${signUpDto.lastName}`.trim()
-          : email,
+        name:
+          signUpDto.firstName && signUpDto.lastName
+            ? `${signUpDto.firstName} ${signUpDto.lastName}`.trim()
+            : email,
         status: Status.ACTIVE,
         role: Role.TENANT,
         email_verified: false, // Email no verificado por defecto
@@ -288,7 +298,7 @@ export class AuthService {
       return {
         user: {
           id: dbUser.id,
-          email: dbUser.email!,
+          email: dbUser.email,
           firstName: signUpDto.firstName,
           lastName: signUpDto.lastName,
           role: dbUser.role,
@@ -296,13 +306,18 @@ export class AuthService {
           emailVerified: false,
         },
         requiresEmailConfirmation: true,
-        message: 'Usuario creado. Por favor, verifica tu correo electrónico para activar tu cuenta.',
+        message:
+          'Usuario creado. Por favor, verifica tu correo electrónico para activar tu cuenta.',
       };
     } catch (error) {
-      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof UnauthorizedException
+      ) {
         throw error;
       }
-      const errorMessage = error instanceof Error ? error.message : 'Error interno del servidor';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Error interno del servidor';
       this.logger.error('Error en signup:', errorMessage);
       throw new BadRequestException(errorMessage);
     }
@@ -352,7 +367,7 @@ export class AuthService {
         return {
           user: {
             id: dbUser.id,
-            email: dbUser.email!,
+            email: dbUser.email,
             firstName: dbUser.name?.split(' ')[0],
             lastName: dbUser.name?.split(' ').slice(1).join(' '),
             role: dbUser.role,
@@ -361,7 +376,8 @@ export class AuthService {
             emailVerified: false,
           },
           requiresEmailConfirmation: true,
-          message: 'Por favor, verifica tu correo electrónico para completar el registro.',
+          message:
+            'Por favor, verifica tu correo electrónico para completar el registro.',
         };
       }
 
@@ -375,16 +391,12 @@ export class AuthService {
           email_verified: true,
           email_verified_at: new Date(),
         });
-        this.logger.log(
-          `Email sincronizado exitosamente para: ${email}`,
-        );
+        this.logger.log(`Email sincronizado exitosamente para: ${email}`);
       }
 
       // 5. Verificar si el email está verificado
       if (!dbUser.email_verified) {
-        this.logger.log(
-          `Intento de signin sin email verificado: ${email}`,
-        );
+        this.logger.log(`Intento de signin sin email verificado: ${email}`);
         throw new BadRequestException(
           'Por favor, verifica tu correo electrónico antes de continuar.',
         );
@@ -392,7 +404,8 @@ export class AuthService {
 
       // 6. Generar JWTs propios
       const accessToken = await this.jwtAuthService.generateAccessToken(dbUser);
-      const refreshToken = await this.jwtAuthService.generateRefreshToken(dbUser);
+      const refreshToken =
+        await this.jwtAuthService.generateRefreshToken(dbUser);
 
       // 7. Establecer cookie de access token
       res.cookie('access_token', accessToken, {
@@ -404,14 +417,15 @@ export class AuthService {
       });
 
       // 8. Extraer números de casa si existen
-      const houseNumbers = dbUser.houses?.map((house) => house.number_house) || [];
+      const houseNumbers =
+        dbUser.houses?.map((house) => house.number_house) || [];
 
       return {
-        accessToken,  // Para usar en Authorization header (si cookies fallan)
+        accessToken, // Para usar en Authorization header (si cookies fallan)
         refreshToken,
         user: {
           id: dbUser.id,
-          email: dbUser.email!,
+          email: dbUser.email,
           firstName: dbUser.name?.split(' ')[0],
           lastName: dbUser.name?.split(' ').slice(1).join(' '),
           role: dbUser.role,
@@ -424,7 +438,8 @@ export class AuthService {
       if (error instanceof UnauthorizedException) {
         throw error;
       }
-      const errorMessage = error instanceof Error ? error.message : 'Error interno del servidor';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Error interno del servidor';
       this.logger.error('Error en signin:', errorMessage);
       throw new BadRequestException(errorMessage);
     }
@@ -452,9 +467,18 @@ export class AuthService {
       const firebaseUser = await auth.getUser(decodedToken.uid);
 
       // Buscar en PostgreSQL (con reintentos) - cargar también las casas
-      let dbUser = await this.userRepository.findByEmailWithHouses(firebaseUser.email!);
+      let dbUser = await this.userRepository.findByEmailWithHouses(
+        firebaseUser.email!,
+      );
 
       if (!dbUser) {
+        // Guardar número de casa en custom claims si fue proporcionado
+        if (callbackDto.houseNumber) {
+          await auth.setCustomUserClaims(firebaseUser.uid, {
+            claimedHouseNumber: callbackDto.houseNumber,
+          });
+        }
+
         // Crear nuevo usuario si no existe (auto-registro OAuth, con reintentos)
         // OAuth ya ha verificado el email, así que marcamos como verificado
         dbUser = await this.userRepository.create({
@@ -465,8 +489,16 @@ export class AuthService {
           role: Role.TENANT,
           email_verified: true, // OAuth ya verificó el email
           email_verified_at: new Date(),
+          observations: callbackDto.houseNumber
+            ? `Casa reclamada durante registro: ${callbackDto.houseNumber}`
+            : undefined,
         });
-        this.logger.log(`Nuevo usuario creado desde OAuth: ${firebaseUser.email}`);
+        this.logger.log(
+          `Nuevo usuario creado desde OAuth: ${firebaseUser.email}` +
+            (callbackDto.houseNumber
+              ? ` (casa: ${callbackDto.houseNumber})`
+              : ''),
+        );
       } else {
         // Actualizar last_login y marcar email como verificado (con reintentos)
         await this.userRepository.update(dbUser.id, {
@@ -477,12 +509,18 @@ export class AuthService {
           }),
         });
         // Recargar usuario con las casas después de actualizar
-        dbUser = await this.userRepository.findByEmailWithHouses(firebaseUser.email!);
+        dbUser = await this.userRepository.findByEmailWithHouses(
+          firebaseUser.email!,
+        );
       }
 
       // Generar JWTs propios
-      const jwtAccessToken = await this.jwtAuthService.generateAccessToken(dbUser!);
-      const refreshToken = await this.jwtAuthService.generateRefreshToken(dbUser!);
+      const jwtAccessToken = await this.jwtAuthService.generateAccessToken(
+        dbUser!,
+      );
+      const refreshToken = await this.jwtAuthService.generateRefreshToken(
+        dbUser!,
+      );
 
       // Establecer cookie de access token
       res.cookie('access_token', jwtAccessToken, {
@@ -494,14 +532,15 @@ export class AuthService {
       });
 
       // Extraer números de casa
-      const houseNumbers = dbUser!.houses?.map((house) => house.number_house) || [];
+      const houseNumbers =
+        dbUser!.houses?.map((house) => house.number_house) || [];
 
       return {
         accessToken: jwtAccessToken,
         refreshToken,
         user: {
           id: dbUser!.id,
-          email: dbUser!.email!,
+          email: dbUser!.email,
           firstName: dbUser!.name?.split(' ')[0],
           lastName: dbUser!.name?.split(' ').slice(1).join(' '),
           role: dbUser!.role,
@@ -531,9 +570,8 @@ export class AuthService {
     this.ensureEnabled();
     try {
       // Verify refresh token
-      const payload = await this.jwtAuthService.verifyRefreshToken(
-        refreshTokenValue,
-      );
+      const payload =
+        await this.jwtAuthService.verifyRefreshToken(refreshTokenValue);
 
       // Get user from database (con reintentos)
       const dbUser = await this.userRepository.findById(payload.sub);
@@ -543,9 +581,8 @@ export class AuthService {
       }
 
       // Generate new access token
-      const newAccessToken = await this.jwtAuthService.generateAccessToken(
-        dbUser,
-      );
+      const newAccessToken =
+        await this.jwtAuthService.generateAccessToken(dbUser);
 
       // Set new access token in httpOnly cookie
       res.cookie('access_token', newAccessToken, {
@@ -564,19 +601,17 @@ export class AuthService {
 
       // Distinguir si el token está expirado
       if (error instanceof Error && error.message.includes('jwt expired')) {
-        throw new UnauthorizedException(
-          SessionMessages.REFRESH_TOKEN_EXPIRED,
-        );
+        throw new UnauthorizedException(SessionMessages.REFRESH_TOKEN_EXPIRED);
       }
 
       if (error instanceof Error && error.message.includes('jwt malformed')) {
-        throw new UnauthorizedException(
-          SessionMessages.INVALID_TOKEN,
-        );
+        throw new UnauthorizedException(SessionMessages.INVALID_TOKEN);
       }
 
       const errorMessage =
-        error instanceof Error ? error.message : SessionMessages.REFRESH_TOKEN_FAILED;
+        error instanceof Error
+          ? error.message
+          : SessionMessages.REFRESH_TOKEN_FAILED;
       throw new BadRequestException(errorMessage);
     }
   }
@@ -616,8 +651,10 @@ export class AuthService {
       this.logger.log(`Email verificado para usuario: ${updatedUser.email}`);
 
       // 4. Generar JWTs propios
-      const accessToken = await this.jwtAuthService.generateAccessToken(updatedUser);
-      const refreshToken = await this.jwtAuthService.generateRefreshToken(updatedUser);
+      const accessToken =
+        await this.jwtAuthService.generateAccessToken(updatedUser);
+      const refreshToken =
+        await this.jwtAuthService.generateRefreshToken(updatedUser);
 
       // 5. Establecer cookie de access token
       res.cookie('access_token', accessToken, {
@@ -629,13 +666,14 @@ export class AuthService {
       });
 
       // 6. Extraer números de casa si existen (usar dbUser que tiene relaciones)
-      const houseNumbers = dbUser.houses?.map((house) => house.number_house) || [];
+      const houseNumbers =
+        dbUser.houses?.map((house) => house.number_house) || [];
 
       return {
         refreshToken,
         user: {
           id: updatedUser.id,
-          email: updatedUser.email!,
+          email: updatedUser.email,
           firstName: updatedUser.name?.split(' ')[0],
           lastName: updatedUser.name?.split(' ').slice(1).join(' '),
           role: updatedUser.role,
@@ -646,7 +684,10 @@ export class AuthService {
         message: 'Email verificado exitosamente. Bienvenido!',
       };
     } catch (error) {
-      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof UnauthorizedException
+      ) {
         throw error;
       }
       const errorMessage =
@@ -661,6 +702,49 @@ export class AuthService {
    * Nota: El cliente (Firebase) maneja el envío automático del email
    * Este endpoint es solo para validación/confirmación
    */
+  /**
+   * Registra la solicitud de recuperación de contraseña.
+   * El email de recuperación es enviado por el Firebase Client SDK en el frontend.
+   * Este endpoint solo sirve como auditoría/anti-enumeración.
+   */
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    this.ensureEnabled();
+    // Buscar usuario para loguear la solicitud (respuesta siempre es la misma — anti-enumeración)
+    const dbUser = await this.userRepository.findByEmail(email);
+
+    if (dbUser) {
+      this.logger.log(`Solicitud de recuperación de contraseña para: ${email}`);
+    } else {
+      this.logger.log(
+        `Solicitud de recuperación para email no registrado: ${email}`,
+      );
+    }
+
+    return { message: PasswordResetMessages.RESET_EMAIL_SENT };
+  }
+
+  /**
+   * Actualiza la contraseña del usuario en Firebase vía Admin SDK.
+   * El Firebase Client SDK del frontend ya cambió la contraseña; esto sincroniza el cambio.
+   */
+  async changePassword(
+    uid: string,
+    newPassword: string,
+  ): Promise<{ message: string }> {
+    this.ensureEnabled();
+    try {
+      const auth = this.firebaseConfig.getAuth();
+      await auth.updateUser(uid, { password: newPassword });
+      this.logger.log(`Contraseña actualizada para uid: ${uid}`);
+      return { message: PasswordResetMessages.PASSWORD_CHANGED };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : PasswordResetMessages.CHANGE_FAILED;
+      this.logger.error(`Error al cambiar contraseña para uid ${uid}:`, errorMessage);
+      throw new BadRequestException(PasswordResetMessages.CHANGE_FAILED);
+    }
+  }
+
   async resendVerificationEmail(email: string): Promise<{ message: string }> {
     this.ensureEnabled();
     try {
@@ -683,17 +767,19 @@ export class AuthService {
       this.logger.log(`Reenvío de verificación solicitado para: ${email}`);
 
       return {
-        message: 'Se ha enviado un nuevo email de verificación. Por favor, revisa tu bandeja de entrada.',
+        message:
+          'Se ha enviado un nuevo email de verificación. Por favor, revisa tu bandeja de entrada.',
       };
     } catch (error) {
       if (error instanceof BadRequestException) {
         throw error;
       }
       const errorMessage =
-        error instanceof Error ? error.message : 'Error reenviando email de verificación';
+        error instanceof Error
+          ? error.message
+          : 'Error reenviando email de verificación';
       this.logger.error('Error in resend verification email:', errorMessage);
       throw new BadRequestException(errorMessage);
     }
   }
-
 }

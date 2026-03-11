@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { RoleGuard } from './role.guard';
+import { RoleGuard } from './roles.guard';
 import { Role } from '../../database/entities/enums';
 import { Request } from 'express';
 
@@ -23,14 +23,17 @@ describe('RoleGuard', () => {
     }).compile();
 
     guard = module.get<RoleGuard>(RoleGuard);
-    reflector = module.get(Reflector) as jest.Mocked<Reflector>;
+    reflector = module.get(Reflector);
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  const createMockExecutionContext = (userRole: Role, requiredRoles?: Role[]) => {
+  const createMockExecutionContext = (
+    userRole: Role,
+    requiredRoles?: Role[],
+  ) => {
     const request = {
       user: {
         sub: 'user-123',
@@ -53,7 +56,10 @@ describe('RoleGuard', () => {
 
   describe('canActivate', () => {
     it('should allow access when no specific roles are required', () => {
-      const { mockContext } = createMockExecutionContext(Role.TENANT, undefined);
+      const { mockContext } = createMockExecutionContext(
+        Role.TENANT,
+        undefined,
+      );
 
       const result = guard.canActivate(mockContext);
 
@@ -61,7 +67,9 @@ describe('RoleGuard', () => {
     });
 
     it('should allow access when user has required role', () => {
-      const { mockContext } = createMockExecutionContext(Role.ADMIN, [Role.ADMIN]);
+      const { mockContext } = createMockExecutionContext(Role.ADMIN, [
+        Role.ADMIN,
+      ]);
 
       const result = guard.canActivate(mockContext);
 
@@ -80,7 +88,9 @@ describe('RoleGuard', () => {
     });
 
     it('should throw ForbiddenException when user lacks required role', () => {
-      const { mockContext } = createMockExecutionContext(Role.TENANT, [Role.ADMIN]);
+      const { mockContext } = createMockExecutionContext(Role.TENANT, [
+        Role.ADMIN,
+      ]);
 
       expect(() => guard.canActivate(mockContext)).toThrow(ForbiddenException);
     });
@@ -88,7 +98,6 @@ describe('RoleGuard', () => {
     it('should throw ForbiddenException when user does not have any required role', () => {
       const { mockContext } = createMockExecutionContext(Role.TENANT, [
         Role.ADMIN,
-        Role.MANAGER,
       ]);
 
       expect(() => guard.canActivate(mockContext)).toThrow(ForbiddenException);

@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Patch,
   Body,
   Get,
   UseGuards,
@@ -16,6 +17,8 @@ import {
   RefreshTokenDto,
   OAuthCallbackDto,
   AuthResponseDto,
+  ForgotPasswordDto,
+  ChangePasswordDto,
 } from './dto/auth.dto';
 import { AuthGuard } from './guards/auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
@@ -60,9 +63,7 @@ export class AuthController {
   @Post('signout')
   @UseGuards(AuthGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
-  async signOut(
-    @Res({ passthrough: true }) res: Response,
-  ): Promise<void> {
+  async signOut(@Res({ passthrough: true }) res: Response): Promise<void> {
     res.clearCookie('access_token');
     return Promise.resolve();
   }
@@ -86,7 +87,10 @@ export class AuthController {
     @Body() verifyEmailDto: { firebaseUid: string },
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthResponseDto> {
-    return this.authService.verifyEmailAndGenerateTokens(verifyEmailDto.firebaseUid, res);
+    return this.authService.verifyEmailAndGenerateTokens(
+      verifyEmailDto.firebaseUid,
+      res,
+    );
   }
 
   @Post('resend-verification-email')
@@ -95,5 +99,23 @@ export class AuthController {
     @Body() resendDto: { email: string },
   ): Promise<{ message: string }> {
     return this.authService.resendVerificationEmail(resendDto.email);
+  }
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  async forgotPassword(
+    @Body() dto: ForgotPasswordDto,
+  ): Promise<{ message: string }> {
+    return this.authService.forgotPassword(dto.email);
+  }
+
+  @Patch('password')
+  @UseGuards(AuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async changePassword(
+    @Body() dto: ChangePasswordDto,
+    @CurrentUser() user: DbUser,
+  ): Promise<{ message: string }> {
+    return this.authService.changePassword(user.id, dto.newPassword);
   }
 }

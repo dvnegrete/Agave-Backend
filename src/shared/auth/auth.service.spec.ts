@@ -1,6 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from './auth.service';
-import { BadRequestException, UnauthorizedException, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  UnauthorizedException,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { UserRepository } from '../database/repositories/user.repository';
 import { JwtAuthService } from './services/jwt-auth.service';
@@ -80,6 +84,7 @@ describe('AuthService (Firebase)', () => {
             get: jest.fn((key: string) => {
               const config: Record<string, any> = {
                 NODE_ENV: 'test',
+                FRONTEND_URL: 'http://localhost:3000',
               };
               return config[key];
             }),
@@ -97,10 +102,10 @@ describe('AuthService (Firebase)', () => {
     }).compile();
 
     service = module.get<AuthService>(AuthService);
-    userRepository = module.get(UserRepository) as jest.Mocked<UserRepository>;
-    jwtAuthService = module.get(JwtAuthService) as jest.Mocked<JwtAuthService>;
-    firebaseConfig = module.get(FirebaseAuthConfig) as jest.Mocked<FirebaseAuthConfig>;
-    configService = module.get(ConfigService) as jest.Mocked<ConfigService>;
+    userRepository = module.get(UserRepository);
+    jwtAuthService = module.get(JwtAuthService);
+    firebaseConfig = module.get(FirebaseAuthConfig);
+    configService = module.get(ConfigService);
   });
 
   afterEach(() => {
@@ -114,7 +119,9 @@ describe('AuthService (Firebase)', () => {
   describe('signUp', () => {
     it('should create a new user successfully', async () => {
       const mockAuth = {
-        verifyIdToken: jest.fn().mockResolvedValue({ uid: mockFirebaseUser.uid }),
+        verifyIdToken: jest
+          .fn()
+          .mockResolvedValue({ uid: mockFirebaseUser.uid }),
         getUser: jest.fn().mockResolvedValue(mockFirebaseUser),
         updateUser: jest.fn(),
         setCustomUserClaims: jest.fn(),
@@ -131,7 +138,7 @@ describe('AuthService (Firebase)', () => {
         idToken: 'valid-id-token',
         firstName: 'John',
         lastName: 'Doe',
-        houseNumber: '5',
+        houseNumber: 5,
       });
 
       expect(result).toMatchObject({
@@ -159,7 +166,9 @@ describe('AuthService (Firebase)', () => {
 
     it('should throw error if email already registered', async () => {
       const mockAuth = {
-        verifyIdToken: jest.fn().mockResolvedValue({ uid: mockFirebaseUser.uid }),
+        verifyIdToken: jest
+          .fn()
+          .mockResolvedValue({ uid: mockFirebaseUser.uid }),
         getUser: jest.fn().mockResolvedValue(mockFirebaseUser),
       };
 
@@ -199,13 +208,17 @@ describe('AuthService (Firebase)', () => {
       const verifiedUser = { ...mockDbUser, email_verified: true };
 
       const mockAuth = {
-        verifyIdToken: jest.fn().mockResolvedValue({ uid: mockFirebaseUser.uid }),
+        verifyIdToken: jest
+          .fn()
+          .mockResolvedValue({ uid: mockFirebaseUser.uid }),
         getUser: jest.fn().mockResolvedValue(mockFirebaseUser),
       };
 
       firebaseConfig.isEnabled.mockReturnValue(true);
       firebaseConfig.getAuth.mockReturnValue(mockAuth as any);
-      userRepository.findByEmailWithHouses.mockResolvedValue(verifiedUser as any);
+      userRepository.findByEmailWithHouses.mockResolvedValue(
+        verifiedUser as any,
+      );
       jwtAuthService.generateAccessToken.mockResolvedValue('access-token');
       jwtAuthService.generateRefreshToken.mockResolvedValue('refresh-token');
 
@@ -236,16 +249,24 @@ describe('AuthService (Firebase)', () => {
     it('should sync email verification from Firebase to PostgreSQL', async () => {
       const firebaseVerifiedUser = { ...mockFirebaseUser, emailVerified: true };
       const unverifiedDbUser = { ...mockDbUser, email_verified: false };
-      const syncedDbUser = { ...mockDbUser, email_verified: true, email_verified_at: new Date() };
+      const syncedDbUser = {
+        ...mockDbUser,
+        email_verified: true,
+        email_verified_at: new Date(),
+      };
 
       const mockAuth = {
-        verifyIdToken: jest.fn().mockResolvedValue({ uid: mockFirebaseUser.uid }),
+        verifyIdToken: jest
+          .fn()
+          .mockResolvedValue({ uid: mockFirebaseUser.uid }),
         getUser: jest.fn().mockResolvedValue(firebaseVerifiedUser),
       };
 
       firebaseConfig.isEnabled.mockReturnValue(true);
       firebaseConfig.getAuth.mockReturnValue(mockAuth as any);
-      userRepository.findByEmailWithHouses.mockResolvedValue(unverifiedDbUser as any);
+      userRepository.findByEmailWithHouses.mockResolvedValue(
+        unverifiedDbUser as any,
+      );
       userRepository.update.mockResolvedValue(syncedDbUser as any);
       jwtAuthService.generateAccessToken.mockResolvedValue('access-token');
       jwtAuthService.generateRefreshToken.mockResolvedValue('refresh-token');
@@ -266,7 +287,9 @@ describe('AuthService (Firebase)', () => {
 
     it('should throw error if email not verified', async () => {
       const mockAuth = {
-        verifyIdToken: jest.fn().mockResolvedValue({ uid: mockFirebaseUser.uid }),
+        verifyIdToken: jest
+          .fn()
+          .mockResolvedValue({ uid: mockFirebaseUser.uid }),
         getUser: jest.fn().mockResolvedValue(mockFirebaseUser),
       };
 
@@ -284,7 +307,9 @@ describe('AuthService (Firebase)', () => {
       const newDbUser = { ...mockDbUser, email_verified: true };
 
       const mockAuth = {
-        verifyIdToken: jest.fn().mockResolvedValue({ uid: mockFirebaseUser.uid }),
+        verifyIdToken: jest
+          .fn()
+          .mockResolvedValue({ uid: mockFirebaseUser.uid }),
         getUser: jest.fn().mockResolvedValue(verifiedFirebaseUser),
       };
 
@@ -389,7 +414,10 @@ describe('AuthService (Firebase)', () => {
       userRepository.findById.mockResolvedValue(mockDbUser as any);
       jwtAuthService.generateAccessToken.mockResolvedValue('new-access-token');
 
-      const result = await service.refreshTokens('valid-refresh-token', mockResponse as Response);
+      const result = await service.refreshTokens(
+        'valid-refresh-token',
+        mockResponse as Response,
+      );
 
       expect(result.success).toBe(true);
       expect(mockResponse.cookie).toHaveBeenCalledWith(
@@ -401,10 +429,15 @@ describe('AuthService (Firebase)', () => {
 
     it('should throw error when refresh token is invalid', async () => {
       firebaseConfig.isEnabled.mockReturnValue(true);
-      jwtAuthService.verifyRefreshToken.mockRejectedValue(new Error('Invalid token'));
+      jwtAuthService.verifyRefreshToken.mockRejectedValue(
+        new Error('Invalid token'),
+      );
 
       await expect(
-        service.refreshTokens('invalid-refresh-token', mockResponse as Response),
+        service.refreshTokens(
+          'invalid-refresh-token',
+          mockResponse as Response,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
   });

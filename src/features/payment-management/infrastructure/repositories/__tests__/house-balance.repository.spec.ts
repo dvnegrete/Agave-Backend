@@ -44,7 +44,9 @@ describe('HouseBalanceRepository', () => {
 
   describe('findByHouseId', () => {
     it('should find balance for a house', async () => {
-      jest.spyOn(typeormRepository, 'findOne').mockResolvedValue(mockHouseBalance);
+      jest
+        .spyOn(typeormRepository, 'findOne')
+        .mockResolvedValue(mockHouseBalance);
 
       const result = await repository.findByHouseId(42);
 
@@ -83,7 +85,9 @@ describe('HouseBalanceRepository', () => {
 
   describe('getOrCreate', () => {
     it('should return existing balance', async () => {
-      jest.spyOn(typeormRepository, 'findOne').mockResolvedValue(mockHouseBalance);
+      jest
+        .spyOn(typeormRepository, 'findOne')
+        .mockResolvedValue(mockHouseBalance);
 
       const result = await repository.getOrCreate(42);
 
@@ -153,9 +157,13 @@ describe('HouseBalanceRepository', () => {
       const balanceWithCents = { ...mockHouseBalance, accumulated_cents: 0.8 };
       const updatedBalance = { ...balanceWithCents, accumulated_cents: 0.05 };
 
-      jest.spyOn(typeormRepository, 'findOne').mockResolvedValue(balanceWithCents);
+      jest
+        .spyOn(typeormRepository, 'findOne')
+        .mockResolvedValue(balanceWithCents);
       jest.spyOn(typeormRepository, 'update').mockResolvedValue({} as any);
-      jest.spyOn(typeormRepository, 'findOne').mockResolvedValueOnce(updatedBalance);
+      jest
+        .spyOn(typeormRepository, 'findOne')
+        .mockResolvedValueOnce(updatedBalance);
 
       await repository.addAccumulatedCents(42, 0.25);
 

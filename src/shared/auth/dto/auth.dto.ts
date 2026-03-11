@@ -5,6 +5,7 @@ import {
   IsInt,
   Min,
   Max,
+  MinLength,
 } from 'class-validator';
 import {
   MAX_HOUSE_NUMBER,
@@ -48,6 +49,16 @@ export class RefreshTokenDto {
 export class OAuthCallbackDto {
   @IsString({ message: AuthValidationMessages.ACCESS_TOKEN_INVALID })
   idToken: string;
+
+  @IsInt({ message: AuthValidationMessages.HOUSE_NUMBER_REQUIRED_FORMAT })
+  @Min(MIN_HOUSE_NUMBER, {
+    message: AuthValidationMessages.HOUSE_NUMBER_MIN(MIN_HOUSE_NUMBER),
+  })
+  @Max(MAX_HOUSE_NUMBER, {
+    message: AuthValidationMessages.HOUSE_NUMBER_MAX(MAX_HOUSE_NUMBER),
+  })
+  @IsOptional()
+  houseNumber?: number;
 }
 
 export class VerifyEmailDto {
@@ -58,6 +69,17 @@ export class VerifyEmailDto {
 export class ResendVerificationEmailDto {
   @IsEmail({}, { message: 'Email must be a valid email address' })
   email: string;
+}
+
+export class ForgotPasswordDto {
+  @IsEmail({}, { message: AuthValidationMessages.EMAIL_INVALID })
+  email: string;
+}
+
+export class ChangePasswordDto {
+  @IsString({ message: AuthValidationMessages.PASSWORD_REQUIRED })
+  @MinLength(6, { message: AuthValidationMessages.PASSWORD_TOO_SHORT })
+  newPassword: string;
 }
 
 export class AuthResponseDto {

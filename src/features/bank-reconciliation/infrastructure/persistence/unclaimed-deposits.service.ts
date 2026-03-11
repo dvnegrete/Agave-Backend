@@ -21,8 +21,6 @@ import {
 } from '@/shared/config/business-rules.config';
 import { UnclaimedDepositsPageDto, AssignHouseResponseDto } from '../../dto';
 import { AllocatePaymentUseCase } from '@/features/payment-management/application';
-import { PeriodRepository } from '@/features/payment-management/infrastructure/repositories/period.repository';
-import { EnsurePeriodExistsUseCase } from '@/features/payment-management/application';
 
 /**
  * Servicio para manejar depósitos no reclamados (estados: conflict, not-found)
@@ -39,8 +37,6 @@ export class UnclaimedDepositsService {
     private readonly houseRecordRepository: HouseRecordRepository,
     private readonly transactionBankRepository: TransactionBankRepository,
     private readonly allocatePaymentUseCase: AllocatePaymentUseCase,
-    private readonly periodRepository: PeriodRepository,
-    private readonly ensurePeriodExistsUseCase: EnsurePeriodExistsUseCase,
   ) {}
 
   /**
@@ -75,6 +71,7 @@ export class UnclaimedDepositsService {
       .createQueryBuilder('tb')
       .leftJoin(TransactionStatus, 'ts', 'ts.transactions_bank_id = tb.id')
       .where('tb.is_deposit = :isDeposit', { isDeposit: true })
+      .andWhere('tb.confirmation_status = :notConfirmed', { notConfirmed: false })
       .distinctOn(['tb.id'])
       .select([
         'tb.id',
@@ -115,7 +112,7 @@ export class UnclaimedDepositsService {
     if (houseNumber !== undefined) {
       // Filtrar por casa sugerida (centavos)
       query = query.andWhere(
-        'CAST(FLOOR((tb.amount % 1) * 100) AS INT) = :houseNumber',
+        'CAST(FLOOR((tb.amount::numeric % 1) * 100) AS INT) = :houseNumber',
         { houseNumber },
       );
     }
@@ -126,7 +123,8 @@ export class UnclaimedDepositsService {
       .getRepository(TransactionBank)
       .createQueryBuilder('tb')
       .leftJoin(TransactionStatus, 'ts', 'ts.transactions_bank_id = tb.id')
-      .where('tb.is_deposit = :isDeposit', { isDeposit: true });
+      .where('tb.is_deposit = :isDeposit', { isDeposit: true })
+      .andWhere('tb.confirmation_status = :notConfirmed', { notConfirmed: false });
 
     // Aplicar los mismos filtros al query de conteo
     if (validationStatus && validationStatus !== 'all') {
@@ -151,7 +149,7 @@ export class UnclaimedDepositsService {
 
     if (houseNumber !== undefined) {
       countQuery.andWhere(
-        'CAST(FLOOR((tb.amount % 1) * 100) AS INT) = :houseNumber',
+        'CAST(FLOOR((tb.amount::numeric % 1) * 100) AS INT) = :houseNumber',
         { houseNumber },
       );
     }
@@ -328,17 +326,17 @@ export class UnclaimedDepositsService {
         `Depósito asignado: Transaction ${transactionId} → Casa ${houseNumber} por usuario ${userId}`,
       );
 
-      // 9. FUERA DE TRANSACCIÓN: Asignar pago a conceptos
+      // 9. FUERA DE TRANSACCIÓN: Asignar pago a conceptos (FIFO automático)
       let paymentAllocation: any = undefined;
 
       try {
-        const period = await this.getOrCreateCurrentPeriod();
-
         const allocationResult = await this.allocatePaymentUseCase.execute({
           record_id: recordId,
           house_id: house.id,
           amount_to_distribute: transaction.amount,
-          period_id: period.id,
+          transaction_date: transaction.date
+            ? new Date(transaction.date)
+            : undefined,
         });
 
         paymentAllocation = {
@@ -380,27 +378,6 @@ export class UnclaimedDepositsService {
   }
 
   /**
-   * Obtiene o crea el período actual
-   * @private
-   */
-  private async getOrCreateCurrentPeriod() {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth() + 1;
-
-    const existingPeriod = await this.periodRepository.findByYearAndMonth(
-      year,
-      month,
-    );
-
-    if (existingPeriod) {
-      return existingPeriod;
-    }
-
-    return await this.ensurePeriodExistsUseCase.execute(year, month);
-  }
-
-  /**
    * Mapea resultado raw de query a DTO
    * @private
    */
@@ -409,7 +386,7 @@ export class UnclaimedDepositsService {
     const suggestedHouseNumber = Math.floor((item.tb_amount % 1) * 100) || null;
 
     // Extraer casa sugerida de concepto (si existe en metadata)
-    const metadata = (item.ts_metadata as any) || {};
+    const metadata = item.ts_metadata || {};
     const conceptHouseNumber = metadata.conceptHouseNumber || null;
 
     return {

@@ -16,7 +16,7 @@ export class OcrService {
     private readonly cloudStorageService: CloudStorageService,
     private readonly openAIService: OpenAIService,
     private readonly vertexAIService: VertexAIService,
-  ) { }
+  ) {}
 
   private formatTimestamp(date: Date): string {
     const pad = (num: number) => num.toString().padStart(2, '0');
@@ -179,7 +179,8 @@ export class OcrService {
       }
 
       // let structuredData = await this.openAIService.processTextWithPrompt(allText);
-      let structuredData = await this.vertexAIService.processTextWithPrompt(allText);
+      let structuredData =
+        await this.vertexAIService.processTextWithPrompt(allText);
 
       // Normalizar los datos para garantizar tipos correctos
       // Especialmente importante porque JSON.parse() convierte números
