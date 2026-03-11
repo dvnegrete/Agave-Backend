@@ -22,6 +22,11 @@ export class PeriodChargeAmountsDto {
   @IsNumber()
   @Min(0)
   extraordinary_fee_amount?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  penalty_amount?: number;
 }
 
 export class BatchUpdatePeriodChargesDto {

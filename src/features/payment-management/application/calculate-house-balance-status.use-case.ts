@@ -303,12 +303,18 @@ export class CalculateHouseBalanceStatusUseCase {
       paidTotal += allocation.allocated_amount;
     }
 
-    const pendingTotal = Math.max(0, expectedTotal - paidTotal);
+    let pendingTotal = Math.max(0, expectedTotal - paidTotal);
 
     // Determinar si está vencido (con cobertura bancaria)
     const now = new Date();
     const dueDay = config?.payment_due_day ?? 15;
     const periodDueDate = new Date(period.year, period.month - 1, dueDay);
+
+    // Pendiente excluyendo penalidades (para disparar la penalidad solo cuando hay
+    // deuda de conceptos principales, no cuando solo queda el pago de la penalidad)
+    const nonPenaltyPendingTotal = concepts
+      .filter((c) => c.concept_type !== AllocationConceptType.PENALTIES)
+      .reduce((sum, c) => sum + c.pending_amount, 0);
 
     let isOverdue = false;
     if (now > periodDueDate && pendingTotal > 0) {
@@ -324,9 +330,55 @@ export class CalculateHouseBalanceStatusUseCase {
       }
     }
 
-    // Generar penalidad si periodo vencido e impago (solo para periodos pasados)
-    let penaltyAmount = 0;
-    if (isOverdue && generatePenalties) {
+    // Leer penalidad desde house_period_charges (fuente de verdad).
+    // Si el período está vencido y aún no tiene cargo de penalidad, crearlo on-demand.
+    const existingPenaltyConcept = concepts.find(
+      (c) => c.concept_type === AllocationConceptType.PENALTIES,
+    );
+    let penaltyAmount = existingPenaltyConcept?.expected_amount ?? 0;
+
+    if (
+      charges.length > 0 &&
+      isOverdue &&
+      generatePenalties &&
+      penaltyAmount === 0 &&
+      nonPenaltyPendingTotal > 0
+    ) {
+      // Período moderno (tiene house_period_charges) y vencido sin penalidad aún.
+      // Crear on-demand para que el balance sea correcto inmediatamente.
+      const penaltyAmt =
+        config?.late_payment_penalty_amount ??
+        BusinessValues.payments.defaultLatePenaltyAmount;
+      try {
+        await this.housePeriodChargeRepository.create({
+          house_id: houseId,
+          period_id: period.id,
+          concept_type: AllocationConceptType.PENALTIES,
+          expected_amount: penaltyAmt,
+          source: 'auto_penalty',
+        });
+        concepts.push({
+          concept_type: AllocationConceptType.PENALTIES,
+          expected_amount: penaltyAmt,
+          paid_amount: 0,
+          pending_amount: penaltyAmt,
+        });
+        expectedTotal += penaltyAmt;
+        pendingTotal = Math.max(0, expectedTotal - paidTotal);
+        penaltyAmount = penaltyAmt;
+      } catch {
+        // Race condition: la penalidad fue creada por otra solicitud concurrente
+        this.logger.warn(
+          `Race condition creating penalty for house ${houseId} period ${period.id}`,
+        );
+      }
+    } else if (
+      charges.length === 0 &&
+      isOverdue &&
+      generatePenalties
+    ) {
+      // Período legacy sin house_period_charges: usar generatePenaltyUseCase
+      // para mantener compatibilidad con datos anteriores al sistema de cargos.
       const penalty = await this.generatePenaltyUseCase.execute(
         houseId,
         period.id,
@@ -334,9 +386,7 @@ export class CalculateHouseBalanceStatusUseCase {
       );
       penaltyAmount =
         penalty?.amount ?? config?.late_payment_penalty_amount ?? 0;
-      // Si ya existía una penalidad, obtener su monto
       if (!penalty) {
-        // Penalty ya existe, check its amount (from the penalty_amount of config)
         penaltyAmount = config?.late_payment_penalty_amount ?? 0;
       }
     }

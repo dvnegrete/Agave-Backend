@@ -74,4 +74,15 @@ export interface IHousePeriodChargeRepository {
     periodIds: number[],
     conceptType: AllocationConceptType,
   ): Promise<number>;
+
+  /**
+   * Actualiza el expected_amount de cargos EXISTENTES para un concepto y períodos dados.
+   * Solo actualiza filas que ya existen (no crea nuevas para casas sin ese cargo).
+   */
+  updateExistingChargesByPeriodsAndConcept(
+    periodIds: number[],
+    conceptType: AllocationConceptType,
+    newAmount: number,
+    source: string,
+  ): Promise<number>;
 }
