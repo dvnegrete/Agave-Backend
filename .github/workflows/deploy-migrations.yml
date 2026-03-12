@@ -23,7 +23,7 @@ jobs:
 
       - name: Wake up database (Railway serverless)
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_URL: ${{ github.ref_name == 'main' && secrets.DATABASE_URL || secrets.DATABASE_URL_STAGING }}
         run: |
           echo "Waiting for database to become available..."
           for i in {1..6}; do
@@ -37,10 +37,10 @@ jobs:
             " && break
             echo "Attempt $i/6 failed. Retrying in 10s..."
             sleep 10
-          done
+          done || exit 1
 
-      - name: Run migrations against production
+      - name: Run migrations
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_URL: ${{ github.ref_name == 'main' && secrets.DATABASE_URL || secrets.DATABASE_URL_STAGING }}
           NODE_ENV: production
         run: npm run db:deploy
