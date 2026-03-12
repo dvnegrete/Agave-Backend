@@ -133,99 +133,111 @@ export class SeedHousePeriodChargesService {
   }
 
   /**
-   * Revisa todos los períodos anteriores al período nuevo y aplica una penalidad
-   * (en house_period_charges) a las casas que tengan deuda vencida sin penalidad previa.
+   * Aplica penalidad al mes calendario inmediatamente anterior al período nuevo,
+   * pero SOLO si ese mes existe en la BD.
    *
-   * Regla: la penalidad se registra UNA sola vez en el período vencido.
-   * No se acumula aunque pasen más meses sin pago.
+   * Regla semántica: la penalidad de un mes se dispara cuando llega el mes siguiente.
+   * Si el mes anterior no existe (ej: se creó un período adelantado saltando meses),
+   * no se aplica ninguna penalidad — el mes anterior no ha "llegado" al sistema todavía.
+   *
+   * Ejemplos:
+   *   Crear abril  → revisa marzo  (si existe y está vencido → penaliza marzo)
+   *   Crear octubre → revisa septiembre (si no existe → no hace nada)
+   *
+   * Beneficio adicional: O(66) consultas en lugar de O(N_períodos × 66).
    */
   private async applyPenaltiesToOverduePreviousPeriods(
     houses: House[],
     newPeriodId: number,
   ): Promise<void> {
-    const allPeriods = await this.periodRepository.findAll();
-    const now = new Date();
+    const newPeriod = await this.periodRepository.findById(newPeriodId);
+    if (!newPeriod) return;
+
+    // Mes calendario inmediatamente anterior
+    const prevMonth = newPeriod.month === 1 ? 12 : newPeriod.month - 1;
+    const prevYear = newPeriod.month === 1 ? newPeriod.year - 1 : newPeriod.year;
+
+    const precedingPeriod = await this.periodRepository.findByYearAndMonth(
+      prevYear,
+      prevMonth,
+    );
+
+    // Si el mes anterior no existe en la BD, no hay nada que penalizar
+    if (!precedingPeriod) return;
+
+    const periodConfig = await this.configRepository.findActiveForDate(
+      new Date(precedingPeriod.year, precedingPeriod.month - 1, 1),
+    );
+    if (!periodConfig) return;
+
+    const dueDay =
+      precedingPeriod.payment_due_day ?? periodConfig.payment_due_day;
+    const dueDate = new Date(
+      precedingPeriod.year,
+      precedingPeriod.month - 1,
+      dueDay,
+    );
+
+    // Si el período anterior aún no está vencido, tampoco se penaliza
+    if (new Date() <= dueDate) return;
+
+    const periodCharges = await this.chargeRepository.findByPeriod(
+      precedingPeriod.id,
+    );
+
+    const chargesByHouse = new Map<number, HousePeriodCharge[]>();
+    for (const charge of periodCharges) {
+      const list = chargesByHouse.get(charge.house_id) ?? [];
+      list.push(charge);
+      chargesByHouse.set(charge.house_id, list);
+    }
 
     const penaltyChargesToCreate: Partial<HousePeriodCharge>[] = [];
 
-    for (const period of allPeriods) {
-      // Solo períodos anteriores al nuevo
-      if (period.id === newPeriodId) continue;
+    for (const house of houses) {
+      const houseCharges = chargesByHouse.get(house.id) ?? [];
 
-      const periodConfig = await this.configRepository.findActiveForDate(
-        new Date(period.year, period.month - 1, 1),
+      if (
+        houseCharges.some(
+          (c) => c.concept_type === AllocationConceptType.PENALTIES,
+        )
+      ) {
+        continue;
+      }
+
+      const nonPenaltyCharges = houseCharges.filter(
+        (c) => c.concept_type !== AllocationConceptType.PENALTIES,
       );
-      if (!periodConfig) continue;
+      if (nonPenaltyCharges.length === 0) continue;
 
-      // Jerarquía: override del período > PeriodConfig
-      const dueDay = period.payment_due_day ?? periodConfig.payment_due_day;
-      const dueDate = new Date(period.year, period.month - 1, dueDay);
-
-      // Solo aplica penalidad si el período ya venció
-      if (now <= dueDate) continue;
-
-      // Obtener todos los cargos del período para todas las casas (una sola consulta)
-      const periodCharges = await this.chargeRepository.findByPeriod(period.id);
-
-      // Agrupar cargos por casa para acceso eficiente
-      const chargesByHouse = new Map<number, HousePeriodCharge[]>();
-      for (const charge of periodCharges) {
-        const list = chargesByHouse.get(charge.house_id) ?? [];
-        list.push(charge);
-        chargesByHouse.set(charge.house_id, list);
-      }
-
-      for (const house of houses) {
-        const houseCharges = chargesByHouse.get(house.id) ?? [];
-
-        // Si ya tiene cargo de penalidad en este período, saltar
-        if (
-          houseCharges.some(
-            (c) => c.concept_type === AllocationConceptType.PENALTIES,
-          )
-        ) {
-          continue;
-        }
-
-        // Si no tiene cargos principales, no hay nada que penalizar
-        const nonPenaltyCharges = houseCharges.filter(
-          (c) => c.concept_type !== AllocationConceptType.PENALTIES,
+      const totalExpected = nonPenaltyCharges.reduce(
+        (sum, c) => sum + c.expected_amount,
+        0,
+      );
+      const totalPaid =
+        await this.allocationRepository.getTotalPaidByHousePeriod(
+          house.id,
+          precedingPeriod.id,
         );
-        if (nonPenaltyCharges.length === 0) continue;
 
-        // Verificar si tiene deuda: expected > paid
-        const totalExpected = nonPenaltyCharges.reduce(
-          (sum, c) => sum + c.expected_amount,
-          0,
-        );
-        const totalPaid =
-          await this.allocationRepository.getTotalPaidByHousePeriod(
-            house.id,
-            period.id,
-          );
+      if (totalPaid >= totalExpected) continue;
 
-        // Solo aplica penalidad si hay deuda sin pagar
-        if (totalPaid >= totalExpected) continue;
-
-        penaltyChargesToCreate.push({
-          house_id: house.id,
-          period_id: period.id,
-          concept_type: AllocationConceptType.PENALTIES,
-          expected_amount: periodConfig.late_payment_penalty_amount,
-          source: 'auto_penalty',
-        });
-      }
+      penaltyChargesToCreate.push({
+        house_id: house.id,
+        period_id: precedingPeriod.id,
+        concept_type: AllocationConceptType.PENALTIES,
+        expected_amount: periodConfig.late_payment_penalty_amount,
+        source: 'auto_penalty',
+      });
     }
 
     if (penaltyChargesToCreate.length > 0) {
       this.logger.log(
-        `Applying ${penaltyChargesToCreate.length} penalty charges to overdue periods`,
+        `Applying ${penaltyChargesToCreate.length} penalty charges to ${prevYear}-${prevMonth}`,
       );
-      // createBatch ignora duplicados silenciosamente si la BD tiene unique index
       try {
         await this.chargeRepository.createBatch(penaltyChargesToCreate);
       } catch (e) {
-        // Si hay conflicto de unique index (race condition), loguear y continuar
         this.logger.warn(
           `Some penalty charges already existed (race condition): ${e.message}`,
         );
