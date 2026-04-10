@@ -40,9 +40,6 @@ export class ColumnAnalyzerService {
 
     // 1. Intentar con OpenAI
     try {
-      this.logger.debug(
-        `Analizando columnas con OpenAI (${headerRow.length} columnas)`,
-      );
       aiResponse = await this.analyzeWithOpenAI(prompt);
     } catch (openaiError) {
       this.logger.warn(
@@ -51,7 +48,6 @@ export class ColumnAnalyzerService {
 
       // 2. Fallback a Vertex AI
       try {
-        this.logger.debug('Intentando análisis de columnas con Vertex AI...');
         aiResponse = await this.analyzeWithVertexAI(prompt);
       } catch (vertexError) {
         this.logger.warn(
@@ -111,7 +107,6 @@ export class ColumnAnalyzerService {
       referenciaIndex:
         typeof response.referenciaIndex === 'number' ? response.referenciaIndex : -1,
       expectedColumnCount: response.expectedColumnCount,
-      trailingColumnsAfterDeposito: response.trailingColumnsAfterDeposito,
       confidence: response.confidence ?? 'low',
       reasoning: response.reasoning ?? '',
     };
@@ -130,7 +125,6 @@ export class ColumnAnalyzerService {
       'retiroIndex',
       'depositoIndex',
       'expectedColumnCount',
-      'trailingColumnsAfterDeposito',
     ];
 
     for (const field of requiredNumericFields) {
@@ -166,8 +160,13 @@ export class ColumnAnalyzerService {
       return null;
     }
 
-    this.logger.debug(
-      `Columnas detectadas — concepto:[${aiResponse.conceptoIndex}] retiro:[${aiResponse.retiroIndex}] deposito:[${aiResponse.depositoIndex}] confianza:${aiResponse.confidence}`,
+    // Derivar trailingColumnsAfterDeposito de forma determinística.
+    // No se le pide a la IA para evitar errores de cálculo que rompan el parse-from-right.
+    const trailingColumnsAfterDeposito =
+      aiResponse.expectedColumnCount - aiResponse.depositoIndex - 1;
+
+    this.logger.log(
+      `Columnas detectadas — fecha:[${aiResponse.fechaIndex}] concepto:[${aiResponse.conceptoIndex}] retiro:[${aiResponse.retiroIndex}] deposito:[${aiResponse.depositoIndex}] trailing:${trailingColumnsAfterDeposito} confianza:${aiResponse.confidence}`,
     );
 
     return {
@@ -179,7 +178,7 @@ export class ColumnAnalyzerService {
       saldoIndex: aiResponse.saldoIndex,
       referenciaIndex: aiResponse.referenciaIndex,
       expectedColumnCount: aiResponse.expectedColumnCount,
-      trailingColumnsAfterDeposito: aiResponse.trailingColumnsAfterDeposito,
+      trailingColumnsAfterDeposito,
     };
   }
 }

@@ -14,7 +14,9 @@ export interface ColumnAnalysisAIResponse {
   saldoIndex: number;
   referenciaIndex: number;
   expectedColumnCount: number;
-  trailingColumnsAfterDeposito: number;
+  // trailingColumnsAfterDeposito se deriva en el servicio:
+  // expectedColumnCount - depositoIndex - 1
+  // No se le pide a la IA para evitar errores de cálculo.
   confidence: 'high' | 'medium' | 'low';
   reasoning: string;
 }
