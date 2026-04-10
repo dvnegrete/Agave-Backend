@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import * as XLSX from 'xlsx';
 import { TransactionBank } from '../interfaces/transaction-bank.interface';
 import { UploadFileDto } from '../dto/upload-file.dto';
@@ -20,6 +20,8 @@ type FileProcessorOptions = UploadFileDto & { columnMapping?: ColumnMapping };
 
 @Injectable()
 export class FileProcessorService {
+  private readonly logger = new Logger(FileProcessorService.name);
+
   constructor(private readonly columnAnalyzerService: ColumnAnalyzerService) {}
   async parseFile(
     file: Express.Multer.File,
@@ -79,6 +81,8 @@ export class FileProcessorService {
       );
       if (columnMapping) {
         enrichedOptions = { ...options, columnMapping };
+      } else {
+        this.logger.warn('No se pudo detectar el mapeo de columnas con IA. Usando índices hardcodeados.');
       }
     }
 
@@ -137,6 +141,8 @@ export class FileProcessorService {
       );
       if (columnMapping) {
         enrichedOptions = { ...options, columnMapping };
+      } else {
+        this.logger.warn('No se pudo detectar el mapeo de columnas con IA. Usando índices hardcodeados.');
       }
     }
 

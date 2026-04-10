@@ -40,9 +40,6 @@ export class ColumnAnalyzerService {
 
     // 1. Intentar con OpenAI
     try {
-      this.logger.debug(
-        `Analizando columnas con OpenAI (${headerRow.length} columnas)`,
-      );
       aiResponse = await this.analyzeWithOpenAI(prompt);
     } catch (openaiError) {
       this.logger.warn(
@@ -51,7 +48,6 @@ export class ColumnAnalyzerService {
 
       // 2. Fallback a Vertex AI
       try {
-        this.logger.debug('Intentando análisis de columnas con Vertex AI...');
         aiResponse = await this.analyzeWithVertexAI(prompt);
       } catch (vertexError) {
         this.logger.warn(
@@ -169,8 +165,8 @@ export class ColumnAnalyzerService {
     const trailingColumnsAfterDeposito =
       aiResponse.expectedColumnCount - aiResponse.depositoIndex - 1;
 
-    this.logger.debug(
-      `Columnas detectadas — concepto:[${aiResponse.conceptoIndex}] retiro:[${aiResponse.retiroIndex}] deposito:[${aiResponse.depositoIndex}] trailing:${trailingColumnsAfterDeposito} confianza:${aiResponse.confidence}`,
+    this.logger.log(
+      `Columnas detectadas — fecha:[${aiResponse.fechaIndex}] concepto:[${aiResponse.conceptoIndex}] retiro:[${aiResponse.retiroIndex}] deposito:[${aiResponse.depositoIndex}] trailing:${trailingColumnsAfterDeposito} confianza:${aiResponse.confidence}`,
     );
 
     return {
