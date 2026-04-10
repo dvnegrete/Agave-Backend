@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ColumnAnalyzerService } from './column-analyzer.service';
+import { OpenAIService } from '@/shared/libs/openai/openai.service';
 import { VertexAIService } from '@/shared/libs/vertex-ai/vertex-ai.service';
 import { ColumnMapping } from '../interfaces/column-mapping.interface';
 
@@ -70,12 +71,17 @@ const VALID_SANTANDER_MAPPING: ColumnMapping = {
 
 describe('ColumnAnalyzerService', () => {
   let service: ColumnAnalyzerService;
+  let openAIService: jest.Mocked<OpenAIService>;
   let vertexAIService: jest.Mocked<VertexAIService>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ColumnAnalyzerService,
+        {
+          provide: OpenAIService,
+          useValue: { processTextWithPrompt: jest.fn() },
+        },
         {
           provide: VertexAIService,
           useValue: { processTextWithPrompt: jest.fn() },
@@ -84,14 +90,15 @@ describe('ColumnAnalyzerService', () => {
     }).compile();
 
     service = module.get(ColumnAnalyzerService);
+    openAIService = module.get(OpenAIService);
     vertexAIService = module.get(VertexAIService);
   });
 
   afterEach(() => jest.clearAllMocks());
 
-  describe('analyzeColumns — happy paths', () => {
-    it('retorna ColumnMapping válido para layout GenericCsv', async () => {
-      vertexAIService.processTextWithPrompt.mockResolvedValue({
+  describe('analyzeColumns — OpenAI primario', () => {
+    it('retorna ColumnMapping válido para layout GenericCsv via OpenAI', async () => {
+      openAIService.processTextWithPrompt.mockResolvedValue({
         ...VALID_GENERIC_MAPPING,
         confidence: 'high',
         reasoning: 'test',
@@ -103,10 +110,12 @@ describe('ColumnAnalyzerService', () => {
       );
 
       expect(result).toEqual(VALID_GENERIC_MAPPING);
+      expect(openAIService.processTextWithPrompt).toHaveBeenCalledTimes(1);
+      expect(vertexAIService.processTextWithPrompt).not.toHaveBeenCalled();
     });
 
-    it('retorna ColumnMapping válido para layout SantanderXlsx', async () => {
-      vertexAIService.processTextWithPrompt.mockResolvedValue({
+    it('retorna ColumnMapping válido para layout SantanderXlsx via OpenAI', async () => {
+      openAIService.processTextWithPrompt.mockResolvedValue({
         ...VALID_SANTANDER_MAPPING,
         confidence: 'high',
         reasoning: 'test',
@@ -117,10 +126,10 @@ describe('ColumnAnalyzerService', () => {
       expect(result).toEqual(VALID_SANTANDER_MAPPING);
     });
 
-    it('acepta saldoIndex y referenciaIndex ausentes en la respuesta (usa -1 como default)', async () => {
-      const { saldoIndex, referenciaIndex, ...withoutOptionals } =
-        VALID_GENERIC_MAPPING;
-      vertexAIService.processTextWithPrompt.mockResolvedValue({
+    it('acepta saldoIndex y referenciaIndex ausentes (usa -1 como default)', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { saldoIndex, referenciaIndex, ...withoutOptionals } = VALID_GENERIC_MAPPING;
+      openAIService.processTextWithPrompt.mockResolvedValue({
         ...withoutOptionals,
         confidence: 'medium',
       });
@@ -135,10 +144,32 @@ describe('ColumnAnalyzerService', () => {
     });
   });
 
-  describe('analyzeColumns — fallos → retorna null', () => {
-    it('retorna null cuando VertexAI lanza error', async () => {
+  describe('analyzeColumns — fallback a Vertex AI', () => {
+    it('usa Vertex AI cuando OpenAI falla', async () => {
+      openAIService.processTextWithPrompt.mockRejectedValue(
+        new Error('OpenAI timeout'),
+      );
+      vertexAIService.processTextWithPrompt.mockResolvedValue({
+        ...VALID_GENERIC_MAPPING,
+        confidence: 'high',
+        reasoning: 'fallback test',
+      });
+
+      const result = await service.analyzeColumns(
+        GENERIC_CSV_HEADERS,
+        SAMPLE_ROWS,
+      );
+
+      expect(result).toEqual(VALID_GENERIC_MAPPING);
+      expect(vertexAIService.processTextWithPrompt).toHaveBeenCalledTimes(1);
+    });
+
+    it('retorna null cuando ambos proveedores fallan', async () => {
+      openAIService.processTextWithPrompt.mockRejectedValue(
+        new Error('OpenAI error'),
+      );
       vertexAIService.processTextWithPrompt.mockRejectedValue(
-        new Error('El servicio de Vertex AI no está configurado.'),
+        new Error('VertexAI error'),
       );
 
       const result = await service.analyzeColumns(
@@ -149,7 +180,23 @@ describe('ColumnAnalyzerService', () => {
       expect(result).toBeNull();
     });
 
-    it('retorna null cuando la respuesta es null', async () => {
+    it('no propaga excepciones cuando ambos fallan', async () => {
+      openAIService.processTextWithPrompt.mockRejectedValue(
+        new Error('OpenAI down'),
+      );
+      vertexAIService.processTextWithPrompt.mockRejectedValue(
+        new Error('VertexAI down'),
+      );
+
+      await expect(
+        service.analyzeColumns(GENERIC_CSV_HEADERS, SAMPLE_ROWS),
+      ).resolves.toBeNull();
+    });
+  });
+
+  describe('analyzeColumns — validación de respuesta', () => {
+    it('retorna null cuando la respuesta de OpenAI es null (y VertexAI también)', async () => {
+      openAIService.processTextWithPrompt.mockResolvedValue(null);
       vertexAIService.processTextWithPrompt.mockResolvedValue(null);
 
       const result = await service.analyzeColumns(
@@ -161,19 +208,17 @@ describe('ColumnAnalyzerService', () => {
     });
 
     it('retorna null cuando falta un campo requerido (conceptoIndex)', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { conceptoIndex, ...withoutConcepto } = VALID_GENERIC_MAPPING;
-      vertexAIService.processTextWithPrompt.mockResolvedValue(withoutConcepto);
+      openAIService.processTextWithPrompt.mockResolvedValue(withoutConcepto);
 
-      const result = await service.analyzeColumns(
-        GENERIC_CSV_HEADERS,
-        SAMPLE_ROWS,
-      );
+      const result = await service.analyzeColumns(GENERIC_CSV_HEADERS, SAMPLE_ROWS);
 
       expect(result).toBeNull();
     });
 
     it('retorna null cuando conceptoIndex es -1', async () => {
-      vertexAIService.processTextWithPrompt.mockResolvedValue({
+      openAIService.processTextWithPrompt.mockResolvedValue({
         ...VALID_GENERIC_MAPPING,
         conceptoIndex: -1,
       });
@@ -187,7 +232,7 @@ describe('ColumnAnalyzerService', () => {
     });
 
     it('retorna null cuando depositoIndex es -1', async () => {
-      vertexAIService.processTextWithPrompt.mockResolvedValue({
+      openAIService.processTextWithPrompt.mockResolvedValue({
         ...VALID_GENERIC_MAPPING,
         depositoIndex: -1,
       });
@@ -201,9 +246,9 @@ describe('ColumnAnalyzerService', () => {
     });
 
     it('retorna null cuando un índice está fuera del rango del encabezado real', async () => {
-      vertexAIService.processTextWithPrompt.mockResolvedValue({
+      openAIService.processTextWithPrompt.mockResolvedValue({
         ...VALID_GENERIC_MAPPING,
-        fechaIndex: 99, // header solo tiene 8 columnas (índices 0-7)
+        fechaIndex: 99,
       });
 
       const result = await service.analyzeColumns(
@@ -215,9 +260,9 @@ describe('ColumnAnalyzerService', () => {
     });
 
     it('retorna null cuando un campo requerido no es número', async () => {
-      vertexAIService.processTextWithPrompt.mockResolvedValue({
+      openAIService.processTextWithPrompt.mockResolvedValue({
         ...VALID_GENERIC_MAPPING,
-        retiroIndex: 'cuatro', // debería ser number
+        retiroIndex: 'cuatro',
       });
 
       const result = await service.analyzeColumns(
@@ -226,18 +271,6 @@ describe('ColumnAnalyzerService', () => {
       );
 
       expect(result).toBeNull();
-    });
-  });
-
-  describe('analyzeColumns — no propaga excepciones', () => {
-    it('no lanza cuando VertexAI falla — el caller puede continuar con fallback', async () => {
-      vertexAIService.processTextWithPrompt.mockRejectedValue(
-        new Error('timeout'),
-      );
-
-      await expect(
-        service.analyzeColumns(GENERIC_CSV_HEADERS, SAMPLE_ROWS),
-      ).resolves.toBeNull();
     });
   });
 });
