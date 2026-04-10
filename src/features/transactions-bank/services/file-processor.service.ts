@@ -12,6 +12,11 @@ import {
 import { resolveBankStatementModel } from '../models/model-resolver';
 import { BankStatementModel } from '../models/bank-statement-model.interface';
 import { ColumnAnalyzerService } from './column-analyzer.service';
+import { ColumnMapping } from '../interfaces/column-mapping.interface';
+
+// Tipo interno — extiende el DTO HTTP con el mapping detectado por IA.
+// No forma parte del contrato HTTP: el ValidationPipe nunca lo ve.
+type FileProcessorOptions = UploadFileDto & { columnMapping?: ColumnMapping };
 
 @Injectable()
 export class FileProcessorService {
@@ -64,7 +69,7 @@ export class FileProcessorService {
 
     // Detectar columnas semánticamente con IA (una vez por archivo).
     // Si falla, enrichedOptions === options y se usan índices hardcodeados.
-    let enrichedOptions = options;
+    let enrichedOptions: FileProcessorOptions = { ...options };
     if (headerRowIndex >= 0) {
       const headerRow = splitCSVLine(lines[headerRowIndex]);
       const sampleRows = dataLines.slice(0, 2).map((l) => splitCSVLine(l));
@@ -116,7 +121,7 @@ export class FileProcessorService {
       headerRowIndex >= 0 ? data.slice(headerRowIndex + 1) : data;
 
     // Detectar columnas semánticamente con IA (una vez por archivo).
-    let enrichedOptions = options;
+    let enrichedOptions: FileProcessorOptions = { ...options };
     if (headerRowIndex >= 0) {
       const headerRow = (data[headerRowIndex] as unknown[]).map((cell) =>
         cell != null ? String(cell) : '',

@@ -7,7 +7,6 @@ import {
   Max,
 } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { ColumnMapping } from '../interfaces/column-mapping.interface';
 
 export class UploadFileDto {
   @ApiPropertyOptional({
@@ -77,8 +76,4 @@ export class UploadFileDto {
   @IsOptional()
   @IsString()
   model?: string;
-
-  // Uso interno: asignado por FileProcessorService después del análisis IA.
-  // No se expone en el request HTTP ni se valida como parámetro de entrada.
-  columnMapping?: ColumnMapping;
 }
