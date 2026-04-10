@@ -29,15 +29,13 @@ REGLAS:
 3. Cuando el nombre sea ambiguo, usa el contenido de las filas de muestra para confirmar
 4. retiro y deposito son mutuamente excluyentes por fila: en cada movimiento una tiene valor y la otra está vacía o en 0
 5. expectedColumnCount = número total de columnas en el encabezado
-6. trailingColumnsAfterDeposito = cantidad de columnas que aparecen DESPUÉS de depositoIndex en el encabezado
-   Ejemplo: si deposito está en índice 5 y el encabezado tiene 8 columnas → trailingColumnsAfterDeposito = 2
 
 EJEMPLOS DE REFERENCIA:
 Encabezado: "FECHA,HORA,SUCURSAL,CONCEPTO,RETIRO,DEPÓSITO,SALDO,REFERENCIA"
-Resultado: fechaIndex:0, horaIndex:1, conceptoIndex:3, retiroIndex:4, depositoIndex:5, saldoIndex:6, referenciaIndex:7, expectedColumnCount:8, trailingColumnsAfterDeposito:2
+Resultado: fechaIndex:0, horaIndex:1, conceptoIndex:3, retiroIndex:4, depositoIndex:5, saldoIndex:6, referenciaIndex:7, expectedColumnCount:8
 
 Encabezado: "FECHA,HORA,CONCEPTO,RETIRO,DEPOSITO,MONEDA"
-Resultado: fechaIndex:0, horaIndex:1, conceptoIndex:2, retiroIndex:3, depositoIndex:4, saldoIndex:-1, referenciaIndex:-1, expectedColumnCount:6, trailingColumnsAfterDeposito:1
+Resultado: fechaIndex:0, horaIndex:1, conceptoIndex:2, retiroIndex:3, depositoIndex:4, saldoIndex:-1, referenciaIndex:-1, expectedColumnCount:6
 
 RESPUESTA (JSON estricto, sin texto adicional):
 {
@@ -49,7 +47,6 @@ RESPUESTA (JSON estricto, sin texto adicional):
   "saldoIndex": número,
   "referenciaIndex": número,
   "expectedColumnCount": número,
-  "trailingColumnsAfterDeposito": número,
   "confidence": "high" | "medium" | "low",
   "reasoning": "explicación breve de los índices asignados"
 }`;

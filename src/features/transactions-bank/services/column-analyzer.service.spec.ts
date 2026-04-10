@@ -272,5 +272,20 @@ describe('ColumnAnalyzerService', () => {
 
       expect(result).toBeNull();
     });
+
+    it('calcula trailingColumnsAfterDeposito = expectedColumnCount - depositoIndex - 1 (no depende de la IA)', async () => {
+      // La IA retorna trailingColumnsAfterDeposito = 0 (valor incorrecto que causó el bug en producción).
+      // El servicio lo ignora y lo calcula: 8 - 5 - 1 = 2
+      openAIService.processTextWithPrompt.mockResolvedValue({
+        ...VALID_GENERIC_MAPPING,
+        trailingColumnsAfterDeposito: 0,
+        confidence: 'high',
+        reasoning: 'test',
+      });
+
+      const result = await service.analyzeColumns(GENERIC_CSV_HEADERS, SAMPLE_ROWS);
+
+      expect(result?.trailingColumnsAfterDeposito).toBe(2);
+    });
   });
 });

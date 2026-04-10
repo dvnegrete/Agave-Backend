@@ -111,7 +111,6 @@ export class ColumnAnalyzerService {
       referenciaIndex:
         typeof response.referenciaIndex === 'number' ? response.referenciaIndex : -1,
       expectedColumnCount: response.expectedColumnCount,
-      trailingColumnsAfterDeposito: response.trailingColumnsAfterDeposito,
       confidence: response.confidence ?? 'low',
       reasoning: response.reasoning ?? '',
     };
@@ -130,7 +129,6 @@ export class ColumnAnalyzerService {
       'retiroIndex',
       'depositoIndex',
       'expectedColumnCount',
-      'trailingColumnsAfterDeposito',
     ];
 
     for (const field of requiredNumericFields) {
@@ -166,8 +164,13 @@ export class ColumnAnalyzerService {
       return null;
     }
 
+    // Derivar trailingColumnsAfterDeposito de forma determinística.
+    // No se le pide a la IA para evitar errores de cálculo que rompan el parse-from-right.
+    const trailingColumnsAfterDeposito =
+      aiResponse.expectedColumnCount - aiResponse.depositoIndex - 1;
+
     this.logger.debug(
-      `Columnas detectadas — concepto:[${aiResponse.conceptoIndex}] retiro:[${aiResponse.retiroIndex}] deposito:[${aiResponse.depositoIndex}] confianza:${aiResponse.confidence}`,
+      `Columnas detectadas — concepto:[${aiResponse.conceptoIndex}] retiro:[${aiResponse.retiroIndex}] deposito:[${aiResponse.depositoIndex}] trailing:${trailingColumnsAfterDeposito} confianza:${aiResponse.confidence}`,
     );
 
     return {
@@ -179,7 +182,7 @@ export class ColumnAnalyzerService {
       saldoIndex: aiResponse.saldoIndex,
       referenciaIndex: aiResponse.referenciaIndex,
       expectedColumnCount: aiResponse.expectedColumnCount,
-      trailingColumnsAfterDeposito: aiResponse.trailingColumnsAfterDeposito,
+      trailingColumnsAfterDeposito,
     };
   }
 }
