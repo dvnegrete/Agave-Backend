@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import * as XLSX from 'xlsx';
 import { TransactionBank } from '../interfaces/transaction-bank.interface';
 import { UploadFileDto } from '../dto/upload-file.dto';
@@ -11,9 +11,18 @@ import {
 } from '../../../shared/common';
 import { resolveBankStatementModel } from '../models/model-resolver';
 import { BankStatementModel } from '../models/bank-statement-model.interface';
+import { ColumnAnalyzerService } from './column-analyzer.service';
+import { ColumnMapping } from '../interfaces/column-mapping.interface';
+
+// Tipo interno — extiende el DTO HTTP con el mapping detectado por IA.
+// No forma parte del contrato HTTP: el ValidationPipe nunca lo ve.
+type FileProcessorOptions = UploadFileDto & { columnMapping?: ColumnMapping };
 
 @Injectable()
 export class FileProcessorService {
+  private readonly logger = new Logger(FileProcessorService.name);
+
+  constructor(private readonly columnAnalyzerService: ColumnAnalyzerService) {}
   async parseFile(
     file: Express.Multer.File,
     options?: UploadFileDto,
@@ -47,11 +56,11 @@ export class FileProcessorService {
     }
   }
 
-  private parseCSV(
+  private async parseCSV(
     content: string,
     options: UploadFileDto | undefined,
     model: BankStatementModel,
-  ): TransactionBank[] {
+  ): Promise<TransactionBank[]> {
     const lines = content.split('\n').filter((line) => line.trim());
     const transactions: TransactionBank[] = [];
 
@@ -60,13 +69,30 @@ export class FileProcessorService {
     const dataLines =
       headerRowIndex >= 0 ? lines.slice(headerRowIndex + 1) : lines;
 
+    // Detectar columnas semánticamente con IA (una vez por archivo).
+    // Si falla, enrichedOptions === options y se usan índices hardcodeados.
+    let enrichedOptions: FileProcessorOptions = { ...options };
+    if (headerRowIndex >= 0) {
+      const headerRow = splitCSVLine(lines[headerRowIndex]);
+      const sampleRows = dataLines.slice(0, 2).map((l) => splitCSVLine(l));
+      const columnMapping = await this.columnAnalyzerService.analyzeColumns(
+        headerRow,
+        sampleRows,
+      );
+      if (columnMapping) {
+        enrichedOptions = { ...options, columnMapping };
+      } else {
+        this.logger.warn('No se pudo detectar el mapeo de columnas con IA. Usando índices hardcodeados.');
+      }
+    }
+
     for (let i = 0; i < dataLines.length; i++) {
       const line = dataLines[i].trim();
       if (!line) continue;
 
       try {
         const columns = splitCSVLine(line);
-        const transaction = model.mapRowToTransaction(columns, options);
+        const transaction = model.mapRowToTransaction(columns, enrichedOptions);
         if (transaction) {
           transactions.push(transaction);
         }
@@ -78,11 +104,11 @@ export class FileProcessorService {
     return transactions;
   }
 
-  private parseXLSX(
+  private async parseXLSX(
     buffer: Buffer,
     options: UploadFileDto | undefined,
     model: BankStatementModel,
-  ): TransactionBank[] {
+  ): Promise<TransactionBank[]> {
     const workbook = XLSX.read(buffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
@@ -98,12 +124,34 @@ export class FileProcessorService {
     const dataRows =
       headerRowIndex >= 0 ? data.slice(headerRowIndex + 1) : data;
 
+    // Detectar columnas semánticamente con IA (una vez por archivo).
+    let enrichedOptions: FileProcessorOptions = { ...options };
+    if (headerRowIndex >= 0) {
+      const headerRow = (data[headerRowIndex] as unknown[]).map((cell) =>
+        cell != null ? String(cell) : '',
+      );
+      const sampleRows = data
+        .slice(headerRowIndex + 1, headerRowIndex + 3)
+        .map((row) =>
+          (row as unknown[]).map((cell) => (cell != null ? String(cell) : '')),
+        );
+      const columnMapping = await this.columnAnalyzerService.analyzeColumns(
+        headerRow,
+        sampleRows,
+      );
+      if (columnMapping) {
+        enrichedOptions = { ...options, columnMapping };
+      } else {
+        this.logger.warn('No se pudo detectar el mapeo de columnas con IA. Usando índices hardcodeados.');
+      }
+    }
+
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i] as any[];
       if (!row || !Array.isArray(row) || row.length === 0) continue;
 
       try {
-        const transaction = model.mapRowToTransaction(row, options);
+        const transaction = model.mapRowToTransaction(row, enrichedOptions);
         if (transaction) {
           transactions.push(transaction);
         }

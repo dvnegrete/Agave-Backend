@@ -6,6 +6,7 @@ import {
   Min,
   Max,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UploadFileDto {
@@ -38,6 +39,7 @@ export class UploadFileDto {
     default: false,
   })
   @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
   validateOnly?: boolean;
 
@@ -46,6 +48,7 @@ export class UploadFileDto {
     default: false,
   })
   @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
   skipDuplicates?: boolean;
 
@@ -56,6 +59,7 @@ export class UploadFileDto {
     default: 100,
   })
   @IsOptional()
+  @Transform(({ value }) => (value !== undefined ? Number(value) : value))
   @IsNumber()
   @Min(1)
   @Max(1000)
