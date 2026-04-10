@@ -56,24 +56,46 @@ export const GenericCsvModel: BankStatementModel = {
   ],
 
   mapRowToTransaction: (row: unknown[], options?: any) => {
-    // Formato específico esperado: FECHA,HORA,SUCURSAL,CONCEPTO,RETIRO,DEPÓSITO,SALDO
-    // Solo procesamos: FECHA(0), HORA(1), CONCEPTO(3), RETIRO(4), DEPÓSITO(5)
-    // Ignoramos: SUCURSAL(2), SALDO(6) y cualquier campo adicional
+    // Índices dinámicos si hay columnMapping detectado por IA, hardcodeados como fallback.
+    const mapping = options?.columnMapping;
+    const fechaIdx    = mapping?.fechaIndex    ?? 0;
+    const horaIdx     = mapping?.horaIndex     ?? 1;
+    const conceptoIdx = mapping?.conceptoIndex ?? 3;
+    const retiroIdx   = mapping?.retiroIndex   ?? 4;
+    const depositoIdx = mapping?.depositoIndex ?? 5;
 
-    if (row.length < 6) {
+    const minRequired =
+      Math.max(fechaIdx, horaIdx, conceptoIdx, retiroIdx, depositoIdx) + 1;
+
+    if (row.length < minRequired) {
       throw new Error(
-        'CSV debe tener al menos 6 columnas: FECHA,HORA,SUCURSAL,CONCEPTO,RETIRO,DEPÓSITO',
+        `CSV debe tener al menos ${minRequired} columnas según el mapeo detectado`,
       );
     }
 
-    // Mapear campos por posición específica
-    const fecha = row[0]; // FECHA
-    const hora = row[1]; // HORA
-    // row[2] es SUCURSAL - ignoramos
-    const concepto = row[3]; // CONCEPTO
-    const retiro = row[4]; // RETIRO
-    const deposito = row[5]; // DEPÓSITO
-    // row[6] es SALDO - ignoramos
+    const fecha = row[fechaIdx];
+    const hora = row[horaIdx];
+
+    // Parse-from-right: cuando el CONCEPTO contiene comas sin escapar, las columnas
+    // se desplazan hacia la derecha (row.length > expectedColumnCount).
+    // Se reconstruye el concepto uniendo las partes intermedias y se recalculan
+    // RETIRO/DEPÓSITO desde la derecha usando trailingColumnsAfterDeposito.
+    let concepto: unknown;
+    let retiro: unknown;
+    let deposito: unknown;
+
+    if (mapping && row.length > mapping.expectedColumnCount) {
+      const trailing = mapping.trailingColumnsAfterDeposito;
+      deposito = row[row.length - trailing - 1];
+      retiro = row[row.length - trailing - 2];
+      concepto = (row as string[])
+        .slice(conceptoIdx, row.length - trailing - 2)
+        .join(', ');
+    } else {
+      concepto = row[conceptoIdx];
+      retiro = row[retiroIdx];
+      deposito = row[depositoIdx];
+    }
 
     let amount = 0;
     let isDeposit = false;
@@ -82,19 +104,30 @@ export const GenericCsvModel: BankStatementModel = {
     // Determinar monto y tipo basado en RETIRO/DEPÓSITO
     const retiroStr = safeToString(retiro).trim();
     const depositoStr = safeToString(deposito).trim();
+    // Valida que el valor sea numérico antes de interpretarlo como monto.
+    // Previene que texto desplazado por comas sin comillas en el CONCEPTO
+    // (ej: "casa 7") sea procesado como monto de RETIRO.
+    const isNumericAmount = (str: string): boolean => /^-?[\d,.]+$/.test(str);
 
-    if (retiroStr && retiroStr !== '' && retiroStr !== '0') {
+    if (retiroStr && retiroStr !== '0' && isNumericAmount(retiroStr)) {
       // Es un retiro
       const retiroResult = parseAmountWithSign(retiroStr);
       amount = retiroResult.amount;
       isDeposit = false;
-    } else if (depositoStr && depositoStr !== '' && depositoStr !== '0') {
+    } else if (
+      depositoStr &&
+      depositoStr !== '0' &&
+      isNumericAmount(depositoStr)
+    ) {
       // Es un depósito
       const depositoResult = parseAmountWithSign(depositoStr);
       amount = depositoResult.amount;
       isDeposit = true;
     } else {
-      throw new Error('Debe tener un valor en RETIRO o DEPÓSITO');
+      throw new Error(
+        'Debe tener un valor numérico en RETIRO o DEPÓSITO. ' +
+        'Verifique que el CONCEPTO no contenga comas sin comillas.',
+      );
     }
 
     let formattedDate = '';

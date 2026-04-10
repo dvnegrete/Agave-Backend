@@ -53,27 +53,38 @@ export const SantanderXlsxModel: BankStatementModel = {
   ],
 
   mapRowToTransaction: (row: unknown[], options?: any) => {
-    // Columnas esperadas: FECHA, HORA, CONCEPTO, RETIRO, DEPOSITO, MONEDA
-    const [fecha, hora, concepto, retiro, deposito, moneda] = row as [
-      unknown,
-      unknown,
-      unknown,
-      unknown,
-      unknown,
-      unknown,
-    ];
+    // Índices dinámicos si hay columnMapping detectado por IA, hardcodeados como fallback.
+    // XLSX no tiene el problema de comas en campos → no se aplica parse-from-right.
+    const mapping = options?.columnMapping;
+    const fechaIdx    = mapping?.fechaIndex    ?? 0;
+    const horaIdx     = mapping?.horaIndex     ?? 1;
+    const conceptoIdx = mapping?.conceptoIndex ?? 2;
+    const retiroIdx   = mapping?.retiroIndex   ?? 3;
+    const depositoIdx = mapping?.depositoIndex ?? 4;
+    // MONEDA: se prefiere referenciaIndex si la IA lo detectó, sino fallback a índice 5
+    const monedaIdx =
+      mapping?.referenciaIndex !== undefined && mapping.referenciaIndex !== -1
+        ? mapping.referenciaIndex
+        : 5;
+
+    const fecha = row[fechaIdx];
+    const hora = row[horaIdx];
+    const concepto = row[conceptoIdx];
+    const retiro = row[retiroIdx];
+    const deposito = row[depositoIdx];
+    const moneda = row[monedaIdx];
 
     let amount = 0;
     let isDeposit = false;
 
     if (retiro && retiro !== '' && retiro !== 0) {
       const retiroResult = parseAmountWithSign(safeToString(retiro));
-      amount = retiroResult.amount; // Always positive (absolute value)
-      isDeposit = false; // Withdrawals are not deposits
+      amount = retiroResult.amount;
+      isDeposit = false;
     } else if (deposito && deposito !== '' && deposito !== 0) {
       const depositoResult = parseAmountWithSign(safeToString(deposito));
-      amount = depositoResult.amount; // Always positive (absolute value)
-      isDeposit = true; // Deposits are deposits
+      amount = depositoResult.amount;
+      isDeposit = true;
     } else {
       throw new Error('Debe tener un valor en RETIRO o DEPOSITO');
     }
@@ -87,11 +98,9 @@ export const SantanderXlsxModel: BankStatementModel = {
       );
       formattedDate = parsedDate.toISOString().split('T')[0];
     } catch {
-      // En caso de error, mantener valor original como string
       formattedDate = fecha ? safeToString(fecha).trim() : '';
     }
 
-    // Determine bank name from options
     const bankName = options?.bank || options?.bankName || '';
 
     return {

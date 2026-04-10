@@ -20,11 +20,16 @@ function createFile(
   } as unknown as Express.Multer.File;
 }
 
+const mockColumnAnalyzer = {
+  analyzeColumns: jest.fn().mockResolvedValue(null),
+};
+
 describe('FileProcessorService', () => {
   let service: FileProcessorService;
 
   beforeEach(() => {
-    service = new FileProcessorService();
+    jest.clearAllMocks();
+    service = new FileProcessorService(mockColumnAnalyzer as any);
   });
 
   it('parsea CSV con encabezado usando modelo SantanderXlsx', async () => {
