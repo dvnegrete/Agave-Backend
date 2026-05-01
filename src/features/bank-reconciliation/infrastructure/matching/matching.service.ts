@@ -86,16 +86,24 @@ export class MatchingService {
   }
 
   /**
-   * Filtra vouchers por monto exacto
+   * Filtra vouchers por monto exacto (comparación en centavos enteros).
+   *
+   * IMPORTANTE: No usar tolerancia flotante (< 0.01) porque los centavos
+   * identifican la casa (ej: $800.38 → casa 38). Con tolerancia flotante,
+   * Math.abs(800.40 - 800.41) = 0.009999... < 0.01 haría que el voucher
+   * de casa 40 coincida con el depósito de casa 41 → asignación incorrecta.
+   * La comparación en centavos enteros absorbe imprecisión IEEE-754
+   * sin ampliar el rango a un centavo de diferencia.
    */
   private filterByAmount(
     transaction: TransactionBank,
     vouchers: Voucher[],
     processedIds: Set<number>,
   ): Voucher[] {
+    const txCents = Math.round(Number(transaction.amount) * 100);
     return vouchers.filter(
       (v) =>
-        Math.abs(v.amount - transaction.amount) < 0.01 &&
+        Math.round(Number(v.amount) * 100) === txCents &&
         !processedIds.has(v.id),
     );
   }
