@@ -15,6 +15,7 @@ import { HouseBalance } from './house-balance.entity';
 import { HousePeriodOverride } from './house-period-override.entity';
 import { RecordAllocation } from './record-allocation.entity';
 import { HouseStatusSnapshot } from './house-status-snapshot.entity';
+import { HouseUser } from './house-user.entity';
 
 @Entity('houses')
 export class House {
@@ -58,4 +59,7 @@ export class House {
     nullable: true,
   })
   statusSnapshot: HouseStatusSnapshot;
+
+  @OneToMany(() => HouseUser, (houseUser) => houseUser.house)
+  houseUsers: HouseUser[];
 }
