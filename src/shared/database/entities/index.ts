@@ -15,6 +15,7 @@ export * from './cta-other-payments.entity';
 export * from './record.entity';
 export * from './record-allocation.entity';
 export * from './house.entity';
+export * from './house-user.entity';
 export * from './house-record.entity';
 export * from './house-balance.entity';
 export * from './house-period-override.entity';

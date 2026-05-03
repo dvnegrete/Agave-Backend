@@ -8,6 +8,7 @@ export * from './cta-extraordinary-fee.repository';
 export * from './record.repository';
 export * from './house-record.repository';
 export * from './house.repository';
+export * from './house-user.repository';
 export * from './transaction-bank.repository';
 export * from './transaction-status.repository';
 export * from './user.repository';

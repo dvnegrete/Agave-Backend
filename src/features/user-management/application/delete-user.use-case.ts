@@ -5,7 +5,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { UserRepository } from '@/shared/database/repositories/user.repository';
-import { HouseRepository } from '@/shared/database/repositories/house.repository';
+import { HouseUserRepository } from '@/shared/database/repositories/house-user.repository';
 import { FirebaseAuthConfig } from '@/shared/auth/services/firebase-auth.config';
 import { SYSTEM_USER_ID } from '@/shared/config/business-rules.config';
 
@@ -15,7 +15,7 @@ export class DeleteUserUseCase {
 
   constructor(
     private readonly userRepository: UserRepository,
-    private readonly houseRepository: HouseRepository,
+    private readonly houseUserRepository: HouseUserRepository,
     private readonly firebaseConfig: FirebaseAuthConfig,
   ) {}
 
@@ -35,11 +35,11 @@ export class DeleteUserUseCase {
     }
 
     // 3. Validar que no tenga casas asignadas
-    const houses = await this.houseRepository.findByUserId(userId);
+    const houseAssignments = await this.houseUserRepository.findByUserId(userId);
 
-    if (houses.length > 0) {
+    if (houseAssignments.length > 0) {
       throw new BadRequestException(
-        `No se puede eliminar el usuario porque tiene ${houses.length} casa(s) asignada(s). Primero debe remover todas las casas.`,
+        `No se puede eliminar el usuario porque tiene ${houseAssignments.length} casa(s) asignada(s). Primero debe remover todas las casas.`,
       );
     }
 
