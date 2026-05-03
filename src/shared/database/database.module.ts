@@ -5,6 +5,7 @@ import { DatabaseConfigService } from '../config/database.config';
 // Importar entidades directamente desde sus archivos para evitar dependencias circulares
 import { User } from './entities/user.entity';
 import { House } from './entities/house.entity';
+import { HouseUser } from './entities/house-user.entity';
 import { HouseRecord } from './entities/house-record.entity';
 import { Record } from './entities/record.entity';
 import { TransactionBank } from './entities/transaction-bank.entity';
@@ -29,6 +30,7 @@ import { VoucherRepository } from './repositories/voucher.repository';
 import { TransactionStatusRepository } from './repositories/transaction-status.repository';
 import { RecordRepository } from './repositories/record.repository';
 import { HouseRepository } from './repositories/house.repository';
+import { HouseUserRepository } from './repositories/house-user.repository';
 import { UserRepository } from './repositories/user.repository';
 import { HouseRecordRepository } from './repositories/house-record.repository';
 import { CtaMaintenanceRepository } from './repositories/cta-maintenance.repository';
@@ -70,6 +72,7 @@ import { TransactionalRetryService } from './services/transactional-retry.servic
       RecordAllocation,
       ManualValidationApproval,
       HouseStatusSnapshot,
+      HouseUser,
     ]),
   ],
   providers: [
@@ -80,6 +83,7 @@ import { TransactionalRetryService } from './services/transactional-retry.servic
     TransactionStatusRepository,
     RecordRepository,
     HouseRepository,
+    HouseUserRepository,
     UserRepository,
     HouseRecordRepository,
     CtaMaintenanceRepository,
@@ -99,6 +103,7 @@ import { TransactionalRetryService } from './services/transactional-retry.servic
     TransactionStatusRepository,
     RecordRepository,
     HouseRepository,
+    HouseUserRepository,
     UserRepository,
     HouseRecordRepository,
     CtaMaintenanceRepository,

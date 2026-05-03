@@ -29,7 +29,7 @@ export class GetUsersUseCase {
       email: user.email,
       observations: user.observations,
       cel_phone: user.cel_phone,
-      houses: (user.houses || []).map((house) => house.number_house),
+      houses: (user.houseUsers || []).map((hu) => hu.house.number_house),
       created_at: user.created_at,
       updated_at: user.updated_at,
       auth_provider: providerMap.get(user.id) ?? null,

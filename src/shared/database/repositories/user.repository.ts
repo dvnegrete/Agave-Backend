@@ -123,11 +123,11 @@ export class UserRepository {
   }
 
   /**
-   * Obtiene todos los usuarios
+   * Obtiene todos los usuarios con sus casas asignadas vía house_users
    */
   async findAll(): Promise<User[]> {
     return this.userRepository.find({
-      relations: ['houses'],
+      relations: ['houseUsers', 'houseUsers.house'],
       order: { created_at: 'DESC' },
     });
   }

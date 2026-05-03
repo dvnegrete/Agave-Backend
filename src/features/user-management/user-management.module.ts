@@ -3,7 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '@/shared/auth/auth.module';
 
 // Entities
-import { User, House } from '@/shared/database/entities';
+import { User, House, HouseUser } from '@/shared/database/entities';
 
 // Controllers
 import { UserManagementController } from './controllers/user-management.controller';
@@ -23,10 +23,11 @@ import {
 import {
   UserRepository,
   HouseRepository,
+  HouseUserRepository,
 } from '@/shared/database/repositories';
 
 @Module({
-  imports: [AuthModule, TypeOrmModule.forFeature([User, House])],
+  imports: [AuthModule, TypeOrmModule.forFeature([User, House, HouseUser])],
   controllers: [UserManagementController],
   providers: [
     // Use Cases
@@ -40,6 +41,7 @@ import {
     // Repositories
     UserRepository,
     HouseRepository,
+    HouseUserRepository,
   ],
 })
 export class UserManagementModule {}
