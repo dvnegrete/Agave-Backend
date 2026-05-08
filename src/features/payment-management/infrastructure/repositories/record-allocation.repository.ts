@@ -156,4 +156,85 @@ export class RecordAllocationRepository implements IRecordAllocationRepository {
     );
     return result?.[1] ?? 0;
   }
+
+  async deleteByRecordIds(recordIds: number[]): Promise<number> {
+    if (recordIds.length === 0) return 0;
+    const result = await this.repository
+      .createQueryBuilder()
+      .delete()
+      .from('record_allocations')
+      .where('record_id IN (:...recordIds)', { recordIds })
+      .execute();
+    return result.affected ?? 0;
+  }
+
+  async findOverpaidBuckets(houseId: number): Promise<
+    Array<{
+      period_id: number;
+      concept_type: AllocationConceptType;
+      total_allocated: number;
+      current_charge: number;
+    }>
+  > {
+    const rows = await this.repository.query(
+      `
+      WITH alloc_sum AS (
+        SELECT period_id, concept_type, SUM(allocated_amount) AS total_allocated
+        FROM record_allocations
+        WHERE house_id = $1
+        GROUP BY period_id, concept_type
+      )
+      SELECT
+        a.period_id,
+        a.concept_type,
+        a.total_allocated,
+        COALESCE(c.expected_amount, 0) AS current_charge
+      FROM alloc_sum a
+      LEFT JOIN house_period_charges c
+        ON c.house_id = $1
+        AND c.period_id = a.period_id
+        AND c.concept_type = a.concept_type
+      WHERE a.total_allocated > COALESCE(c.expected_amount, 0)
+      `,
+      [houseId],
+    );
+
+    return rows.map((r: any) => ({
+      period_id: Number(r.period_id),
+      concept_type: r.concept_type as AllocationConceptType,
+      total_allocated: parseFloat(r.total_allocated),
+      current_charge: parseFloat(r.current_charge),
+    }));
+  }
+
+  async findRecordIdsContributingToBuckets(
+    houseId: number,
+    buckets: Array<{
+      period_id: number;
+      concept_type: AllocationConceptType;
+    }>,
+  ): Promise<number[]> {
+    if (buckets.length === 0) return [];
+
+    const rows = await this.repository
+      .createQueryBuilder('ra')
+      .select('DISTINCT ra.record_id', 'record_id')
+      .where('ra.house_id = :houseId', { houseId })
+      .andWhere(
+        `(ra.period_id, ra.concept_type) IN (${buckets
+          .map((_, i) => `(:p${i}, :c${i})`)
+          .join(', ')})`,
+        buckets.reduce(
+          (acc, b, i) => {
+            acc[`p${i}`] = b.period_id;
+            acc[`c${i}`] = b.concept_type;
+            return acc;
+          },
+          {} as Record<string, unknown>,
+        ),
+      )
+      .getRawMany();
+
+    return rows.map((r) => Number(r.record_id));
+  }
 }

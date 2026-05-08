@@ -85,4 +85,10 @@ export interface IHousePeriodChargeRepository {
     newAmount: number,
     source: string,
   ): Promise<number>;
+
+  /**
+   * Elimina los cargos auto-generados (source='auto_penalty') de una casa.
+   * Las penalidades on-demand se recrean al recalcular el balance.
+   */
+  deleteAutoPenaltyChargesByHouse(houseId: number): Promise<number>;
 }

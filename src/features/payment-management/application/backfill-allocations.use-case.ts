@@ -1,8 +1,14 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { IRecordAllocationRepository } from '../interfaces';
+import {
+  IRecordAllocationRepository,
+  IHousePeriodChargeRepository,
+} from '../interfaces';
 import { AllocatePaymentUseCase } from './allocate-payment.use-case';
 import { EnsurePeriodExistsUseCase } from './ensure-period-exists.use-case';
+import { ApplyCreditToPeriodsUseCase } from './apply-credit-to-periods.use-case';
+import { HouseRepository } from '@/shared/database/repositories/house.repository';
+import { HouseStatusSnapshotService } from '../infrastructure/services/house-status-snapshot.service';
 import {
   BackfillAllocationsResponseDto,
   BackfillRecordResultDto,
@@ -17,12 +23,15 @@ interface OrphanRecord {
 }
 
 /**
- * Use case para backfill de record_allocations en records confirmados
- * que fueron procesados antes de que existiera el Balance Engine.
+ * Use case para backfill de record_allocations en records confirmados.
  *
- * Idempotente: si un record ya tiene allocations, se salta.
- * Continue-on-error: cada record se procesa independientemente.
- * Orden cronologico: ORDER BY transaction date ASC para balance acumulativo correcto.
+ * Modo global (sin houseNumber): idempotente. Solo procesa records sin allocations.
+ *
+ * Modo house-fix (con houseNumber): además detecta sobre-asignaciones causadas por
+ * ajustes retroactivos de cargos (allocated_amount > expected_amount actual),
+ * resetea las allocations afectadas, borra penalidades auto-generadas (se recrean
+ * on-demand al recalcular balance) y reprocesa los records vía FIFO.
+ * Al final, aplica el credit_balance acumulado a períodos pendientes.
  */
 @Injectable()
 export class BackfillAllocationsUseCase {
@@ -32,11 +41,36 @@ export class BackfillAllocationsUseCase {
     private readonly dataSource: DataSource,
     @Inject('IRecordAllocationRepository')
     private readonly recordAllocationRepository: IRecordAllocationRepository,
+    @Inject('IHousePeriodChargeRepository')
+    private readonly housePeriodChargeRepository: IHousePeriodChargeRepository,
     private readonly allocatePaymentUseCase: AllocatePaymentUseCase,
     private readonly ensurePeriodExistsUseCase: EnsurePeriodExistsUseCase,
+    private readonly applyCreditToPeriodsUseCase: ApplyCreditToPeriodsUseCase,
+    private readonly houseRepository: HouseRepository,
+    private readonly snapshotService: HouseStatusSnapshotService,
   ) {}
 
   async execute(houseNumber?: number): Promise<BackfillAllocationsResponseDto> {
+    const mode: 'global' | 'house-fix' = houseNumber ? 'house-fix' : 'global';
+    let resetRecords = 0;
+    let fixedBuckets = 0;
+    let resolvedHouseId: number | null = null;
+
+    if (houseNumber !== undefined) {
+      const house = await this.houseRepository.findByNumberHouse(houseNumber);
+      if (house) {
+        resolvedHouseId = house.id;
+        const fixResult = await this.resetOverpaidAllocationsForHouse(house.id);
+        resetRecords = fixResult.resetRecords;
+        fixedBuckets = fixResult.fixedBuckets;
+        if (fixedBuckets > 0) {
+          this.logger.log(
+            `House ${houseNumber} (id=${house.id}): reset ${resetRecords} records over ${fixedBuckets} overpaid buckets`,
+          );
+        }
+      }
+    }
+
     const orphanRecords = await this.findOrphanRecords(houseNumber);
 
     this.logger.log(
@@ -50,7 +84,6 @@ export class BackfillAllocationsUseCase {
 
     for (const record of orphanRecords) {
       try {
-        // Doble check idempotencia: verificar que no se crearon allocations entre query y procesamiento
         const existing = await this.recordAllocationRepository.findByRecordId(
           record.record_id,
         );
@@ -68,15 +101,12 @@ export class BackfillAllocationsUseCase {
           continue;
         }
 
-        // Parsear fecha de la transaccion bancaria para determinar periodo
         const txDate = new Date(record.transaction_date);
         const year = txDate.getFullYear();
         const month = txDate.getMonth() + 1;
 
-        // Asegurar que existe el periodo (para que tenga sus house_period_charges)
         await this.ensurePeriodExistsUseCase.execute(year, month);
 
-        // Ejecutar allocation period-aware (fecha de transacción)
         await this.allocatePaymentUseCase.execute({
           record_id: record.record_id,
           house_id: record.house_id,
@@ -119,13 +149,71 @@ export class BackfillAllocationsUseCase {
       }
     }
 
-    return {
+    if (resolvedHouseId !== null && resetRecords > 0) {
+      try {
+        await this.applyCreditToPeriodsUseCase.execute(resolvedHouseId);
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        this.logger.warn(
+          `applyCreditToPeriods failed for house ${resolvedHouseId}: ${errorMessage}`,
+        );
+      }
+      await this.snapshotService.invalidateByHouseId(resolvedHouseId);
+    }
+
+    const response: BackfillAllocationsResponseDto = {
       total_records_found: orphanRecords.length,
       processed,
       skipped,
       failed,
       results,
+      mode,
     };
+
+    if (mode === 'house-fix') {
+      response.reset_records = resetRecords;
+      response.fixed_buckets = fixedBuckets;
+    }
+
+    return response;
+  }
+
+  /**
+   * Detecta y resetea allocations sobre-dimensionadas para una casa.
+   * Borra todas las allocations de los records que contribuyen a buckets
+   * (period_id, concept_type) donde SUM(allocated) > current_charge.
+   * También borra cargos auto_penalty (se recrean al recalcular balance).
+   */
+  private async resetOverpaidAllocationsForHouse(
+    houseId: number,
+  ): Promise<{ resetRecords: number; fixedBuckets: number }> {
+    const buckets =
+      await this.recordAllocationRepository.findOverpaidBuckets(houseId);
+
+    if (buckets.length === 0) {
+      return { resetRecords: 0, fixedBuckets: 0 };
+    }
+
+    const recordIds =
+      await this.recordAllocationRepository.findRecordIdsContributingToBuckets(
+        houseId,
+        buckets.map((b) => ({
+          period_id: b.period_id,
+          concept_type: b.concept_type,
+        })),
+      );
+
+    if (recordIds.length === 0) {
+      return { resetRecords: 0, fixedBuckets: buckets.length };
+    }
+
+    await this.recordAllocationRepository.deleteByRecordIds(recordIds);
+    await this.housePeriodChargeRepository.deleteAutoPenaltyChargesByHouse(
+      houseId,
+    );
+
+    return { resetRecords: recordIds.length, fixedBuckets: buckets.length };
   }
 
   /**

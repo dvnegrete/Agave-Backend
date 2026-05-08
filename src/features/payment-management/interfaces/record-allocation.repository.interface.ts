@@ -98,4 +98,35 @@ export interface IRecordAllocationRepository {
    * Elimina todas las asignaciones de pago
    */
   deleteAll(): Promise<number>;
+
+  /**
+   * Elimina en bulk las allocations cuyos record_id estén en la lista.
+   * Devuelve el número de filas eliminadas.
+   */
+  deleteByRecordIds(recordIds: number[]): Promise<number>;
+
+  /**
+   * Detecta buckets (period_id, concept_type) de una casa donde la suma de
+   * allocated_amount excede el expected_amount actual en house_period_charges.
+   */
+  findOverpaidBuckets(houseId: number): Promise<
+    Array<{
+      period_id: number;
+      concept_type: AllocationConceptType;
+      total_allocated: number;
+      current_charge: number;
+    }>
+  >;
+
+  /**
+   * Devuelve los record_id distintos cuyas allocations contribuyen a alguno
+   * de los buckets indicados (mismo house, period, concept).
+   */
+  findRecordIdsContributingToBuckets(
+    houseId: number,
+    buckets: Array<{
+      period_id: number;
+      concept_type: AllocationConceptType;
+    }>,
+  ): Promise<number[]>;
 }

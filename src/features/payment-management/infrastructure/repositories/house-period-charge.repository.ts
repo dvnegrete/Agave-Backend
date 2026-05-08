@@ -138,4 +138,12 @@ export class HousePeriodChargeRepository
 
     return result?.[1] ?? 0;
   }
+
+  async deleteAutoPenaltyChargesByHouse(houseId: number): Promise<number> {
+    const result = await this.repository.query(
+      `DELETE FROM house_period_charges WHERE house_id = $1 AND source = 'auto_penalty'`,
+      [houseId],
+    );
+    return result?.[1] ?? 0;
+  }
 }
