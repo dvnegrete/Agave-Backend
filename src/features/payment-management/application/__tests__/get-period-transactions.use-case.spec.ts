@@ -15,6 +15,7 @@ describe('GetPeriodTransactionsUseCase', () => {
     concept: 'Pago Mantenimiento Mar',
     bank_name: 'BBVA',
     confirmation_status: true,
+    source: 'bank',
   };
 
   const tx2: PeriodTransactionDto = {
@@ -25,6 +26,18 @@ describe('GetPeriodTransactionsUseCase', () => {
     concept: null,
     bank_name: 'HSBC',
     confirmation_status: true,
+    source: 'bank',
+  };
+
+  const systemCreditRow: PeriodTransactionDto = {
+    transaction_id: null,
+    date: '2026-05-08',
+    amount: null,
+    allocated_to_period: 200,
+    concept: null,
+    bank_name: null,
+    confirmation_status: true,
+    source: 'system_credit',
   };
 
   beforeEach(async () => {
@@ -76,6 +89,22 @@ describe('GetPeriodTransactionsUseCase', () => {
     const result = await useCase.execute(34, 5);
 
     expect(result.total_allocated).toBe(1050);
+  });
+
+  it('combina fuentes bank + system_credit y suma todo', async () => {
+    allocationRepo.findTransactionsByHousePeriod.mockResolvedValue([
+      tx1,
+      systemCreditRow,
+    ]);
+
+    const result = await useCase.execute(5, 7);
+
+    expect(result.transactions).toHaveLength(2);
+    expect(result.total_allocated).toBe(650); // 450 bank + 200 credit
+    expect(result.transactions[0].source).toBe('bank');
+    expect(result.transactions[1].source).toBe('system_credit');
+    expect(result.transactions[1].transaction_id).toBeNull();
+    expect(result.transactions[1].amount).toBeNull();
   });
 
   it('propaga el error si el repositorio falla', async () => {

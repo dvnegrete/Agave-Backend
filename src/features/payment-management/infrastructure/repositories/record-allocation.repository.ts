@@ -243,35 +243,58 @@ export class RecordAllocationRepository implements IRecordAllocationRepository {
     houseId: number,
     periodId: number,
   ): Promise<PeriodTransactionDto[]> {
+    // Allocations con record_id > 0 → tienen tx bancaria fuente.
+    // Allocations con record_id = 0 → créditos del sistema aplicados vía FIFO
+    // desde el credit_balance acumulado (ApplyCreditToPeriodsUseCase). NO tienen
+    // tx fuente directa, pero sí explican el dinero que cubrió el período.
     const rows = await this.repository.query(
       `
       SELECT
-        tb.id AS transaction_id,
+        tb.id::text AS transaction_id,
         tb.date::text AS date,
         tb.amount AS amount,
         SUM(ra.allocated_amount) AS allocated_to_period,
         tb.concept AS concept,
         tb.bank_name AS bank_name,
-        tb.confirmation_status AS confirmation_status
+        tb.confirmation_status AS confirmation_status,
+        'bank' AS source
       FROM record_allocations ra
       INNER JOIN records r ON r.id = ra.record_id
       INNER JOIN transactions_status ts ON ts.id = r.transaction_status_id
       INNER JOIN transactions_bank tb ON tb.id = ts.transactions_bank_id
       WHERE ra.house_id = $1 AND ra.period_id = $2
       GROUP BY tb.id, tb.date, tb.amount, tb.concept, tb.bank_name, tb.confirmation_status
-      ORDER BY tb.date DESC
+
+      UNION ALL
+
+      SELECT
+        NULL AS transaction_id,
+        MAX(ra.created_at)::date::text AS date,
+        NULL AS amount,
+        SUM(ra.allocated_amount) AS allocated_to_period,
+        NULL AS concept,
+        NULL AS bank_name,
+        TRUE AS confirmation_status,
+        'system_credit' AS source
+      FROM record_allocations ra
+      WHERE ra.house_id = $1 AND ra.period_id = $2 AND ra.record_id = 0
+      GROUP BY ra.house_id, ra.period_id
+      HAVING SUM(ra.allocated_amount) > 0
+
+      ORDER BY date DESC NULLS LAST
       `,
       [houseId, periodId],
     );
 
     return rows.map((r: any) => ({
-      transaction_id: Number(r.transaction_id),
+      transaction_id: r.transaction_id !== null ? Number(r.transaction_id) : null,
       date: String(r.date),
-      amount: parseFloat(r.amount),
+      amount: r.amount !== null ? parseFloat(r.amount) : null,
       allocated_to_period: parseFloat(r.allocated_to_period),
       concept: r.concept ?? null,
-      bank_name: r.bank_name ?? '',
+      bank_name: r.bank_name ?? null,
       confirmation_status: Boolean(r.confirmation_status),
+      source: r.source as 'bank' | 'system_credit',
     }));
   }
 }
