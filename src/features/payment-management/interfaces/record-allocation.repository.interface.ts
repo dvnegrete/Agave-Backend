@@ -3,6 +3,7 @@ import {
   AllocationConceptType,
   PaymentStatus,
 } from '@/shared/database/entities/enums';
+import { PeriodTransactionDto } from '../dto/period-transactions.dto';
 
 /**
  * Interface para el repositorio de Asignaciones de Pago
@@ -129,4 +130,14 @@ export interface IRecordAllocationRepository {
       concept_type: AllocationConceptType;
     }>,
   ): Promise<number[]>;
+
+  /**
+   * Devuelve las transacciones bancarias que aplicaron (vía record_allocations)
+   * a un período específico de una casa. Agrupa por transaction_id y suma los
+   * allocated_amount cuando una misma tx cubrió varios conceptos del período.
+   */
+  findTransactionsByHousePeriod(
+    houseId: number,
+    periodId: number,
+  ): Promise<PeriodTransactionDto[]>;
 }

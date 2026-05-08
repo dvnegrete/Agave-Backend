@@ -49,6 +49,7 @@ import {
   ReverseHousePeriodChargeUseCase,
   ApplyCreditToPeriodsUseCase,
   SetInitialDebtUseCase,
+  GetPeriodTransactionsUseCase,
 } from '../application';
 import {
   CreatePeriodDto,
@@ -71,6 +72,7 @@ import {
   InitialBalanceDto,
   AdjustChargeDto,
   InitialDebtDto,
+  PeriodTransactionsResponseDto,
 } from '../dto';
 import { HouseRepository } from '@/shared/database/repositories/house.repository';
 import { IPeriodConfigRepository } from '../interfaces';
@@ -108,6 +110,7 @@ export class PaymentManagementController {
     private readonly applyCreditToPeriodsUseCase: ApplyCreditToPeriodsUseCase,
     private readonly houseBalanceRepository: HouseBalanceRepository,
     private readonly setInitialDebtUseCase: SetInitialDebtUseCase,
+    private readonly getPeriodTransactionsUseCase: GetPeriodTransactionsUseCase,
   ) {}
 
   /**
@@ -422,6 +425,41 @@ export class PaymentManagementController {
   // 1. Mantener GET /houses/:houseId/payments para transacciones del banco (ya actualizado)
   // 2. Definir si se necesita filtrar por período y desde qué punto (banco vs allocations)
   // 3. Considerar usar métodos que filtren transacciones por rango de fecha
+
+  /**
+   * GET /payment-management/houses/:houseId/periods/:periodId/transactions
+   * Retorna las transacciones bancarias que aplicaron (vía record_allocations)
+   * a un período específico de una casa. Útil para auditar trazado de pagos
+   * con distribución FIFO (una tx puede cubrir un período distinto al de su fecha).
+   * @param houseId número de casa (number_house)
+   * @param periodId id interno del período
+   */
+  @Get('houses/:houseId/periods/:periodId/transactions')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Transacciones aplicadas a un período de una casa',
+    description:
+      'Lista las transacciones bancarias asociadas vía record_allocations a un (house, period). Agrupa por transaction_id y suma allocated_amount cuando la misma tx cubrió varios conceptos.',
+  })
+  @ApiParam({ name: 'houseId', description: 'Número de casa (number_house)', example: 42 })
+  @ApiParam({ name: 'periodId', description: 'ID interno del período', example: 5 })
+  @ApiResponse({
+    status: 200,
+    description: 'Transacciones aplicadas obtenidas',
+    type: PeriodTransactionsResponseDto,
+  })
+  @ApiResponse({ status: 404, description: 'Casa no encontrada' })
+  async getPeriodTransactions(
+    @Param('houseId', ParseIntPipe) houseId: number,
+    @Param('periodId', ParseIntPipe) periodId: number,
+  ): Promise<PeriodTransactionsResponseDto> {
+    const house = await this.houseRepository.findByNumberHouse(houseId);
+    if (!house) {
+      throw new NotFoundException(`Casa con número ${houseId} no encontrada`);
+    }
+    return this.getPeriodTransactionsUseCase.execute(house.id, periodId);
+  }
 
   /**
    * GET /payment-management/houses/:houseId/balance

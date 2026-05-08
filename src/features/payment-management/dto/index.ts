@@ -15,3 +15,4 @@ export * from './backfill-allocations.dto';
 export * from './batch-update-period-charges.dto';
 export * from './period-charges-summary.dto';
 export * from './admin-operations.dto';
+export * from './period-transactions.dto';

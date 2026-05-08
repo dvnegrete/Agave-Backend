@@ -25,3 +25,4 @@ export * from './get-period-charges-summary.use-case';
 export * from './batch-update-period-charges.use-case';
 export * from './reprocess-all-allocations.use-case';
 export * from './set-initial-debt.use-case';
+export * from './get-period-transactions.use-case';

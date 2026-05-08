@@ -7,6 +7,7 @@ import {
   PaymentStatus,
 } from '@/shared/database/entities/enums';
 import { IRecordAllocationRepository } from '../../interfaces/record-allocation.repository.interface';
+import { PeriodTransactionDto } from '../../dto/period-transactions.dto';
 
 @Injectable()
 export class RecordAllocationRepository implements IRecordAllocationRepository {
@@ -236,5 +237,39 @@ export class RecordAllocationRepository implements IRecordAllocationRepository {
       .getRawMany();
 
     return rows.map((r) => Number(r.record_id));
+  }
+
+  async findTransactionsByHousePeriod(
+    houseId: number,
+    periodId: number,
+  ): Promise<PeriodTransactionDto[]> {
+    const rows = await this.repository.query(
+      `
+      SELECT
+        tb.id AS transaction_id,
+        tb.date::text AS date,
+        tb.amount AS amount,
+        SUM(ra.allocated_amount) AS allocated_to_period,
+        tb.bank_name AS bank_name,
+        tb.confirmation_status AS confirmation_status
+      FROM record_allocations ra
+      INNER JOIN records r ON r.id = ra.record_id
+      INNER JOIN transactions_status ts ON ts.id = r.transaction_status_id
+      INNER JOIN transactions_bank tb ON tb.id = ts.transactions_bank_id
+      WHERE ra.house_id = $1 AND ra.period_id = $2
+      GROUP BY tb.id, tb.date, tb.amount, tb.bank_name, tb.confirmation_status
+      ORDER BY tb.date DESC
+      `,
+      [houseId, periodId],
+    );
+
+    return rows.map((r: any) => ({
+      transaction_id: Number(r.transaction_id),
+      date: String(r.date),
+      amount: parseFloat(r.amount),
+      allocated_to_period: parseFloat(r.allocated_to_period),
+      bank_name: r.bank_name ?? '',
+      confirmation_status: Boolean(r.confirmation_status),
+    }));
   }
 }
