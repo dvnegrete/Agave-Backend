@@ -52,6 +52,14 @@ export class Period {
   @Column({ type: 'boolean', default: false })
   extraordinary_fee_active: boolean;
 
+  @Column({
+    type: 'int',
+    nullable: true,
+    comment:
+      'Día límite de pago para este período. Sobreescribe PeriodConfig.payment_due_day cuando está seteado. NULL = usar el del PeriodConfig.',
+  })
+  payment_due_day: number | null;
+
   @CreateDateColumn()
   created_at: Date;
 

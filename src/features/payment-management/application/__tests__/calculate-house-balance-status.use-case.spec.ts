@@ -92,6 +92,7 @@ describe('CalculateHouseBalanceStatusUseCase', () => {
           provide: 'IHousePeriodChargeRepository',
           useValue: {
             findByHouseAndPeriod: jest.fn(),
+            create: jest.fn(),
           },
         },
         {
@@ -481,6 +482,215 @@ describe('CalculateHouseBalanceStatusUseCase', () => {
 
       expect(result.unpaid_periods[0].expected_total).toBe(800.67);
       expect(result.unpaid_periods[0].paid_total).toBe(400.33);
+    });
+  });
+
+  describe('payment_due_day hierarchy', () => {
+    const overduePeriodBase = {
+      id: 1,
+      year: 2024,
+      month: 1,
+      start_date: new Date('2024-01-01'),
+      water_active: false,
+      extraordinary_fee_active: false,
+    };
+    const charges = [{ concept_type: 'MAINTENANCE', expected_amount: 800 }];
+
+    it('should use period.payment_due_day override over config.payment_due_day', async () => {
+      // override=10, config=15. bankCoverage=2024-01-12 (>10 pero <15).
+      // Si usa override → overdue. Si usa config → no overdue.
+      const period = { ...overduePeriodBase, payment_due_day: 10 };
+      const lastTx = { transactionBank: { date: new Date('2024-01-12') } };
+
+      periodRepository.findAll.mockResolvedValue([period as any]);
+      periodConfigRepository.findActiveForDate.mockResolvedValue(
+        mockPeriodConfig as any,
+      );
+      houseBalanceRepository.getOrCreate.mockResolvedValue(mockHouseBalance as any);
+      housePeriodChargeRepository.findByHouseAndPeriod.mockResolvedValue(
+        charges as any,
+      );
+      housePeriodChargeRepository.create.mockResolvedValue({} as any);
+      recordAllocationRepository.findByHouseAndPeriod.mockResolvedValue([]);
+      lastTransactionBankRepository.findLatest.mockResolvedValue(lastTx as any);
+
+      const result = await useCase.execute(42, mockHouse);
+
+      expect(result.unpaid_periods[0].is_overdue).toBe(true);
+      expect(result.status).toBe(HouseStatus.MOROSA);
+    });
+
+    it('should fall back to config.payment_due_day when period.payment_due_day is null', async () => {
+      // period.payment_due_day=null, config=15. bankCoverage=2024-01-20 (>15).
+      const period = { ...overduePeriodBase, payment_due_day: null };
+      const lastTx = { transactionBank: { date: new Date('2024-01-20') } };
+
+      periodRepository.findAll.mockResolvedValue([period as any]);
+      periodConfigRepository.findActiveForDate.mockResolvedValue(
+        mockPeriodConfig as any,
+      );
+      houseBalanceRepository.getOrCreate.mockResolvedValue(mockHouseBalance as any);
+      housePeriodChargeRepository.findByHouseAndPeriod.mockResolvedValue(
+        charges as any,
+      );
+      housePeriodChargeRepository.create.mockResolvedValue({} as any);
+      recordAllocationRepository.findByHouseAndPeriod.mockResolvedValue([]);
+      lastTransactionBankRepository.findLatest.mockResolvedValue(lastTx as any);
+
+      const result = await useCase.execute(42, mockHouse);
+
+      expect(result.unpaid_periods[0].is_overdue).toBe(true);
+    });
+
+    it('should NOT mark overdue when bank coverage is before due date (config fallback)', async () => {
+      // period.payment_due_day=null, config=15. bankCoverage=2024-01-10 (<15).
+      const period = { ...overduePeriodBase, payment_due_day: null };
+      const lastTx = { transactionBank: { date: new Date('2024-01-10') } };
+
+      periodRepository.findAll.mockResolvedValue([period as any]);
+      periodConfigRepository.findActiveForDate.mockResolvedValue(
+        mockPeriodConfig as any,
+      );
+      houseBalanceRepository.getOrCreate.mockResolvedValue(mockHouseBalance as any);
+      housePeriodChargeRepository.findByHouseAndPeriod.mockResolvedValue(
+        charges as any,
+      );
+      recordAllocationRepository.findByHouseAndPeriod.mockResolvedValue([]);
+      lastTransactionBankRepository.findLatest.mockResolvedValue(lastTx as any);
+
+      const result = await useCase.execute(42, mockHouse);
+
+      expect(result.unpaid_periods[0].is_overdue).toBe(false);
+      expect(result.unpaid_periods[0].penalty_amount).toBe(0);
+    });
+  });
+
+  describe('penalty on-demand for modern periods (with charges)', () => {
+    const overduePeriod = {
+      id: 1,
+      year: 2024,
+      month: 1,
+      start_date: new Date('2024-01-01'),
+      water_active: false,
+      extraordinary_fee_active: false,
+      payment_due_day: null,
+    };
+    const lastTx = { transactionBank: { date: new Date('2024-12-31') } };
+
+    it('should create penalty charge on-demand when overdue and no penalty exists', async () => {
+      const charges = [{ concept_type: 'MAINTENANCE', expected_amount: 800 }];
+
+      periodRepository.findAll.mockResolvedValue([overduePeriod as any]);
+      periodConfigRepository.findActiveForDate.mockResolvedValue(
+        mockPeriodConfig as any,
+      );
+      houseBalanceRepository.getOrCreate.mockResolvedValue(mockHouseBalance as any);
+      housePeriodChargeRepository.findByHouseAndPeriod.mockResolvedValue(
+        charges as any,
+      );
+      housePeriodChargeRepository.create.mockResolvedValue({} as any);
+      recordAllocationRepository.findByHouseAndPeriod.mockResolvedValue([]);
+      lastTransactionBankRepository.findLatest.mockResolvedValue(lastTx as any);
+
+      const result = await useCase.execute(42, mockHouse);
+
+      expect(housePeriodChargeRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          house_id: 42,
+          period_id: 1,
+          concept_type: AllocationConceptType.PENALTIES,
+          expected_amount: 100,
+          source: 'auto_penalty',
+        }),
+      );
+      expect(result.unpaid_periods[0].penalty_amount).toBe(100);
+      expect(result.unpaid_periods[0].expected_total).toBe(900);
+    });
+
+    it('should NOT create penalty when one already exists in charges', async () => {
+      const charges = [
+        { concept_type: 'MAINTENANCE', expected_amount: 800 },
+        { concept_type: AllocationConceptType.PENALTIES, expected_amount: 75 },
+      ];
+
+      periodRepository.findAll.mockResolvedValue([overduePeriod as any]);
+      periodConfigRepository.findActiveForDate.mockResolvedValue(
+        mockPeriodConfig as any,
+      );
+      houseBalanceRepository.getOrCreate.mockResolvedValue(mockHouseBalance as any);
+      housePeriodChargeRepository.findByHouseAndPeriod.mockResolvedValue(
+        charges as any,
+      );
+      recordAllocationRepository.findByHouseAndPeriod.mockResolvedValue([]);
+      lastTransactionBankRepository.findLatest.mockResolvedValue(lastTx as any);
+
+      const result = await useCase.execute(42, mockHouse);
+
+      expect(housePeriodChargeRepository.create).not.toHaveBeenCalled();
+      expect(result.unpaid_periods[0].penalty_amount).toBe(75);
+    });
+
+    it('should NOT create penalty when only penalty charge is pending (non-penalty fully paid)', async () => {
+      // Cargo de mantenimiento 800 totalmente pagado.
+      // Aunque está overdue, no se debe disparar penalidad sobre una deuda que no existe.
+      const charges = [{ concept_type: 'MAINTENANCE', expected_amount: 800 }];
+      const allocations = [
+        { concept_type: 'MAINTENANCE', allocated_amount: 800 },
+      ];
+
+      periodRepository.findAll.mockResolvedValue([overduePeriod as any]);
+      periodConfigRepository.findActiveForDate.mockResolvedValue(
+        mockPeriodConfig as any,
+      );
+      houseBalanceRepository.getOrCreate.mockResolvedValue(mockHouseBalance as any);
+      housePeriodChargeRepository.findByHouseAndPeriod.mockResolvedValue(
+        charges as any,
+      );
+      recordAllocationRepository.findByHouseAndPeriod.mockResolvedValue(
+        allocations as any,
+      );
+      lastTransactionBankRepository.findLatest.mockResolvedValue(lastTx as any);
+
+      const result = await useCase.execute(42, mockHouse);
+
+      expect(housePeriodChargeRepository.create).not.toHaveBeenCalled();
+      expect(result.paid_periods).toHaveLength(1);
+    });
+  });
+
+  describe('penalty for legacy periods (without charges)', () => {
+    it('should call generatePenaltyUseCase when period has no charges and is overdue', async () => {
+      const overduePeriod = {
+        id: 1,
+        year: 2024,
+        month: 1,
+        start_date: new Date('2024-01-01'),
+        water_active: false,
+        extraordinary_fee_active: false,
+        payment_due_day: null,
+      };
+      const lastTx = { transactionBank: { date: new Date('2024-12-31') } };
+
+      periodRepository.findAll.mockResolvedValue([overduePeriod as any]);
+      periodConfigRepository.findActiveForDate.mockResolvedValue(
+        mockPeriodConfig as any,
+      );
+      houseBalanceRepository.getOrCreate.mockResolvedValue(mockHouseBalance as any);
+      housePeriodChargeRepository.findByHouseAndPeriod.mockResolvedValue([]);
+      housePeriodOverrideRepository.getApplicableAmount.mockResolvedValue(800);
+      recordAllocationRepository.findByHouseAndPeriod.mockResolvedValue([]);
+      lastTransactionBankRepository.findLatest.mockResolvedValue(lastTx as any);
+      generatePenaltyUseCase.execute.mockResolvedValue({ amount: 100 } as any);
+
+      const result = await useCase.execute(42, mockHouse);
+
+      expect(generatePenaltyUseCase.execute).toHaveBeenCalledWith(
+        42,
+        1,
+        expect.any(Date),
+      );
+      expect(housePeriodChargeRepository.create).not.toHaveBeenCalled();
+      expect(result.unpaid_periods[0].penalty_amount).toBe(100);
     });
   });
 });

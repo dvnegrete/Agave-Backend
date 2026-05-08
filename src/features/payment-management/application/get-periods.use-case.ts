@@ -23,6 +23,7 @@ export class GetPeriodsUseCase {
         startDate: period.start_date,
         endDate: period.end_date,
         periodConfigId: period.period_config_id,
+        paymentDueDay: period.payment_due_day,
       }),
     );
   }

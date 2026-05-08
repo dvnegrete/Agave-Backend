@@ -11,6 +11,7 @@ export class PeriodDomain {
     public readonly startDate: Date,
     public readonly endDate: Date,
     public readonly periodConfigId?: number,
+    public readonly paymentDueDay: number | null = null,
   ) {}
 
   static create(params: {
@@ -20,6 +21,7 @@ export class PeriodDomain {
     startDate: Date;
     endDate: Date;
     periodConfigId?: number;
+    paymentDueDay?: number | null;
   }): PeriodDomain {
     return new PeriodDomain(
       params.id,
@@ -28,6 +30,7 @@ export class PeriodDomain {
       params.startDate,
       params.endDate,
       params.periodConfigId,
+      params.paymentDueDay ?? null,
     );
   }
 

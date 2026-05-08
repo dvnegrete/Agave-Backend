@@ -137,6 +137,7 @@ export class PaymentManagementController {
       end_date: this.formatDateToISO(period.endDate),
       period_config_id: period.periodConfigId,
       display_name: period.getDisplayName(),
+      payment_due_day: period.paymentDueDay,
       created_at: new Date(),
       updated_at: new Date(),
     }));
@@ -174,6 +175,7 @@ export class PaymentManagementController {
       end_date: this.formatDateToISO(period.endDate),
       period_config_id: period.periodConfigId,
       display_name: period.getDisplayName(),
+      payment_due_day: period.paymentDueDay,
       created_at: new Date(),
       updated_at: new Date(),
     };
@@ -211,6 +213,7 @@ export class PaymentManagementController {
       end_date: this.formatDateToISO(period.endDate),
       period_config_id: period.periodConfigId,
       display_name: period.getDisplayName(),
+      payment_due_day: period.paymentDueDay,
       created_at: new Date(),
       updated_at: new Date(),
     };
@@ -492,6 +495,7 @@ export class PaymentManagementController {
       end_date: this.formatDateToISO(period.end_date),
       period_config_id: period.period_config_id,
       display_name: formatMonthName(period.month, period.year),
+      payment_due_day: period.payment_due_day,
       created_at: period.created_at,
       updated_at: period.updated_at,
     };

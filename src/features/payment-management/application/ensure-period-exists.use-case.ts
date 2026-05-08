@@ -50,6 +50,7 @@ export class EnsurePeriodExistsUseCase {
         startDate: existingPeriod.start_date,
         endDate: existingPeriod.end_date,
         periodConfigId: existingPeriod.period_config_id,
+        paymentDueDay: existingPeriod.payment_due_day,
       });
       this.periodCache.set(cacheKey, periodDomain);
       return periodDomain;
@@ -79,6 +80,7 @@ export class EnsurePeriodExistsUseCase {
       startDate: newPeriod.start_date,
       endDate: newPeriod.end_date,
       periodConfigId: newPeriod.period_config_id,
+      paymentDueDay: newPeriod.payment_due_day ?? null,
     });
     this.periodCache.set(cacheKey, periodDomain);
     this.logger.log(`Period ${cacheKey} created and cached`);

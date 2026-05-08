@@ -110,7 +110,27 @@ export class BatchUpdatePeriodChargesUseCase {
         }
       }
 
-      // 6. Check retroactive changes
+      // 6. PENALTIES — solo actualiza cargos EXISTENTES (no aplica a todas las casas)
+      // La penalidad solo existe para casas morosas, no para todas las casas del período
+      if (dto.amounts.penalty_amount !== undefined) {
+        if (dto.amounts.penalty_amount > 0) {
+          const penaltyCount =
+            await this.housePeriodChargeRepository.updateExistingChargesByPeriodsAndConcept(
+              periodIds,
+              AllocationConceptType.PENALTIES,
+              dto.amounts.penalty_amount,
+              'manual',
+            );
+          chargesUpdated += penaltyCount;
+        } else {
+          await this.housePeriodChargeRepository.deleteByPeriodsAndConcept(
+            periodIds,
+            AllocationConceptType.PENALTIES,
+          );
+        }
+      }
+
+      // 8. Check retroactive changes
       const retroCheck = await queryRunner.query(
         `SELECT EXISTS(SELECT 1 FROM record_allocations WHERE period_id = ANY($1::int[])) AS has_allocations`,
         [periodIds],

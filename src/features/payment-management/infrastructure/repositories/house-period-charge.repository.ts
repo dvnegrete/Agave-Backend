@@ -120,4 +120,22 @@ export class HousePeriodChargeRepository
 
     return result?.[1] ?? 0;
   }
+
+  async updateExistingChargesByPeriodsAndConcept(
+    periodIds: number[],
+    conceptType: AllocationConceptType,
+    newAmount: number,
+    source: string,
+  ): Promise<number> {
+    if (periodIds.length === 0) return 0;
+
+    const result = await this.repository.query(
+      `UPDATE house_period_charges
+       SET expected_amount = $1, source = $2, updated_at = NOW()
+       WHERE period_id = ANY($3::int[]) AND concept_type = $4`,
+      [newAmount, source, periodIds, conceptType],
+    );
+
+    return result?.[1] ?? 0;
+  }
 }
