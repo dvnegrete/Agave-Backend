@@ -300,8 +300,11 @@ Table periods {
   year int [not null]
   month int [not null]
   period_config_id int [ref: > period_config.id, note: 'Configuración de montos para este período']
+  water_active boolean [not null, default: false, note: 'Si el cobro de agua está activo en este período']
+  extraordinary_fee_active boolean [not null, default: false, note: 'Si la cuota extraordinaria está activa en este período']
   start_date date [note: 'Primer día del mes (generado automáticamente)']
   end_date date [note: 'Último día del mes (generado automáticamente)']
+  payment_due_day int [note: 'Día límite de pago para este período (1-28). Sobreescribe PeriodConfig.payment_due_day cuando está seteado. NULL = usar el del PeriodConfig.']
   created_at timestamptz [not null, default: `now()`]
   updated_at timestamptz [not null, default: `now()`]
 
