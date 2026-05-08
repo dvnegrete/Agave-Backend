@@ -12,6 +12,7 @@ describe('GetPeriodTransactionsUseCase', () => {
     date: '2026-03-05',
     amount: 1150,
     allocated_to_period: 450,
+    concept: 'Pago Mantenimiento Mar',
     bank_name: 'BBVA',
     confirmation_status: true,
   };
@@ -21,6 +22,7 @@ describe('GetPeriodTransactionsUseCase', () => {
     date: '2026-02-08',
     amount: 400,
     allocated_to_period: 400,
+    concept: null,
     bank_name: 'HSBC',
     confirmation_status: true,
   };

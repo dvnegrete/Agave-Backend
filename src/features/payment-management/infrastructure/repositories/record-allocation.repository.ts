@@ -250,6 +250,7 @@ export class RecordAllocationRepository implements IRecordAllocationRepository {
         tb.date::text AS date,
         tb.amount AS amount,
         SUM(ra.allocated_amount) AS allocated_to_period,
+        tb.concept AS concept,
         tb.bank_name AS bank_name,
         tb.confirmation_status AS confirmation_status
       FROM record_allocations ra
@@ -257,7 +258,7 @@ export class RecordAllocationRepository implements IRecordAllocationRepository {
       INNER JOIN transactions_status ts ON ts.id = r.transaction_status_id
       INNER JOIN transactions_bank tb ON tb.id = ts.transactions_bank_id
       WHERE ra.house_id = $1 AND ra.period_id = $2
-      GROUP BY tb.id, tb.date, tb.amount, tb.bank_name, tb.confirmation_status
+      GROUP BY tb.id, tb.date, tb.amount, tb.concept, tb.bank_name, tb.confirmation_status
       ORDER BY tb.date DESC
       `,
       [houseId, periodId],
@@ -268,6 +269,7 @@ export class RecordAllocationRepository implements IRecordAllocationRepository {
       date: String(r.date),
       amount: parseFloat(r.amount),
       allocated_to_period: parseFloat(r.allocated_to_period),
+      concept: r.concept ?? null,
       bank_name: r.bank_name ?? '',
       confirmation_status: Boolean(r.confirmation_status),
     }));
