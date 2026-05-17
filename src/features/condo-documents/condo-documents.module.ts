@@ -4,6 +4,7 @@ import { CondoDocumentsController } from './controllers/condo-documents.controll
 import { ListDocumentsUseCase } from './application/list-documents.use-case';
 import { GetSignedUrlUseCase } from './application/get-signed-url.use-case';
 import { UploadDocumentUseCase } from './application/upload-document.use-case';
+import { DeleteDocumentUseCase } from './application/delete-document.use-case';
 
 @Module({
   imports: [AuthModule],
@@ -12,6 +13,7 @@ import { UploadDocumentUseCase } from './application/upload-document.use-case';
     ListDocumentsUseCase,
     GetSignedUrlUseCase,
     UploadDocumentUseCase,
+    DeleteDocumentUseCase,
   ],
 })
 export class CondoDocumentsModule {}
