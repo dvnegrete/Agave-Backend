@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Delete,
   Query,
   Body,
   UseGuards,
@@ -32,6 +33,7 @@ import { User } from '@/shared/database/entities/user.entity';
 import { ListDocumentsUseCase } from '../application/list-documents.use-case';
 import { GetSignedUrlUseCase } from '../application/get-signed-url.use-case';
 import { UploadDocumentUseCase } from '../application/upload-document.use-case';
+import { DeleteDocumentUseCase } from '../application/delete-document.use-case';
 import {
   ListDocumentsQueryDto,
   CondoDocumentTypeDto,
@@ -54,6 +56,7 @@ export class CondoDocumentsController {
     private readonly listDocumentsUseCase: ListDocumentsUseCase,
     private readonly getSignedUrlUseCase: GetSignedUrlUseCase,
     private readonly uploadDocumentUseCase: UploadDocumentUseCase,
+    private readonly deleteDocumentUseCase: DeleteDocumentUseCase,
   ) {}
 
   @Get()
@@ -147,6 +150,24 @@ export class CondoDocumentsController {
       dto.date,
       dto.name,
     );
+  }
+
+  @Delete()
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(Role.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Eliminar un documento del bucket (solo admin)',
+  })
+  @ApiResponse({ status: 200, description: 'Documento eliminado' })
+  async deleteDocument(
+    @Query('name') name: string,
+  ): Promise<{ deleted: true; name: string }> {
+    if (!name?.trim()) {
+      throw new BadRequestException('El parámetro "name" es requerido');
+    }
+    this.logger.log(`Eliminando documento: ${name}`);
+    return this.deleteDocumentUseCase.execute(name);
   }
 
   private assertMinuteAccess(type: CondoDocumentTypeDto, user: User): void {
