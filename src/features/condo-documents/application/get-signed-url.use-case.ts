@@ -1,14 +1,16 @@
-import { Injectable, BadRequestException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  ForbiddenException,
+  Logger,
+} from '@nestjs/common';
 import { CloudStorageService } from '@/shared/libs/google-cloud/storage/cloud-storage.service';
 import { GoogleCloudConfigService } from '@/shared/libs/google-cloud/google-cloud.config';
 import { CondoDocumentType } from '../interfaces/document-item.interface';
 
-const PREFIX_BY_TYPE: Record<CondoDocumentType, string> = {
-  document: 'documents/',
-  minute: 'minutes/',
-};
-
 const SIGNED_URL_EXPIRATION_MINUTES = 15;
+const MINUTE_DATE_REGEX = /^\d{8}$/;
 
 @Injectable()
 export class GetSignedUrlUseCase {
@@ -30,9 +32,31 @@ export class GetSignedUrlUseCase {
       );
     }
 
-    const expectedPrefix = PREFIX_BY_TYPE[type];
-    if (!name.startsWith(expectedPrefix)) {
+    const fileInfo = await this.cloudStorageService.getFileMetadata(
+      name,
+      bucketName,
+    );
+
+    if (!fileInfo) {
+      throw new NotFoundException(`Archivo "${name}" no encontrado`);
+    }
+
+    const date = fileInfo.customMetadata?.date;
+    const actualType: CondoDocumentType | null =
+      date === 'document'
+        ? 'document'
+        : date && MINUTE_DATE_REGEX.test(date)
+          ? 'minute'
+          : null;
+
+    if (!actualType) {
       throw new BadRequestException(
+        `El archivo "${name}" no tiene un metadato "date" válido`,
+      );
+    }
+
+    if (actualType !== type) {
+      throw new ForbiddenException(
         `El archivo no pertenece al tipo "${type}"`,
       );
     }

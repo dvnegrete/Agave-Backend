@@ -6,11 +6,6 @@ import { CondoDocumentType } from '../interfaces/document-item.interface';
 import { UploadDocumentResponseDto } from '../dto/upload-document.dto';
 import { CondoDocumentTypeDto } from '../dto/list-documents-query.dto';
 
-const PREFIX_BY_TYPE: Record<CondoDocumentType, string> = {
-  document: 'documents/',
-  minute: 'minutes/',
-};
-
 @Injectable()
 export class UploadDocumentUseCase {
   private readonly logger = new Logger(UploadDocumentUseCase.name);
@@ -46,7 +41,6 @@ export class UploadDocumentUseCase {
       );
     }
 
-    const prefix = PREFIX_BY_TYPE[type];
     const metadataDateValue = type === 'document' ? 'document' : (date as string);
 
     const result = await this.cloudStorageService.upload(
@@ -54,7 +48,6 @@ export class UploadDocumentUseCase {
       file.originalname,
       {
         bucketName,
-        prefix,
         contentType: 'application/pdf',
         generateUniqueName: true,
         metadata: { date: metadataDateValue },
@@ -67,16 +60,13 @@ export class UploadDocumentUseCase {
 
     return {
       name: result.fileName,
-      displayName: this.buildDisplayName(result.fileName, prefix),
+      displayName: this.buildDisplayName(result.fileName),
       type: type as CondoDocumentTypeDto,
       date: metadataDateValue,
     };
   }
 
-  private buildDisplayName(fullName: string, prefix: string): string {
-    const fileName = fullName.startsWith(prefix)
-      ? fullName.slice(prefix.length)
-      : fullName;
-    return fileName.replace(/\.[^.]+$/, '');
+  private buildDisplayName(fullName: string): string {
+    return fullName.replace(/\.[^.]+$/, '');
   }
 }

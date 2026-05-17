@@ -329,6 +329,37 @@ export class CloudStorageService {
   }
 
   /**
+   * Obtiene los metadatos (incluyendo customMetadata) de un archivo específico
+   *
+   * @param fileName - Nombre del archivo
+   * @param bucketName - Nombre del bucket (opcional)
+   * @returns CloudStorageFile con metadata, o null si no existe
+   */
+  async getFileMetadata(
+    fileName: string,
+    bucketName?: string,
+  ): Promise<CloudStorageFile | null> {
+    try {
+      const storageClient = this.getStorageClient();
+      const bucket = bucketName || this.getDefaultBucketName();
+
+      const file = storageClient.bucket(bucket).file(fileName);
+      const [exists] = await file.exists();
+      if (!exists) {
+        return null;
+      }
+
+      await file.getMetadata();
+      return this.mapFileToCloudStorageFile(file, bucket);
+    } catch (error) {
+      this.logger.error(
+        `Error al obtener metadata de ${fileName}: ${error.message}`,
+      );
+      return null;
+    }
+  }
+
+  /**
    * Verifica si un archivo existe en Cloud Storage
    *
    * @param fileName - Nombre del archivo

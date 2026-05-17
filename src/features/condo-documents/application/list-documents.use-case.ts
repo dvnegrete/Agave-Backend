@@ -9,10 +9,7 @@ import {
   DocumentItem,
 } from '../interfaces/document-item.interface';
 
-const PREFIX_BY_TYPE: Record<CondoDocumentType, string> = {
-  document: 'documents/',
-  minute: 'minutes/',
-};
+const MINUTE_DATE_REGEX = /^\d{8}$/;
 
 @Injectable()
 export class ListDocumentsUseCase {
@@ -31,20 +28,17 @@ export class ListDocumentsUseCase {
       );
     }
 
-    const prefix = PREFIX_BY_TYPE[type];
-    const files = await this.cloudStorageService.getAllFiles({
-      bucketName,
-      prefix,
-    });
+    const files = await this.cloudStorageService.getAllFiles({ bucketName });
 
     const items = files
-      .filter((file) => file.name !== prefix)
-      .map((file) => this.toDocumentItem(file, type, prefix));
+      .filter((file) => this.matchesType(file, type))
+      .map((file) => this.toDocumentItem(file, type));
 
     if (type === 'minute') {
-      items.sort((a, b) =>
-        this.parseMinuteDate(b.date).getTime() -
-        this.parseMinuteDate(a.date).getTime(),
+      items.sort(
+        (a, b) =>
+          this.parseMinuteDate(b.date).getTime() -
+          this.parseMinuteDate(a.date).getTime(),
       );
     } else {
       items.sort(
@@ -55,32 +49,32 @@ export class ListDocumentsUseCase {
     return items;
   }
 
+  private matchesType(file: CloudStorageFile, type: CondoDocumentType): boolean {
+    const date = file.customMetadata?.date;
+    if (!date) return false;
+    return type === 'minute' ? MINUTE_DATE_REGEX.test(date) : date === 'document';
+  }
+
   private toDocumentItem(
     file: CloudStorageFile,
     type: CondoDocumentType,
-    prefix: string,
   ): DocumentItem {
     const dateMetadata = file.customMetadata?.date ?? '';
-    const date = type === 'minute' ? dateMetadata : 'document';
-
     return {
       name: file.name,
-      displayName: this.buildDisplayName(file.name, prefix),
-      date,
+      displayName: this.buildDisplayName(file.name),
+      date: type === 'minute' ? dateMetadata : 'document',
       size: file.size,
       updated: file.updated.toISOString(),
     };
   }
 
-  private buildDisplayName(fullName: string, prefix: string): string {
-    const fileName = fullName.startsWith(prefix)
-      ? fullName.slice(prefix.length)
-      : fullName;
-    return fileName.replace(/\.[^.]+$/, '');
+  private buildDisplayName(fullName: string): string {
+    return fullName.replace(/\.[^.]+$/, '');
   }
 
   private parseMinuteDate(date: string): Date {
-    if (!/^\d{8}$/.test(date)) {
+    if (!MINUTE_DATE_REGEX.test(date)) {
       return new Date(0);
     }
     const day = Number(date.slice(0, 2));
