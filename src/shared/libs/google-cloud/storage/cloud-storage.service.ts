@@ -69,6 +69,7 @@ export interface CloudStorageFile {
   bucket: string;
   gcsUri: string;
   publicUrl?: string;
+  customMetadata?: Record<string, string>;
 }
 
 @Injectable()
@@ -481,6 +482,13 @@ export class CloudStorageService {
     const size = file.metadata.size;
     const sizeNumber = typeof size === 'string' ? parseInt(size) : size || 0;
 
+    const rawCustomMetadata = (file.metadata as { metadata?: unknown })
+      .metadata;
+    const customMetadata =
+      rawCustomMetadata && typeof rawCustomMetadata === 'object'
+        ? (rawCustomMetadata as Record<string, string>)
+        : undefined;
+
     return {
       name: file.name,
       size: sizeNumber,
@@ -490,6 +498,7 @@ export class CloudStorageService {
       bucket: bucketName,
       gcsUri: `gs://${bucketName}/${file.name}`,
       publicUrl: `https://storage.googleapis.com/${bucketName}/${file.name}`,
+      customMetadata,
     };
   }
 }
