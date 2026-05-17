@@ -21,6 +21,15 @@ export class UploadDocumentDto {
   @IsString()
   @Matches(/^\d{8}$/, { message: 'date debe tener formato ddmmaaaa (8 dígitos)' })
   date?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Nombre del archivo (sin extensión). Requerido si type=document. Se ignora si type=minute (se autogenera).',
+    example: 'Reglamento interno 2026',
+  })
+  @IsOptional()
+  @IsString()
+  name?: string;
 }
 
 export class UploadDocumentResponseDto {

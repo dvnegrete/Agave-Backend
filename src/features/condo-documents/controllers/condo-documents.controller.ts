@@ -128,6 +128,10 @@ export class CondoDocumentsController {
           type: 'string',
           description: 'Solo para minutas (formato ddmmaaaa)',
         },
+        name: {
+          type: 'string',
+          description: 'Solo para documentos generales (nombre sin extensión)',
+        },
       },
       required: ['file', 'type'],
     },
@@ -137,7 +141,12 @@ export class CondoDocumentsController {
     @UploadedFile() file: Express.Multer.File,
     @Body() dto: UploadDocumentDto,
   ): Promise<UploadDocumentResponseDto> {
-    return this.uploadDocumentUseCase.execute(file, dto.type, dto.date);
+    return this.uploadDocumentUseCase.execute(
+      file,
+      dto.type,
+      dto.date,
+      dto.name,
+    );
   }
 
   private assertMinuteAccess(type: CondoDocumentTypeDto, user: User): void {
