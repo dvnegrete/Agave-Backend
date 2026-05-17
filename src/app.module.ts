@@ -14,6 +14,7 @@ import { OpenAIModule } from './shared/libs/openai/openai.module';
 import { VertexAIModule } from './shared/libs/vertex-ai/vertex-ai.module';
 import { HealthModule } from './shared/health/health.module';
 import { UserManagementModule } from './features/user-management/user-management.module';
+import { CondoDocumentsModule } from './features/condo-documents/condo-documents.module';
 import { BootstrapModule } from './shared/bootstrap/bootstrap.module';
 
 @Module({
@@ -36,6 +37,7 @@ import { BootstrapModule } from './shared/bootstrap/bootstrap.module';
     HistoricalRecordsModule,
     VertexAIModule,
     UserManagementModule,
+    CondoDocumentsModule,
   ],
   controllers: [AppController],
   providers: [AppConfigService],

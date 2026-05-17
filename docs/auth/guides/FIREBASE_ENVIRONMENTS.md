@@ -134,7 +134,7 @@ PRIVATE_KEY_ID=your-private-key-id
 PRIVATE_KEY_GCP="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
 CLIENT_EMAIL_GCP=your-service-account@your-project.iam.gserviceaccount.com
 CLIENT_ID_GCP=your-client-id
-BUCKET_NAME_GCP=your-bucket-name
+BUCKET_NAME_DOCUMENTS=your-bucket-name
 BUCKET_NAME_VOUCHERS=your-vouchers-bucket-development
 ```
 
@@ -178,7 +178,7 @@ PRIVATE_KEY_ID=your-private-key-id
 PRIVATE_KEY_GCP="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
 CLIENT_EMAIL_GCP=your-service-account@your-project.iam.gserviceaccount.com
 CLIENT_ID_GCP=your-client-id
-BUCKET_NAME_GCP=your-bucket-name
+BUCKET_NAME_DOCUMENTS=your-bucket-name
 BUCKET_NAME_VOUCHERS=your-vouchers-bucket-production
 ```
 

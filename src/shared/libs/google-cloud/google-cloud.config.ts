@@ -5,6 +5,7 @@ export interface GoogleCloudConfig {
   projectId: string;
   applicationCredentials: string;
   voucherBucketName: string | null;
+  documentsBucketName: string | null;
   region?: string;
   zone?: string;
 }
@@ -71,6 +72,15 @@ export class GoogleCloudConfigService {
     return bucketName;
   }
 
+  get documentsBucketName(): string | null {
+    const bucketName = this.configService.get<string>('BUCKET_NAME_DOCUMENTS');
+    if (!bucketName) {
+      this.logger.warn('BUCKET_NAME_DOCUMENTS no está configurada');
+      return null;
+    }
+    return bucketName;
+  }
+
   get isEnabled(): boolean {
     return !!(
       this.configService.get<string>('PROJECT_ID_GCP') &&
@@ -84,6 +94,7 @@ export class GoogleCloudConfigService {
       projectId: this.projectId,
       applicationCredentials: this.applicationCredentials,
       voucherBucketName: this.voucherBucketName,
+      documentsBucketName: this.documentsBucketName,
       region: this.region,
       zone: this.zone,
     };

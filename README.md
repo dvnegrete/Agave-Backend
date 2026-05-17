@@ -152,7 +152,7 @@ FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY----
 
 # Google Cloud Platform
 PROJECT_ID_GCP=your-project-id
-BUCKET_NAME_GCP=your-bucket-name
+BUCKET_NAME_DOCUMENTS=your-bucket-name
 
 # WhatsApp Business API
 TOKEN_WA=your_token
