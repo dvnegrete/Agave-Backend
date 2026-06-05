@@ -16,6 +16,10 @@ export class OpenAIConfigService {
     return apiKey;
   }
 
+  get model(): string {
+    return this.configService.get<string>('OPENAI_MODEL', 'gpt-3.5-turbo');
+  }
+
   get isEnabled(): boolean {
     return !!this.configService.get<string>('OPENAI_API_KEY');
   }

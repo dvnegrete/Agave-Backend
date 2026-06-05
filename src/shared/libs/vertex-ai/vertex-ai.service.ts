@@ -1,17 +1,17 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { VertexAIClient } from './vertex-ai.client';
+import { GoogleCloudConfigService } from '../google-cloud/google-cloud.config';
 import { getOCRExtractionPromptWithDocument } from '@/shared/config/ocr-prompts.config';
-import {
-  VertexAI,
-  HarmCategory,
-  HarmBlockThreshold,
-} from '@google-cloud/vertexai';
+import { HarmCategory, HarmBlockThreshold } from '@google-cloud/vertexai';
 
 @Injectable()
 export class VertexAIService {
   private readonly logger = new Logger(VertexAIService.name);
 
-  constructor(private readonly vertexAIClient: VertexAIClient) {}
+  constructor(
+    private readonly vertexAIClient: VertexAIClient,
+    private readonly configService: GoogleCloudConfigService,
+  ) {}
 
   async processTextWithPrompt(
     text: string,
@@ -24,7 +24,7 @@ export class VertexAIService {
     }
 
     const generativeModel = vertexAI.getGenerativeModel({
-      model: 'gemini-2.0-flash',
+      model: this.configService.vertexAiModel,
       // Ajusta los parámetros de seguridad según tus necesidades
       safetySettings: [
         {

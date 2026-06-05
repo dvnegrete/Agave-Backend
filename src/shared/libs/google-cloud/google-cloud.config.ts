@@ -62,6 +62,13 @@ export class GoogleCloudConfigService {
     return this.configService.get<string>('GOOGLE_CLOUD_ZONE', 'us-central1-a');
   }
 
+  get vertexAiModel(): string {
+    return this.configService.get<string>(
+      'VERTEX_AI_MODEL',
+      'gemini-2.5-flash',
+    );
+  }
+
   get voucherBucketName(): string | null {
     const bucketName = this.configService.get<string>('BUCKET_NAME_VOUCHERS');
     if (!bucketName) {
