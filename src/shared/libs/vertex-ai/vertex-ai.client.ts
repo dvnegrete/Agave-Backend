@@ -19,7 +19,13 @@ export class VertexAIClient {
       const config = this.configService.getConfig();
       this.client = new VertexAI({
         project: config.projectId,
+        // Los modelos Gemini 2.5+/3.x solo existen en el endpoint 'global', no en
+        // regiones (us-central1 → 404). Es un valor estructural estable, no por entorno.
         location: 'global',
+        // El SDK arma el host como `${location}-aiplatform.googleapis.com`, lo que con
+        // 'global' daría 'global-aiplatform.googleapis.com' (host inexistente → responde
+        // HTML de error y rompe el JSON.parse). El host global correcto omite el prefijo.
+        apiEndpoint: 'aiplatform.googleapis.com',
         googleAuthOptions: {
           credentials: JSON.parse(config.applicationCredentials),
         },
