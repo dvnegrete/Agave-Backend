@@ -65,7 +65,7 @@ export class GoogleCloudConfigService {
   get vertexAiModel(): string {
     return this.configService.get<string>(
       'VERTEX_AI_MODEL',
-      'gemini-2.5-flash',
+      'gemini-3.5-flash',
     );
   }
 

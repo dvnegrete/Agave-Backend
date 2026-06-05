@@ -17,7 +17,7 @@ export class OpenAIConfigService {
   }
 
   get model(): string {
-    return this.configService.get<string>('OPENAI_MODEL', 'gpt-3.5-turbo');
+    return this.configService.get<string>('OPENAI_MODEL', 'gpt-4.1-mini');
   }
 
   get isEnabled(): boolean {
