@@ -1,13 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OpenAIClient } from './openai.client';
+import { OpenAIConfigService } from './openai.config';
 import { getOCRExtractionPrompt } from '@/shared/config/ocr-prompts.config';
-import OpenAI from 'openai';
 
 @Injectable()
 export class OpenAIService {
   private readonly logger = new Logger(OpenAIService.name);
 
-  constructor(private readonly openAIClient: OpenAIClient) {}
+  constructor(
+    private readonly openAIClient: OpenAIClient,
+    private readonly configService: OpenAIConfigService,
+  ) {}
 
   async processTextWithPrompt(
     text: string,
@@ -23,7 +26,7 @@ export class OpenAIService {
 
     try {
       const completion = await client.chat.completions.create({
-        model: 'gpt-3.5-turbo',
+        model: this.configService.model,
         messages: [
           {
             role: 'system',
