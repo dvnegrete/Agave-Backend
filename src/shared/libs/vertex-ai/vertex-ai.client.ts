@@ -19,6 +19,7 @@ export class VertexAIClient {
       const config = this.configService.getConfig();
       this.client = new VertexAI({
         project: config.projectId,
+        location: 'global',
         googleAuthOptions: {
           credentials: JSON.parse(config.applicationCredentials),
         },
