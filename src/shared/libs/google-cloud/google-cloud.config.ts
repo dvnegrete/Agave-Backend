@@ -5,6 +5,7 @@ export interface GoogleCloudConfig {
   projectId: string;
   applicationCredentials: string;
   voucherBucketName: string | null;
+  documentsBucketName: string | null;
   region?: string;
   zone?: string;
 }
@@ -62,10 +63,26 @@ export class GoogleCloudConfigService {
     return this.configService.get<string>('GOOGLE_CLOUD_ZONE', 'us-central1-a');
   }
 
+  get vertexAiModel(): string {
+    return this.configService.get<string>(
+      'VERTEX_AI_MODEL',
+      'gemini-3.5-flash',
+    );
+  }
+
   get voucherBucketName(): string | null {
     const bucketName = this.configService.get<string>('BUCKET_NAME_VOUCHERS');
     if (!bucketName) {
       this.logger.warn('BUCKET_NAME_VOUCHERS no está configurada');
+      return null;
+    }
+    return bucketName;
+  }
+
+  get documentsBucketName(): string | null {
+    const bucketName = this.configService.get<string>('BUCKET_NAME_DOCUMENTS');
+    if (!bucketName) {
+      this.logger.warn('BUCKET_NAME_DOCUMENTS no está configurada');
       return null;
     }
     return bucketName;
@@ -84,6 +101,7 @@ export class GoogleCloudConfigService {
       projectId: this.projectId,
       applicationCredentials: this.applicationCredentials,
       voucherBucketName: this.voucherBucketName,
+      documentsBucketName: this.documentsBucketName,
       region: this.region,
       zone: this.zone,
     };
