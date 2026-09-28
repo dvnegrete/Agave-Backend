@@ -46,6 +46,9 @@ import { DocumentItem } from '../interfaces/document-item.interface';
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 
+// request.user incluye houseIds (del JWT), asignado por AuthGuard
+type AuthenticatedUser = User & { houseIds?: number[] };
+
 @ApiTags('condo-documents')
 @ApiBearerAuth()
 @Controller('condo-documents')
@@ -65,14 +68,14 @@ export class CondoDocumentsController {
   @ApiOperation({
     summary: 'Listar documentos del condominio por tipo',
     description:
-      'Documentos generales: cualquier usuario autenticado. Minutas: solo admin y owner.',
+      'Documentos generales: admin, owner y tenant con casa asignada. Minutas: solo admin y owner.',
   })
   @ApiResponse({ status: 200, description: 'Lista de documentos' })
   async listDocuments(
     @Query() query: ListDocumentsQueryDto,
-    @CurrentUser() user: User,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<DocumentItem[]> {
-    this.assertMinuteAccess(query.type, user);
+    this.assertAccess(query.type, user);
 
     this.logger.log(
       `Listando documentos type=${query.type} para usuario ${user.id}`,
@@ -90,9 +93,9 @@ export class CondoDocumentsController {
   @ApiResponse({ status: 200, type: SignedUrlResponseDto })
   async getSignedUrl(
     @Query() query: SignedUrlQueryDto,
-    @CurrentUser() user: User,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<SignedUrlResponseDto> {
-    this.assertMinuteAccess(query.type, user);
+    this.assertAccess(query.type, user);
 
     return this.getSignedUrlUseCase.execute(query.name, query.type);
   }
@@ -170,13 +173,26 @@ export class CondoDocumentsController {
     return this.deleteDocumentUseCase.execute(name);
   }
 
-  private assertMinuteAccess(type: CondoDocumentTypeDto, user: User): void {
-    if (type !== CondoDocumentTypeDto.MINUTE) {
+  /**
+   * Admin y owner: acceso a documentos y minutas.
+   * Tenant: solo documentos generales y únicamente con al menos una casa asignada.
+   */
+  private assertAccess(
+    type: CondoDocumentTypeDto,
+    user: AuthenticatedUser,
+  ): void {
+    if (user.role === Role.ADMIN || user.role === Role.OWNER) {
       return;
     }
-    if (user.role !== Role.ADMIN && user.role !== Role.OWNER) {
+    if (type === CondoDocumentTypeDto.MINUTE) {
       throw new ForbiddenException(
         'Solo administradores y propietarios pueden acceder a las minutas',
+      );
+    }
+    const hasHouse = (user.houseIds?.length ?? 0) > 0;
+    if (user.role !== Role.TENANT || !hasHouse) {
+      throw new ForbiddenException(
+        'Necesitas una casa asignada para acceder a los documentos del condominio',
       );
     }
   }

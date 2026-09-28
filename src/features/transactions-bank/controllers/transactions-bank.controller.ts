@@ -155,7 +155,8 @@ export class TransactionsBankController {
   }
 
   @Get('expenses')
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(Role.ADMIN, Role.OWNER)
   @ApiGetExpenses()
   async getExpenses(@Query('date') date?: string) {
     if (!date) {
