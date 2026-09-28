@@ -17,6 +17,7 @@ import { WhatsAppMessagingService } from './infrastructure/whatsapp/whatsapp-mes
 import { WhatsAppDeduplicationService } from './infrastructure/whatsapp/whatsapp-deduplication.service';
 // External Modules
 import { GoogleCloudModule } from '@/shared/libs/google-cloud';
+import { AuthModule } from '@/shared/auth/auth.module';
 import { VertexAIModule } from '@/shared/libs/vertex-ai/vertex-ai.module';
 import { OpenAIModule } from '@/shared/libs/openai/openai.module';
 // Use Cases - WhatsApp/Telegram
@@ -30,9 +31,11 @@ import { CorrectVoucherDataUseCase } from './application/correct-voucher-data.us
 // Use Cases - Frontend HTTP
 import { UploadVoucherFrontendUseCase } from './application/upload-voucher-frontend.use-case';
 import { ConfirmVoucherFrontendUseCase } from './application/confirm-voucher-frontend.use-case';
+// Use Cases - Admin
+import { DeleteVoucherUseCase } from './application/delete-voucher.use-case';
 
 @Module({
-  imports: [GoogleCloudModule, VertexAIModule, OpenAIModule],
+  imports: [AuthModule, GoogleCloudModule, VertexAIModule, OpenAIModule],
   controllers: [VouchersController, VouchersFrontendController],
   providers: [
     // Infrastructure - Persistence
@@ -60,6 +63,8 @@ import { ConfirmVoucherFrontendUseCase } from './application/confirm-voucher-fro
     // Use Cases - Frontend HTTP
     UploadVoucherFrontendUseCase,
     ConfirmVoucherFrontendUseCase,
+    // Use Cases - Admin
+    DeleteVoucherUseCase,
   ],
   exports: [VouchersService],
 })
