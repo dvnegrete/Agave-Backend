@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Get,
+  Delete,
   Body,
   Param,
   Query,
@@ -13,8 +14,17 @@ import {
   MaxFileSizeValidator,
   FileTypeValidator,
   UnauthorizedException,
+  UseGuards,
+  ParseIntPipe,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+} from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { VouchersService } from '../infrastructure/persistence/vouchers.service';
 import { OcrService } from '../infrastructure/ocr/ocr.service';
@@ -22,8 +32,16 @@ import { OcrServiceDto } from '../dto/ocr-service.dto';
 import { VoucherProcessorService } from '../infrastructure/ocr/voucher-processor.service';
 import { VoucherRepository } from '@/shared/database/repositories/voucher.repository';
 import { CloudStorageService } from '@/shared/libs/google-cloud';
+import { AuthGuard } from '@/shared/auth/guards/auth.guard';
+import { RoleGuard } from '@/shared/auth/guards/roles.guard';
+import { Roles } from '@/shared/auth/decorators/roles.decorator';
+import { Role } from '@/shared/database/entities/enums';
 // Use Cases
 import { HandleWhatsAppWebhookUseCase } from '../application/handle-whatsapp-webhook.use-case';
+import {
+  DeleteVoucherUseCase,
+  DeleteVoucherOutput,
+} from '../application/delete-voucher.use-case';
 // Swagger Decorators
 import {
   ApiGetAllVouchers,
@@ -41,6 +59,7 @@ export class VouchersController {
     private readonly cloudStorageService: CloudStorageService,
     // Use Cases
     private readonly handleWhatsAppWebhookUseCase: HandleWhatsAppWebhookUseCase,
+    private readonly deleteVoucherUseCase: DeleteVoucherUseCase,
   ) {}
 
   @Post('ocr-service')
@@ -137,6 +156,25 @@ export class VouchersController {
       viewUrl,
       number_house: numberHouse,
     };
+  }
+
+  @Delete(':id')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(Role.ADMIN)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Eliminar un voucher no conciliado (solo admin)',
+    description:
+      'Elimina el voucher y su archivo en GCS. Los vouchers conciliados no se pueden eliminar.',
+  })
+  @ApiResponse({ status: 200, description: 'Voucher eliminado' })
+  @ApiResponse({ status: 400, description: 'El voucher ya fue conciliado' })
+  @ApiResponse({ status: 404, description: 'Voucher no encontrado' })
+  async deleteVoucher(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<DeleteVoucherOutput> {
+    return this.deleteVoucherUseCase.execute(id);
   }
 
   @Get('webhook/whatsapp')
