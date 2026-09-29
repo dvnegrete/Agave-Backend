@@ -332,13 +332,17 @@ export class TransactionBankRepository {
     const month = String(dateObj.getMonth() + 1).padStart(2, '0');
     const monthStr = `${year}-${month}`;
 
-    // Buscar transacciones del mes donde is_deposit = false
+    // Buscar retiros del mes (is_deposit = false) y depósitos marcados
+    // como devolución bancaria (entran al informe como entrada)
     const query = this.transactionBankRepository
       .createQueryBuilder('tb')
       .where('CAST(tb.date AS VARCHAR) LIKE :monthPattern', {
         monthPattern: `${monthStr}%`,
       })
-      .andWhere('tb.is_deposit = :isDeposit', { isDeposit: false })
+      .andWhere(
+        '(tb.is_deposit = :isDeposit OR tb.is_bank_refund = :isBankRefund)',
+        { isDeposit: false, isBankRefund: true },
+      )
       .orderBy('tb.date', 'DESC')
       .addOrderBy('tb.time', 'DESC');
 
