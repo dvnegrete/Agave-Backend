@@ -370,7 +370,12 @@ export function ApiGetExpenses() {
   return applyDecorators(
     ApiOperation({
       summary: 'Obtener gastos del mes',
-      description: `Obtiene todos los gastos (transacciones con is_deposit = false) de un mes específico.
+      description: `Obtiene todos los gastos (transacciones con is_deposit = false) de un mes específico,
+más los depósitos marcados como devolución bancaria (is_bank_refund = true), que cuentan como entrada.
+
+- totalExpenses, count y largestExpense consideran solo retiros.
+- totalRefunds y refundCount consideran solo devoluciones bancarias.
+- netExpenses = totalExpenses - totalRefunds.
 
 Útil para generar reportes de gastos mensuales.`,
     }),
@@ -422,6 +427,9 @@ export function ApiGetExpenses() {
             count: 2,
             currencies: ['USD'],
             largestExpense: 150.5,
+            totalRefunds: 0,
+            refundCount: 0,
+            netExpenses: 200.49,
           },
         },
       },

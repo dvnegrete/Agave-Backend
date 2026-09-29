@@ -8,6 +8,8 @@ export interface TransactionBank {
   is_deposit: boolean;
   bank_name?: string;
   validation_flag?: boolean;
+  /** Depósito marcado como devolución del banco (entrada en informe de gastos) */
+  is_bank_refund?: boolean;
   status?: 'pending' | 'processed' | 'failed' | 'reconciled';
   createdAt?: Date;
   updatedAt?: Date;

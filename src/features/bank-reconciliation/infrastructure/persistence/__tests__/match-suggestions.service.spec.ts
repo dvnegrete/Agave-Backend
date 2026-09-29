@@ -207,6 +207,23 @@ describe('MatchSuggestionsService', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
+    it('should reject a deposit marked as bank refund', async () => {
+      transactionBankRepository.findById.mockResolvedValue({
+        ...mockTransactionBank,
+        is_bank_refund: true,
+      } as any);
+
+      await expect(
+        service.applyMatchSuggestion(
+          mockDeposit.tb_id,
+          mockVoucher.v_id,
+          42,
+          'user-uuid',
+        ),
+      ).rejects.toThrow(BadRequestException);
+      expect(voucherRepository.findById).not.toHaveBeenCalled();
+    });
+
     it('should throw NotFoundException if transaction not found', async () => {
       transactionBankRepository.findById.mockResolvedValue(null);
 

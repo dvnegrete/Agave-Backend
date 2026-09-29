@@ -47,6 +47,7 @@ describe('UnclaimedDepositsService', () => {
       save: jest.fn().mockResolvedValue({}),
       findOne: jest.fn(),
       create: jest.fn().mockReturnValue({}),
+      update: jest.fn().mockResolvedValue({ affected: 1 }),
     },
   };
 
@@ -91,6 +92,7 @@ describe('UnclaimedDepositsService', () => {
     // Reset queryRunner manager mocks
     mockQueryRunner.manager.save.mockResolvedValue({});
     mockQueryRunner.manager.create.mockReturnValue({});
+    mockQueryRunner.manager.update.mockResolvedValue({ affected: 1 });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -584,6 +586,159 @@ describe('UnclaimedDepositsService', () => {
 
       expect(result1).toBeDefined();
       expect(result2).toBeDefined();
+    });
+  });
+
+  describe('markAsBankRefund', () => {
+    const transactionId = '123';
+
+    it('should throw NotFoundException if transaction does not exist', async () => {
+      transactionBankRepository.findById.mockResolvedValue(null);
+
+      await expect(
+        service.markAsBankRefund(transactionId, 'user-uuid'),
+      ).rejects.toThrow(NotFoundException);
+      expect(mockQueryRunner.manager.update).not.toHaveBeenCalled();
+    });
+
+    it('should reject a withdrawal', async () => {
+      transactionBankRepository.findById.mockResolvedValue({
+        ...mockTransactionBank,
+        is_deposit: false,
+      } as any);
+
+      await expect(
+        service.markAsBankRefund(transactionId, 'user-uuid'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject a deposit already marked as bank refund', async () => {
+      transactionBankRepository.findById.mockResolvedValue({
+        ...mockTransactionBank,
+        is_bank_refund: true,
+        confirmation_status: true,
+      } as any);
+
+      await expect(
+        service.markAsBankRefund(transactionId, 'user-uuid'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject a reconciled deposit', async () => {
+      transactionBankRepository.findById.mockResolvedValue({
+        ...mockTransactionBank,
+        confirmation_status: true,
+      } as any);
+
+      await expect(
+        service.markAsBankRefund(transactionId, 'user-uuid'),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockQueryRunner.manager.update).not.toHaveBeenCalled();
+    });
+
+    it('should reject a deposit without unclaimed status', async () => {
+      transactionBankRepository.findById.mockResolvedValue(
+        mockTransactionBank as any,
+      );
+      transactionStatusRepository.findByTransactionBankId.mockResolvedValue([
+        { ...mockTransactionStatus, validation_status: 'confirmed' },
+      ] as any);
+
+      await expect(
+        service.markAsBankRefund(transactionId, 'user-uuid'),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockQueryRunner.manager.update).not.toHaveBeenCalled();
+    });
+
+    it('should mark deposit as bank refund and record audit', async () => {
+      transactionBankRepository.findById.mockResolvedValue(
+        mockTransactionBank as any,
+      );
+
+      const result = await service.markAsBankRefund(
+        transactionId,
+        'user-uuid',
+        'Cargo no reconocido',
+      );
+
+      expect(result).toEqual({
+        message: expect.any(String),
+        transactionBankId: transactionId,
+        isBankRefund: true,
+      });
+      expect(mockQueryRunner.manager.update).toHaveBeenCalledWith(
+        expect.anything(),
+        { id: transactionId, is_bank_refund: false, confirmation_status: false },
+        { is_bank_refund: true, confirmation_status: true },
+      );
+      expect(mockQueryRunner.manager.create).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          transaction_id: 123,
+          voucher_id: null,
+          approved_by_user_id: 'user-uuid',
+          approval_notes: expect.stringContaining('Cargo no reconocido'),
+        }),
+      );
+      expect(mockQueryRunner.commitTransaction).toHaveBeenCalled();
+      // No debe crear registros de pago
+      expect(recordRepository.create).not.toHaveBeenCalled();
+      expect(allocatePaymentUseCase.execute).not.toHaveBeenCalled();
+    });
+
+    it('should rollback if deposit changed state concurrently', async () => {
+      transactionBankRepository.findById.mockResolvedValue(
+        mockTransactionBank as any,
+      );
+      mockQueryRunner.manager.update.mockResolvedValue({ affected: 0 });
+
+      await expect(
+        service.markAsBankRefund(transactionId, 'user-uuid'),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockQueryRunner.rollbackTransaction).toHaveBeenCalled();
+      expect(mockQueryRunner.commitTransaction).not.toHaveBeenCalled();
+      expect(mockQueryRunner.release).toHaveBeenCalled();
+    });
+  });
+
+  describe('revertBankRefund', () => {
+    const transactionId = '123';
+
+    it('should throw NotFoundException if transaction does not exist', async () => {
+      transactionBankRepository.findById.mockResolvedValue(null);
+
+      await expect(
+        service.revertBankRefund(transactionId, 'user-uuid'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should reject a deposit not marked as bank refund', async () => {
+      transactionBankRepository.findById.mockResolvedValue(
+        mockTransactionBank as any,
+      );
+
+      await expect(
+        service.revertBankRefund(transactionId, 'user-uuid'),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockQueryRunner.manager.update).not.toHaveBeenCalled();
+    });
+
+    it('should revert bank refund back to unclaimed', async () => {
+      transactionBankRepository.findById.mockResolvedValue({
+        ...mockTransactionBank,
+        is_bank_refund: true,
+        confirmation_status: true,
+      } as any);
+
+      const result = await service.revertBankRefund(transactionId, 'user-uuid');
+
+      expect(result.isBankRefund).toBe(false);
+      expect(mockQueryRunner.manager.update).toHaveBeenCalledWith(
+        expect.anything(),
+        { id: transactionId, is_bank_refund: true, confirmation_status: true },
+        { is_bank_refund: false, confirmation_status: false },
+      );
+      expect(mockQueryRunner.commitTransaction).toHaveBeenCalled();
     });
   });
 });
