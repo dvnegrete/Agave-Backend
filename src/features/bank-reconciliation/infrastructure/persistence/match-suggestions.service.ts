@@ -237,6 +237,14 @@ export class MatchSuggestionsService {
     // NOTA: No validamos confirmation_status porque persistSurplus() lo pone en true
     // para evitar reprocesamiento. El guard real es el validation_status del TransactionStatus.
 
+    // Las devoluciones bancarias conservan su TransactionStatus conflict/not-found
+    // (para poder revertirse), por eso se excluyen explícitamente.
+    if (transactionBank.is_bank_refund) {
+      throw new BadRequestException(
+        `El depósito ${transactionBankId} está marcado como devolución bancaria`,
+      );
+    }
+
     // Validar TransactionStatus existente con status unclaimed
     const transactionStatuses =
       await this.transactionStatusRepository.findByTransactionBankId(
@@ -422,6 +430,7 @@ export class MatchSuggestionsService {
       .createQueryBuilder('tb')
       .innerJoin(TransactionStatus, 'ts', 'ts.transactions_bank_id = tb.id')
       .where('tb.is_deposit = :isDeposit', { isDeposit: true })
+      .andWhere('tb.is_bank_refund = :isBankRefund', { isBankRefund: false })
       .andWhere('ts.validation_status IN (:...statuses)', {
         statuses: [ValidationStatus.CONFLICT, ValidationStatus.NOT_FOUND],
       })
