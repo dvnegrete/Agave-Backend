@@ -49,6 +49,14 @@ export class TransactionBank {
   @Column({ type: 'boolean', default: false })
   confirmation_status: boolean;
 
+  @Column({
+    type: 'boolean',
+    default: false,
+    comment:
+      'Depósito que es devolución del banco (no es pago de casa); cuenta como entrada en el informe de gastos',
+  })
+  is_bank_refund: boolean;
+
   @CreateDateColumn()
   created_at: Date;
 
