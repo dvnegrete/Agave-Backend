@@ -290,6 +290,9 @@ export class TransactionsBankService {
       count: number;
       currencies: string[];
       largestExpense: number;
+      totalRefunds: number;
+      refundCount: number;
+      netExpenses: number;
     };
   }> {
     const dateObj = typeof date === 'string' ? new Date(date) : date;
@@ -303,17 +306,19 @@ export class TransactionsBankService {
       this.mapToProcessedTransaction(t),
     );
 
-    // Calcular resumen
-    const totalExpenses = processedTransactions.reduce(
-      (sum, t) => sum + t.amount,
-      0,
-    );
+    // Separar retiros (gastos) de devoluciones bancarias (entradas)
+    const withdrawals = processedTransactions.filter((t) => !t.is_bank_refund);
+    const refunds = processedTransactions.filter((t) => t.is_bank_refund);
+
+    // Calcular resumen: totalExpenses/count/largestExpense solo retiros
+    const totalExpenses = withdrawals.reduce((sum, t) => sum + t.amount, 0);
+    const totalRefunds = refunds.reduce((sum, t) => sum + t.amount, 0);
     const currencies = [
       ...new Set(processedTransactions.map((t) => t.currency)),
     ];
     const largestExpense =
-      processedTransactions.length > 0
-        ? Math.max(...processedTransactions.map((t) => t.amount))
+      withdrawals.length > 0
+        ? Math.max(...withdrawals.map((t) => t.amount))
         : 0;
 
     return {
@@ -321,9 +326,13 @@ export class TransactionsBankService {
       expenses: processedTransactions,
       summary: {
         totalExpenses,
-        count: processedTransactions.length,
+        count: withdrawals.length,
         currencies,
         largestExpense,
+        totalRefunds,
+        refundCount: refunds.length,
+        // Redondeo a centavos para evitar residuos de punto flotante
+        netExpenses: Math.round((totalExpenses - totalRefunds) * 100) / 100,
       },
     };
   }
@@ -341,6 +350,7 @@ export class TransactionsBankService {
       is_deposit: transaction.is_deposit,
       bank_name: transaction.bank_name,
       validation_flag: transaction.confirmation_status,
+      is_bank_refund: transaction.is_bank_refund ?? false,
       status: transaction.confirmation_status ? 'reconciled' : 'pending',
       createdAt: transaction.created_at,
       updatedAt: transaction.updated_at,

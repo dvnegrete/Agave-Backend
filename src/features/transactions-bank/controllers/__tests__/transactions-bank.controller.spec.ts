@@ -232,6 +232,9 @@ describe('TransactionsBankController', () => {
           count: 1,
           currencies: ['COP'],
           largestExpense: 500000,
+          totalRefunds: 0,
+          refundCount: 0,
+          netExpenses: 500000,
         },
       };
 

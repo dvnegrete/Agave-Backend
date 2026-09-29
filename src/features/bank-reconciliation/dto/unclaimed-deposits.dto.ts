@@ -289,3 +289,39 @@ export class AssignHouseResponseDto {
   })
   assignedAt: Date;
 }
+
+/**
+ * DTO para marcar/revertir un depósito como devolución bancaria
+ */
+export class BankRefundDto {
+  @ApiPropertyOptional({
+    description: 'Notas/comentario del administrador',
+    example: 'Devolución por cargo no reconocido',
+  })
+  @IsOptional()
+  @IsString()
+  adminNotes?: string;
+}
+
+/**
+ * DTO de respuesta al marcar/revertir un depósito como devolución bancaria
+ */
+export class BankRefundResponseDto {
+  @ApiProperty({
+    description: 'Mensaje de confirmación',
+    example: 'Depósito 123 marcado como devolución bancaria',
+  })
+  message: string;
+
+  @ApiProperty({
+    description: 'ID de la transacción bancaria',
+    example: '123',
+  })
+  transactionBankId: string;
+
+  @ApiProperty({
+    description: 'Estado resultante: true si quedó como devolución bancaria',
+    example: true,
+  })
+  isBankRefund: boolean;
+}

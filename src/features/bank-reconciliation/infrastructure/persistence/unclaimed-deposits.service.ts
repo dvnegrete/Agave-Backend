@@ -19,7 +19,11 @@ import {
   MAX_HOUSE_NUMBER,
   SYSTEM_USER_ID,
 } from '@/shared/config/business-rules.config';
-import { UnclaimedDepositsPageDto, AssignHouseResponseDto } from '../../dto';
+import {
+  UnclaimedDepositsPageDto,
+  AssignHouseResponseDto,
+  BankRefundResponseDto,
+} from '../../dto';
 import { AllocatePaymentUseCase } from '@/features/payment-management/application';
 
 /**
@@ -371,6 +375,186 @@ export class UnclaimedDepositsService {
     } catch (error) {
       await queryRunner.rollbackTransaction();
       this.logger.error(`Error al asignar casa: ${error.message}`);
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Marca un depósito no reclamado como devolución del banco
+   * (cargo no reconocido, transferencia fallida, etc.).
+   *
+   * - confirmation_status = true: sale de depósitos no reclamados y no puede
+   *   asignarse a casa ni asociarse a voucher.
+   * - is_bank_refund = true: aparece como entrada en el informe de gastos.
+   * - El TransactionStatus (conflict/not-found) NO se modifica, para que
+   *   revertBankRefund() lo regrese exactamente a su estado original.
+   * - No crea Record ni asignación de pago: no afecta balances de casas.
+   */
+  async markAsBankRefund(
+    transactionId: string,
+    userId: string,
+    adminNotes?: string,
+  ): Promise<BankRefundResponseDto> {
+    const transaction =
+      await this.transactionBankRepository.findById(transactionId);
+
+    if (!transaction) {
+      throw new NotFoundException(
+        `Transacción bancaria no encontrada: ${transactionId}`,
+      );
+    }
+
+    if (!transaction.is_deposit) {
+      throw new BadRequestException(
+        `La transacción ${transactionId} no es un depósito`,
+      );
+    }
+
+    if (transaction.is_bank_refund) {
+      throw new BadRequestException(
+        `El depósito ${transactionId} ya está marcado como devolución bancaria`,
+      );
+    }
+
+    if (transaction.confirmation_status === true) {
+      throw new BadRequestException(
+        `El depósito ${transactionId} ya fue conciliado`,
+      );
+    }
+
+    const transactionStatuses =
+      await this.transactionStatusRepository.findByTransactionBankId(
+        transactionId,
+      );
+    const isUnclaimed = transactionStatuses?.some(
+      (ts) =>
+        ts.validation_status === ValidationStatus.CONFLICT ||
+        ts.validation_status === ValidationStatus.NOT_FOUND,
+    );
+
+    if (!isUnclaimed) {
+      throw new BadRequestException(
+        `El depósito ${transactionId} no está en depósitos no reclamados`,
+      );
+    }
+
+    await this.updateBankRefundFlag(
+      transactionId,
+      userId,
+      true,
+      `Marcado como devolución bancaria. ${adminNotes || ''}`.trim(),
+    );
+
+    this.logger.log(
+      `Depósito ${transactionId} marcado como devolución bancaria por usuario ${userId}`,
+    );
+
+    return {
+      message: `Depósito ${transactionId} marcado como devolución bancaria`,
+      transactionBankId: transactionId,
+      isBankRefund: true,
+    };
+  }
+
+  /**
+   * Revierte una devolución bancaria: el depósito regresa a depósitos
+   * no reclamados con su TransactionStatus original.
+   */
+  async revertBankRefund(
+    transactionId: string,
+    userId: string,
+    adminNotes?: string,
+  ): Promise<BankRefundResponseDto> {
+    const transaction =
+      await this.transactionBankRepository.findById(transactionId);
+
+    if (!transaction) {
+      throw new NotFoundException(
+        `Transacción bancaria no encontrada: ${transactionId}`,
+      );
+    }
+
+    if (!transaction.is_bank_refund) {
+      throw new BadRequestException(
+        `El depósito ${transactionId} no está marcado como devolución bancaria`,
+      );
+    }
+
+    await this.updateBankRefundFlag(
+      transactionId,
+      userId,
+      false,
+      `Devolución bancaria revertida. ${adminNotes || ''}`.trim(),
+    );
+
+    this.logger.log(
+      `Devolución bancaria revertida: depósito ${transactionId} por usuario ${userId}`,
+    );
+
+    return {
+      message: `Depósito ${transactionId} regresado a depósitos no reclamados`,
+      transactionBankId: transactionId,
+      isBankRefund: false,
+    };
+  }
+
+  /**
+   * Actualiza is_bank_refund/confirmation_status y registra auditoría
+   * en una sola transacción.
+   *
+   * El UPDATE es condicional al estado actual (is_bank_refund = !isBankRefund)
+   * para evitar doble marcado en solicitudes concurrentes.
+   * @private
+   */
+  private async updateBankRefundFlag(
+    transactionId: string,
+    userId: string,
+    isBankRefund: boolean,
+    approvalNotes: string,
+  ): Promise<void> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const result = await queryRunner.manager.update(
+        TransactionBank,
+        {
+          id: transactionId,
+          is_bank_refund: !isBankRefund,
+          confirmation_status: !isBankRefund,
+        },
+        {
+          is_bank_refund: isBankRefund,
+          confirmation_status: isBankRefund,
+        },
+      );
+
+      if (!result.affected) {
+        throw new BadRequestException(
+          `El depósito ${transactionId} cambió de estado; recarga e intenta de nuevo`,
+        );
+      }
+
+      const approval = queryRunner.manager.create(ManualValidationApproval, {
+        transaction_id: Number(transactionId),
+        voucher_id: null,
+        approved_by_user_id: userId,
+        approval_notes: approvalNotes,
+        approved_at: new Date(),
+      });
+      await queryRunner.manager.save(approval);
+
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(
+        `Error al actualizar devolución bancaria ${transactionId}: ${errorMessage}`,
+      );
       throw error;
     } finally {
       await queryRunner.release();

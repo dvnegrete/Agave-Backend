@@ -794,6 +794,53 @@ describe('TransactionsBankService', () => {
       expect(result.summary.currencies).toHaveLength(0);
     });
 
+    it('should treat bank refunds as income and compute net expenses', async () => {
+      const transactions = [
+        { ...mockDbTransaction, amount: 1000, is_deposit: false } as any,
+        {
+          ...mockDbTransaction,
+          id: 'bank_txn_2',
+          amount: 5000,
+          is_deposit: false,
+        } as any,
+        {
+          ...mockDbTransaction,
+          id: 'bank_txn_3',
+          amount: 1500.1,
+          is_deposit: true,
+          is_bank_refund: true,
+          confirmation_status: true,
+        } as any,
+      ];
+      bankTransactionRepository.findExpensesByMonth.mockResolvedValue(
+        transactions,
+      );
+
+      const result = await service.getExpensesByMonth('2025-01-15');
+
+      expect(result.expenses).toHaveLength(3);
+      expect(result.expenses[2].is_bank_refund).toBe(true);
+      expect(result.summary.totalExpenses).toBe(6000);
+      expect(result.summary.count).toBe(2);
+      expect(result.summary.largestExpense).toBe(5000);
+      expect(result.summary.totalRefunds).toBe(1500.1);
+      expect(result.summary.refundCount).toBe(1);
+      expect(result.summary.netExpenses).toBe(4499.9);
+    });
+
+    it('should report zero refunds when month has none', async () => {
+      bankTransactionRepository.findExpensesByMonth.mockResolvedValue([
+        { ...mockDbTransaction, amount: 1000, is_deposit: false } as any,
+      ]);
+
+      const result = await service.getExpensesByMonth('2025-01-15');
+
+      expect(result.summary.totalRefunds).toBe(0);
+      expect(result.summary.refundCount).toBe(0);
+      expect(result.summary.netExpenses).toBe(1000);
+      expect(result.expenses[0].is_bank_refund).toBe(false);
+    });
+
     it('should pad month with leading zero', async () => {
       bankTransactionRepository.findExpensesByMonth.mockResolvedValue([
         mockDbTransaction as any,

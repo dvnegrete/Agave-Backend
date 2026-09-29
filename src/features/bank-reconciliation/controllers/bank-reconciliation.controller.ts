@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Get,
+  Delete,
   Body,
   HttpCode,
   HttpStatus,
@@ -31,6 +32,8 @@ import {
   UnclaimedDepositsPageDto,
   AssignHouseDto,
   AssignHouseResponseDto,
+  BankRefundDto,
+  BankRefundResponseDto,
   GetUnfundedVouchersFilterDto,
   UnfundedVouchersPageDto,
   MatchVoucherToDepositDto,
@@ -264,6 +267,70 @@ export class BankReconciliationController {
       dto.houseNumber,
       userId,
       dto.adminNotes,
+    );
+  }
+
+  @Post('unclaimed-deposits/:transactionId/bank-refund')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(Role.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Marcar depósito no reclamado como devolución bancaria (solo admin)',
+    description:
+      'Para depósitos que no son pago de una casa (cargo no reconocido, transferencia fallida). ' +
+      'Sale de depósitos no reclamados y aparece como entrada en el informe de gastos. ' +
+      'No crea registros de pago. Se registra auditoría.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Depósito marcado como devolución bancaria',
+    type: BankRefundResponseDto,
+  })
+  async markAsBankRefund(
+    @Param('transactionId') transactionId: string,
+    @Body() dto: BankRefundDto,
+    @Req() req: any,
+  ): Promise<BankRefundResponseDto> {
+    const userId = req.user.id;
+
+    this.logger.log(
+      `Marcando depósito ${transactionId} como devolución bancaria por usuario ${userId}`,
+    );
+
+    return this.unclaimedDepositsService.markAsBankRefund(
+      transactionId,
+      userId,
+      dto.adminNotes,
+    );
+  }
+
+  @Delete('unclaimed-deposits/:transactionId/bank-refund')
+  @UseGuards(AuthGuard, RoleGuard)
+  @Roles(Role.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Revertir devolución bancaria (solo admin)',
+    description:
+      'Regresa el depósito a depósitos no reclamados con su estado original. Se registra auditoría.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Devolución bancaria revertida',
+    type: BankRefundResponseDto,
+  })
+  async revertBankRefund(
+    @Param('transactionId') transactionId: string,
+    @Req() req: any,
+  ): Promise<BankRefundResponseDto> {
+    const userId = req.user.id;
+
+    this.logger.log(
+      `Revirtiendo devolución bancaria ${transactionId} por usuario ${userId}`,
+    );
+
+    return this.unclaimedDepositsService.revertBankRefund(
+      transactionId,
+      userId,
     );
   }
 
