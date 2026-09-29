@@ -291,6 +291,19 @@ export class AssignHouseResponseDto {
 }
 
 /**
+ * DTO para marcar/revertir un depósito como devolución bancaria
+ */
+export class BankRefundDto {
+  @ApiPropertyOptional({
+    description: 'Notas/comentario del administrador',
+    example: 'Devolución por cargo no reconocido',
+  })
+  @IsOptional()
+  @IsString()
+  adminNotes?: string;
+}
+
+/**
  * DTO de respuesta al marcar/revertir un depósito como devolución bancaria
  */
 export class BankRefundResponseDto {
